@@ -35,7 +35,12 @@ initMoss(secrets.MOSS_PROJECT_ID, secrets.MOSS_PROJECT_KEY);
 const refreshIndex = () => convex.query(anyApi.mcp.publicPreviews, { svc: SVC }).then(refresh).catch(() => undefined);
 void refreshIndex();
 setInterval(refreshIndex, 60_000).unref();
-const hits = new Map();
+const hits = new Map(); // per authenticated token hash → recent request times
+let authFailures = []; // global: bounds credential guessing and Convex load from unauthenticated callers
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, ts] of hits) if (!ts.some((t) => now - t < RATE.windowMs)) hits.delete(k);
+}, RATE.windowMs).unref();
 
 function envelope(status, data, error, mode = "local") {
   return { schemaVersion: "1", requestId: randomUUID(), status, ...(data !== undefined ? { data } : {}), ...(error ? { error } : {}), provenance: { mode, sourceIds: [] } };
@@ -87,8 +92,8 @@ function buildServer(token) {
 
   server.registerTool("acquire_resolution", {
     title: "Acquire a resolution",
-    description: "Reserve within your operator spend policy and complete payment for a quote. You must pass the payee/network/max amount your own policy approved; mismatches are rejected. paymentMode=simulator is an explicit no-funds demo path.",
-    inputSchema: { quoteId: z.string().max(64), clientRequestId: z.string().min(8).max(64), approved: z.object({ payTo: z.string().max(64), maxAmountAtomic: z.string().regex(/^\d+$/), network: z.string().max(32) }), paymentMode: z.enum(["x402_testnet", "simulator"]) },
+    description: "Reserve within your operator spend policy and complete payment for a quote. You must pass the payee/network/max amount your own policy approved; mismatches are rejected. paymentMode=simulator is an explicit no-funds demo path, only if your operator policy allows it.",
+    inputSchema: { quoteId: z.string().max(64), clientRequestId: z.string().min(8).max(64), approved: z.object({ payTo: z.string().max(64), maxAmountAtomic: z.string().regex(/^\d+$/), network: z.string().max(32), asset: z.string().max(64).optional() }), paymentMode: z.enum(["x402_testnet", "simulator"]) },
     annotations: { readOnlyHint: false, idempotentHint: true, destructiveHint: false },
   }, async (a) => {
     const reserved = await call("mutation", anyApi.mcp.acquire, { ...auth, quoteId: a.quoteId, clientRequestId: a.clientRequestId, approved: a.approved, simulate: a.paymentMode === "simulator" }, (d) => `Reserved purchase ${d.purchaseId} (${d.mode}).`, (d) => d.mode);
@@ -143,11 +148,6 @@ const httpServer = http.createServer(async (req, res) => {
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
   if (!token) return deny(res, 401, "AUTH_REQUIRED", "Bearer agent token required.", { "WWW-Authenticate": 'Bearer realm="incident-exchange"' });
   if (!String(req.headers["content-type"] ?? "").includes("application/json")) return deny(res, 415, "INVALID_INPUT", "Content-Type must be application/json.");
-  const key = createHash("sha256").update(token).digest("hex").slice(0, 16);
-  const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter((t) => now - t < RATE.windowMs);
-  if (recent.length >= RATE.max) return deny(res, 429, "RATE_LIMITED", "Too many requests; retry shortly.", { "Retry-After": "30" });
-  hits.set(key, [...recent, now]);
 
   let raw = "";
   for await (const chunk of req) {
@@ -160,7 +160,16 @@ const httpServer = http.createServer(async (req, res) => {
   } catch {
     return deny(res, 400, "INVALID_INPUT", "Invalid JSON.");
   }
+  const now = Date.now();
+  authFailures = authFailures.filter((t) => now - t < RATE.windowMs);
+  if (authFailures.length >= 30) return deny(res, 429, "RATE_LIMITED", "Too many failed authentications; retry shortly.", { "Retry-After": "60" });
   const authed = await convex.query(anyApi.mcp.authCheck, { svc: SVC, token }).catch(() => ({ ok: false }));
+  if (!authed.ok) authFailures.push(now);
+  // Per-token limit applies only after authentication, so unknown tokens can't grow the map.
+  const key = createHash("sha256").update(token).digest("hex").slice(0, 16);
+  const recent = authed.ok ? (hits.get(key) ?? []).filter((t) => now - t < RATE.windowMs) : [];
+  if (authed.ok && recent.length >= RATE.max) return deny(res, 429, "RATE_LIMITED", "Too many requests; retry shortly.", { "Retry-After": "30" });
+  if (authed.ok) hits.set(key, [...recent, now]);
   if (!authed.ok) return deny(res, 401, "AUTH_REQUIRED", "Invalid, expired, or revoked agent credential.", { "WWW-Authenticate": 'Bearer realm="incident-exchange", error="invalid_token"' });
   const server = buildServer(token);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });

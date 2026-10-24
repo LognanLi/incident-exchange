@@ -42,17 +42,18 @@ export function CommandPalette() {
 
   const commands = useMemo<Command[]>(() => {
     const base: Command[] = [
-      { label: "Find guidance", hint: "Buyer", icon: "search", run: as("buyer", "/playbooks") },
+      { label: "Find a fix", hint: "Buyer", icon: "search", run: as("buyer", "/playbooks") },
       { label: "Alerts", hint: "Buyer", icon: "bell", run: as("buyer", "/watchlist") },
-      { label: "Team & budget", hint: "Buyer", icon: "users", run: as("buyer", "/team") },
+      { label: "Budget", hint: "Buyer", icon: "users", run: as("buyer", "/team") },
       { label: "Share an incident", hint: "Contributor", icon: "plus", run: as("contributor", "/contribute/new") },
       { label: "My incidents", hint: "Contributor", icon: "folder", run: as("contributor", "/contribute") },
       { label: "Review queue", hint: "Reviewer", icon: "shield", run: as("reviewer", "/review") },
+      { label: "Agents", hint: "Agents", icon: "spark", run: () => navigate("/agents") },
       { label: "Audit log", hint: "Reviewer", icon: "list", run: as("reviewer", "/review/audit") },
       { label: "How it works", hint: "Learn", icon: "spark", run: () => navigate("/how-it-works") },
-      { label: "Trust & safety", hint: "Learn", icon: "lock", run: () => navigate("/trust") },
+      { label: "Trust", hint: "Learn", icon: "lock", run: () => navigate("/trust") },
       { label: "Pricing", hint: "Learn", icon: "tag", run: () => navigate("/pricing") },
-      { label: "Presenter controls", hint: "Demo", icon: "sliders", run: () => navigate("/demo") },
+      { label: "Demo controls", hint: "Demo", icon: "sliders", run: () => navigate("/demo") },
     ];
     const text = q.trim();
     const filtered = base.filter((c) => c.label.toLowerCase().includes(text.toLowerCase()));
@@ -78,7 +79,7 @@ export function CommandPalette() {
             ref={inputRef}
             autoFocus
             value={q}
-            placeholder="Type a page, or describe a problem…"
+            placeholder="Go to a page, or describe a problem"
             aria-label="Command"
             onChange={(e) => {
               setQ(e.target.value);
@@ -109,7 +110,7 @@ export function CommandPalette() {
               </button>
             </li>
           ))}
-          {commands.length === 0 && <li className="muted small palette-empty">No matches. Type at least 4 characters to search guides.</li>}
+          {commands.length === 0 && <li className="muted small palette-empty">No matches.</li>}
         </ul>
       </div>
     </div>

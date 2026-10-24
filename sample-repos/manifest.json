@@ -1,16 +1,26 @@
 {
   "repo-a": {
     "name": "billing-events",
-    "editable": ["src/handler.mjs"],
+    "editable": [
+      "src/handler.mjs"
+    ],
     "protectedTests": "protected-tests",
-    "testFiles": ["protected-tests/handler.test.mjs"],
-    "referenceFix": "reference-fix"
+    "testFiles": [
+      "protected-tests/handler.test.mjs"
+    ],
+    "referenceFix": "reference-fix",
+    "protectedSuiteSha256": "a5b06e295134ec81dab2e3b698679e39e2073363332753135f8b28eb4b58b3d2"
   },
   "repo-b": {
     "name": "order-sync",
-    "editable": ["src/consumer/messageConsumer.mjs"],
+    "editable": [
+      "src/consumer/messageConsumer.mjs"
+    ],
     "protectedTests": "protected-tests",
-    "testFiles": ["protected-tests/consumer.test.mjs"],
-    "referenceFix": null
+    "testFiles": [
+      "protected-tests/consumer.test.mjs"
+    ],
+    "referenceFix": null,
+    "protectedSuiteSha256": "c64e7f9aa5c99c2bd070f5248d6b421c3f3359bb854fa954f11589f25781cbb6"
   }
 }

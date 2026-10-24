@@ -58,14 +58,14 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
   return (
     <section className="card validation">
       <div className="toolbar">
-        <h3>Validation panel</h3>
+        <h3>Test the fix</h3>
         <div className="toolbar-actions">
           {factoryState && <IntegrationBadge state={runnerReady === false && factoryState !== "unavailable" ? "error" : factoryState} name="Factory Droid" />}
           {armadinState && <IntegrationBadge state={armadinState} name="Armadin" />}
         </div>
       </div>
       {!data.toyCase ? (
-        <p className="muted small">This incident has no bundled sample app, so it cannot be test-reproduced. Use “Evidence reviewed” or “Contributor reported”.</p>
+        <p className="muted small">No sample app for this incident. Use “Evidence reviewed” or “Contributor reported”.</p>
       ) : !t ? (
         <ErrorBox message="Sample app missing. Reset demo data from the Demo menu." />
       ) : (
@@ -74,19 +74,14 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
             <div>
               <strong>{t.name}</strong>
               <span className={`badge ${t.authorized ? "ok" : "sev-high"}`}>
-                {t.authorized ? "Authorized local demo target" : "Not authorized"}
+                {t.authorized ? "Authorized" : "Not authorized"}
               </span>
             </div>
             <div className="small muted">{t.authorizationNote}</div>
-            <code className="small">current implementation: {t.variant === "fixed" ? "patched (reference fix)" : "original (vulnerable)"}</code>
-          </div>
-          <div className="state state-info small">
-            <strong>In plain words:</strong> we run automatic tests on a tiny copy of an app with fake data. Step 1 should
-            show the problem. Step 2 applies the fix. Step 3 proves the problem is gone and normal use still works.
+            <code className="small">{t.variant === "fixed" ? "patched" : "original (vulnerable)"}</code>
           </div>
           <p className="small muted">
-            Check: <strong>{data.checkName}</strong>. Protected assertions run against the sample app with synthetic data,
-            including checks that legitimate behavior still works. No network or real system is touched.
+            Tests run on a sample app with fake data: <strong>{data.checkName}</strong>. Fails before the fix, passes after.
           </p>
           <div className="steps3">
             <StepCard n={1} title={STEP_LABEL.before} run={lastBefore}>
@@ -103,11 +98,11 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
               <button className="btn sm" disabled={busy || !lastBefore} onClick={() => void applyFix.run({ actor, draftId })}>
                 {runnerReady ? "Use local demo adapter" : "Apply defensive fix"}
               </button>
-              {runnerReady === false && <span className="small muted">Factory runner offline — local demo adapter only.</span>}
+              {runnerReady === false && <span className="small muted">Factory runner offline.</span>}
             </StepCard>
             <StepCard n={3} title={STEP_LABEL.after} run={lastAfter}>
               {lastFix?.toolName.startsWith("Factory") ? (
-                <span className="small muted">Re-checked by the protected evaluator against Factory’s candidate code.</span>
+                <span className="small muted">Re-checked automatically.</span>
               ) : (
                 <button className="btn sm" disabled={busy || !lastFix} onClick={() => void runCheck.run({ actor, draftId, step: "after" })}>
                   Re-run check

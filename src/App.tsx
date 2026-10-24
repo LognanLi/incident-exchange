@@ -1,7 +1,9 @@
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSession } from "./session";
 import { ErrorBoundary } from "./components/ui";
-import { Icon, type IconName } from "./components/icons";
+import { Icon } from "./components/icons";
+import { useReveal } from "./components/motion";
 import { PageGuide } from "./components/PageGuide";
 import { LiveToasts } from "./components/LiveToasts";
 import { CommandPalette } from "./components/CommandPalette";
@@ -31,153 +33,187 @@ import Purchases from "./pages/buyer/Purchases";
 import Watchlist from "./pages/buyer/Watchlist";
 import TeamSpend from "./pages/buyer/TeamSpend";
 
-type NavItem = { to: string; label: string; icon: IconName; end?: boolean };
+type NavItem = { to: string; label: string; end?: boolean };
 
-const NAV: Record<string, { section: string; items: NavItem[] }> = {
-  contributor: {
-    section: "Share what you learned",
-    items: [
-      { to: "/contribute", label: "My incidents", icon: "folder", end: true },
-      { to: "/contribute/new", label: "Share an incident", icon: "plus" },
-    ],
-  },
-  reviewer: {
-    section: "Review & trust",
-    items: [
-      { to: "/review", label: "Review queue", icon: "shield", end: true },
-      { to: "/review/feedback", label: "Buyer outcomes", icon: "chat" },
-      { to: "/review/audit", label: "Audit log", icon: "list" },
-    ],
-  },
-  buyer: {
-    section: "Get help with an incident",
-    items: [
-      { to: "/playbooks", label: "Find guidance", icon: "search" },
-      { to: "/watchlist", label: "Alerts", icon: "bell" },
-      { to: "/purchases", label: "My guides", icon: "book" },
-      { to: "/team", label: "Team & budget", icon: "users" },
-    ],
-  },
+const NAV: Record<string, NavItem[]> = {
+  contributor: [
+    { to: "/contribute", label: "My incidents", end: true },
+    { to: "/contribute/new", label: "Share an incident" },
+  ],
+  reviewer: [
+    { to: "/review", label: "Review queue", end: true },
+    { to: "/review/feedback", label: "Outcomes" },
+    { to: "/review/audit", label: "Audit log" },
+  ],
+  buyer: [
+    { to: "/playbooks", label: "Find a fix" },
+    { to: "/watchlist", label: "Alerts" },
+    { to: "/purchases", label: "My guides" },
+    { to: "/team", label: "Budget" },
+  ],
 };
 
 const LEARN: NavItem[] = [
-  { to: "/how-it-works", label: "How it works", icon: "spark" },
-  { to: "/trust", label: "Trust & safety", icon: "lock" },
-  { to: "/pricing", label: "Pricing", icon: "tag" },
+  { to: "/how-it-works", label: "How it works" },
+  { to: "/trust", label: "Trust" },
+  { to: "/pricing", label: "Pricing" },
 ];
+
+const openPalette = () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
+const openTour = () => window.dispatchEvent(new Event("ix:open-tour"));
 
 export default function App() {
   const { org, role } = useSession();
   const location = useLocation();
-  const nav = role ? NAV[role] : null;
+  const nav = role ? NAV[role] : [];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
+  useReveal(mainRef, location.pathname);
+
+  // Close the mobile menu on navigation; jump to top on route change.
+  useEffect(() => {
+    setMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [location.pathname]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
   return (
     <div className="shell">
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <aside className="sidebar" aria-label="Main navigation">
-        <Link to="/" className="brand">
-          <span className="brand-mark" aria-hidden>
-            <Icon name="logo" />
-          </span>
-          <span>Incident Exchange</span>
-        </Link>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <Link to="/" className="brand" aria-label="Incident Exchange home">
+            <span className="brand-mark" aria-hidden>
+              <Icon name="logo" />
+            </span>
+            <span className="brand-text">Incident Exchange</span>
+          </Link>
 
-        <Link to="/demo" className="identity-card" title="Switch which fictional company you are acting as">
-          <span className="identity-avatar" aria-hidden>
-            {org?.displayName.slice(0, 1) ?? "?"}
-          </span>
-          <span className="identity-text">
-            <span className="identity-name">{org ? org.displayName : "Choose a role"}</span>
-            <span className="identity-sub">{role ? roleLabel(role) : "Demo identity"} · switch</span>
-          </span>
-          <Icon name="swap" />
-        </Link>
+          <nav className="nav" aria-label="Main">
+            {nav.map((n) => (
+              <NavLink key={n.to} to={n.to} end={n.end} className="nav-link">
+                {n.label}
+              </NavLink>
+            ))}
+            <NavLink to="/agents" className="nav-link">
+              Agents
+            </NavLink>
+          </nav>
 
-        <nav className="vtabs" aria-label="Agents">
-          <div className="vtabs-label">Agents</div>
-          <NavLink to="/agents" className="vtab">
-            <Icon name="spark" />
-            <span>Agent activity</span>
-          </NavLink>
-        </nav>
-        {nav && (
-          <nav className="vtabs" aria-label={nav.section}>
-            <div className="vtabs-label">{nav.section}</div>
-            {nav.items.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.end} className="vtab">
-                <Icon name={n.icon} />
-                <span>{n.label}</span>
+          <div className="topbar-right">
+            <PageGuide />
+            <button className="top-btn hide-sm" onClick={openPalette} aria-label="Search (⌘K)">
+              <Icon name="search" size={16} />
+              <kbd>⌘K</kbd>
+            </button>
+            <Link to="/demo" className="identity" title="Switch demo company">
+              <span className={`role-dot role-${role ?? "none"}`} aria-hidden />
+              <span className="identity-text">
+                <span className="identity-name">{org ? org.displayName : "Choose a role"}</span>
+                <span className="identity-sub">{role ? roleLabel(role) : "Demo"}</span>
+              </span>
+            </Link>
+            <button
+              className="icon-btn menu-btn"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-menu"
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              <Icon name={menuOpen ? "x" : "menu"} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {menuOpen && (
+        <div className="sheet" id="mobile-menu">
+          <nav className="sheet-group" aria-label="Main">
+            <div className="eyebrow">{role ? roleLabel(role) : "Menu"}</div>
+            {[...nav, { to: "/agents", label: "Agents" }].map((n) => (
+              <NavLink key={n.to} to={n.to} end={n.end} className="sheet-link">
+                {n.label} <Icon name="arrow" size={16} />
               </NavLink>
             ))}
           </nav>
-        )}
-        <nav className="vtabs" aria-label="Learn">
-          <div className="vtabs-label">Learn</div>
-          {LEARN.map((n) => (
-            <NavLink key={n.to} to={n.to} className="vtab">
-              <Icon name={n.icon} />
-              <span>{n.label}</span>
+          <nav className="sheet-group" aria-label="Learn">
+            <div className="eyebrow">Learn</div>
+            {LEARN.map((n) => (
+              <NavLink key={n.to} to={n.to} className="sheet-link">
+                {n.label} <Icon name="arrow" size={16} />
+              </NavLink>
+            ))}
+          </nav>
+          <div className="sheet-group">
+            <div className="eyebrow">Demo</div>
+            <button className="sheet-link" onClick={() => { setMenuOpen(false); openPalette(); }}>
+              Search <Icon name="search" size={16} />
+            </button>
+            <button className="sheet-link" onClick={() => { setMenuOpen(false); openTour(); }}>
+              Guided tour <Icon name="arrow" size={16} />
+            </button>
+            <NavLink to="/demo" className="sheet-link">
+              Switch company <Icon name="swap" size={16} />
             </NavLink>
-          ))}
-        </nav>
-
-        <button className="kbd-hint" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}>
-          <Icon name="search" size={16} /> <span>Jump to…</span> <kbd>⌘K</kbd>
-        </button>
-        <div className="sidebar-foot">
-          <button className="vtab presenter tour-btn" onClick={() => window.dispatchEvent(new Event("ix:open-tour"))}>
-            <Icon name="spark" />
-            <span>Guided demo</span>
-          </button>
-          <Link to="/demo" className="vtab presenter">
-            <Icon name="sliders" />
-            <span>Presenter controls</span>
-          </Link>
-          <p className="sidebar-note">Demo build · fictional companies · test USDC only</p>
+          </div>
         </div>
-      </aside>
+      )}
 
-      <div className="content">
-        <main id="main" className="main" tabIndex={-1}>
-          <PageGuide />
-          <ErrorBoundary resetKey={location.pathname + (org?.slug ?? "")}>
-            <div className="page-enter" key={location.pathname}>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/agents" element={<Agents />} />
-                <Route path="/how-it-works" element={<HowItWorks />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/trust" element={<Trust />} />
-                <Route path="/demo" element={<DemoMenu />} />
-                <Route path="/contribute" element={<ContributorDashboard />} />
-                <Route path="/contribute/new" element={<IncidentForm />} />
-                <Route path="/contribute/drafts/:draftId/report" element={<IncidentForm />} />
-                <Route path="/contribute/drafts/:draftId/playbook" element={<PlaybookEditor />} />
-                <Route path="/contribute/drafts/:draftId/privacy" element={<PrivacyReview />} />
-                <Route path="/contribute/drafts/:draftId/status" element={<DraftStatusPage />} />
-                <Route path="/review" element={<ReviewQueue />} />
-                <Route path="/review/feedback" element={<FeedbackInbox />} />
-                <Route path="/review/audit" element={<AuditLog />} />
-                <Route path="/review/:draftId" element={<ReviewDetail />} />
-                <Route path="/playbooks" element={<Search />} />
-                <Route path="/playbooks/:playbookId" element={<PlaybookPage />} />
-                <Route path="/playbooks/:playbookId/checkout" element={<Checkout />} />
-                <Route path="/playbooks/:playbookId/feedback" element={<FeedbackForm />} />
-                <Route path="/purchases" element={<Purchases />} />
-                <Route path="/purchases/:purchaseId" element={<PurchaseConfirmation />} />
-                <Route path="/watchlist" element={<Watchlist />} />
-                <Route path="/team" element={<TeamSpend />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </div>
-          </ErrorBoundary>
-        </main>
-        <footer className="footer">
-          Defensive guidance only — detection, containment, recovery, and verification. Matches are discovery aids, not
-          proof that two incidents share a cause. All companies and incidents shown are fictional.
-        </footer>
-      </div>
+      <main id="main" className="main" tabIndex={-1} ref={mainRef}>
+        <ErrorBoundary resetKey={location.pathname + (org?.slug ?? "")}>
+          <div className="page-enter" key={location.pathname}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/agents" element={<Agents />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/trust" element={<Trust />} />
+              <Route path="/demo" element={<DemoMenu />} />
+              <Route path="/contribute" element={<ContributorDashboard />} />
+              <Route path="/contribute/new" element={<IncidentForm />} />
+              <Route path="/contribute/drafts/:draftId/report" element={<IncidentForm />} />
+              <Route path="/contribute/drafts/:draftId/playbook" element={<PlaybookEditor />} />
+              <Route path="/contribute/drafts/:draftId/privacy" element={<PrivacyReview />} />
+              <Route path="/contribute/drafts/:draftId/status" element={<DraftStatusPage />} />
+              <Route path="/review" element={<ReviewQueue />} />
+              <Route path="/review/feedback" element={<FeedbackInbox />} />
+              <Route path="/review/audit" element={<AuditLog />} />
+              <Route path="/review/:draftId" element={<ReviewDetail />} />
+              <Route path="/playbooks" element={<Search />} />
+              <Route path="/playbooks/:playbookId" element={<PlaybookPage />} />
+              <Route path="/playbooks/:playbookId/checkout" element={<Checkout />} />
+              <Route path="/playbooks/:playbookId/feedback" element={<FeedbackForm />} />
+              <Route path="/purchases" element={<Purchases />} />
+              <Route path="/purchases/:purchaseId" element={<PurchaseConfirmation />} />
+              <Route path="/watchlist" element={<Watchlist />} />
+              <Route path="/team" element={<TeamSpend />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        </ErrorBoundary>
+      </main>
+
+      <footer className="footer">
+        <div className="footer-inner">
+          <span>Demo · fictional companies · test money only</span>
+          <nav className="footer-links" aria-label="Footer">
+            {LEARN.map((n) => (
+              <Link key={n.to} to={n.to}>
+                {n.label}
+              </Link>
+            ))}
+            <button onClick={openTour}>Guided tour</button>
+            <Link to="/demo">Demo controls</Link>
+          </nav>
+        </div>
+      </footer>
       <LiveToasts />
       <CommandPalette />
       <DemoTour />

@@ -8,6 +8,7 @@ import { useSession } from "../../session";
 import { dollarsToAtomic, formatAtomic } from "../../../convex/lib/money";
 import { Boundary, ErrorBox, Loading, PageHeader, RoleGate, SuccessBox, useAction } from "../../components/ui";
 import { DraftTabs } from "./DraftTabs";
+import { Icon } from "../../components/icons";
 
 type FormValues = {
   title: string;
@@ -97,7 +98,7 @@ function IncidentFormLoader() {
   if (!draftId) {
     return (
       <>
-        <PageHeader eyebrow="Contributor workspace" title="Share an incident" />
+        <PageHeader eyebrow="New incident" title="Share an incident" sub="Nothing is shared until you approve it." />
         <IncidentFormBody initial={EMPTY} />
       </>
     );
@@ -213,25 +214,25 @@ function IncidentFormBody({
   return (
     <form className="incident-form" onSubmit={onSubmit} noValidate>
       {locked && (
-        <div className="state state-info">This report is locked while it is in review or published. Reviewer notes and status are on step 4.</div>
+        <div className="state state-info">Locked while in review or published. See Publish for status.</div>
       )}
       <div className="progress" aria-label={`Form progress: ${groupsDone} of ${GROUPS.length} sections complete`}>
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${(groupsDone / GROUPS.length) * 100}%` }} />
         </div>
         <span className="small muted">
-          {groupsDone} of {GROUPS.length} sections complete
+          {groupsDone}/{GROUPS.length} complete
         </span>
       </div>
 
       <fieldset className="card">
         <legend>Basics</legend>
-        <Boundary kind="private">The internal title is only for you.</Boundary>
-        <Field label="Internal title" hint="Any name your team uses. Never shown to buyers." error={err("title")} id="title">
+        <Boundary kind="private" />
+        <Field label="Internal title" hint="Never shown to buyers." error={err("title")} id="title">
           <input id="title" value={v.title} onChange={(e) => set("title", e.target.value)} disabled={locked} />
         </Field>
         <div className="field">
-          <span className="label">Affected system categories</span>
+          <span className="label">Affected systems</span>
           <div className="checks">
             {SYSTEM_CATEGORIES.map((c) => (
               <label key={c} className="check">
@@ -252,59 +253,53 @@ function IncidentFormBody({
 
       <fieldset className="card">
         <legend>What happened</legend>
-        <Boundary kind="private">
-          These are your source notes. They feed the playbook draft; the privacy scan checks what ends up buyer-visible.
-        </Boundary>
-        {text("symptoms", "Symptoms", "What did you observe? One per line.", 4)}
-        {text("detectionClues", "Detection clues", "Logs, alerts, or diffs that pointed at the cause.")}
-        {text("attemptedActions", "Investigation & attempted actions", "Safe checks you ran and what you compared.")}
+        <Boundary kind="private">Used to draft the guide.</Boundary>
+        {text("symptoms", "Symptoms", "What you saw. One per line.", 4)}
+        {text("detectionClues", "Detection clues", "Logs or alerts that pointed at the cause.")}
+        {text("attemptedActions", "Investigation", "Checks you ran.")}
       </fieldset>
 
       <fieldset className="card">
         <legend>Response</legend>
-        {text("failedAttempts", "What you tried that did not work", "Attempts that looked plausible but failed, and why. This is often the most valuable part for the next team.")}
-        {text("containmentSteps", "Containment", "How you limited additional harm.")}
-        {text("recoverySteps", "Recovery", "Corrective and restoration steps.")}
+        {text("failedAttempts", "What didn’t work", "Often the most valuable part.")}
+        {text("containmentSteps", "Containment", "How you limited the damage.")}
+        {text("recoverySteps", "Recovery", "How you fixed it.")}
         {text("verificationSteps", "Verification", "How you confirmed it was fixed.")}
-        {text("limitations", "Limitations", "Where this might not apply, side effects, uncertainty.")}
+        {text("limitations", "Limitations", "Where this might not apply.")}
       </fieldset>
 
       <fieldset className="card private-card">
         <legend>Private context</legend>
-        <Boundary kind="private">Never published and never used to answer buyer questions.</Boundary>
-        {text("privateNotes", "Private notes", "Timeline, people, hosts, ticket numbers — anything you need for your own records.", 4)}
-        {text("evidenceSummary", "Evidence available to reviewers", "Describe the supporting evidence a reviewer can inspect.")}
-        <Field
-          label="Names to keep private"
-          hint="People, products, or customers the privacy scan must flag. Comma-separated. Your organization name is always included."
-          id="identifyingTerms"
-        >
+        <Boundary kind="private">Never published.</Boundary>
+        {text("privateNotes", "Private notes", "Timeline, people, hosts, tickets.", 4)}
+        {text("evidenceSummary", "Evidence for reviewers", "What a reviewer can inspect.")}
+        <Field label="Names to keep private" hint="Comma-separated. Your company name is always included." id="identifyingTerms">
           <input id="identifyingTerms" value={v.identifyingTerms} onChange={(e) => set("identifyingTerms", e.target.value)} disabled={locked} />
         </Field>
       </fieldset>
 
       <fieldset className="card">
         <legend>Listing</legend>
-        <Boundary kind="public">These fields become buyer-visible after your approval and human review.</Boundary>
+        <Boundary kind="public">After your approval and review.</Boundary>
         <Field label="Public title" hint="Describe the problem, not your company." error={err("publicTitle")} id="publicTitle">
           <input id="publicTitle" value={v.publicTitle} onChange={(e) => set("publicTitle", e.target.value)} disabled={locked} />
         </Field>
-        {text("sanitizedSummary", "Public summary", "Two or three sentences a buyer reads first.")}
-        <Field label="Environment tags" hint="Comma-separated, e.g. Webhooks, Queue workers, Postgres. Helps buyers judge fit." id="environment">
+        {text("sanitizedSummary", "Public summary", "Two or three sentences.")}
+        <Field label="Tags" hint="Comma-separated, e.g. Webhooks, Postgres." id="environment">
           <input id="environment" value={v.environment} onChange={(e) => set("environment", e.target.value)} disabled={locked} />
         </Field>
         <div className="row">
-          <Field label="Price (test USDC)" hint="0.10–1.00 test USDC (Base Sepolia). Demo pricing only." error={err("price")} id="price">
+          <Field label="Price (test USDC)" hint="0.10–1.00" error={err("price")} id="price">
             <input id="price" inputMode="decimal" value={v.price} onChange={(e) => set("price", e.target.value)} disabled={locked} />
           </Field>
-          <Field label="Sharing label (TLP)" hint="Traffic Light Protocol. AMBER guides are sold only to verified organizations." id="tlp">
+          <Field label="Sharing label (TLP)" hint="AMBER: verified buyers only." id="tlp">
             <select id="tlp" value={v.tlp} onChange={(e) => set("tlp", e.target.value as FormValues["tlp"])} disabled={locked}>
-              <option value="clear">TLP:CLEAR — no limits beyond the license</option>
-              <option value="green">TLP:GREEN — your org and trusted partners</option>
-              <option value="amber">TLP:AMBER — need-to-know, verified orgs only</option>
+              <option value="clear">TLP:CLEAR — anyone</option>
+              <option value="green">TLP:GREEN — partners</option>
+              <option value="amber">TLP:AMBER — need-to-know</option>
             </select>
           </Field>
-          <Field label="How you appear to buyers" hint="Reduces identification risk; perfect anonymity is not promised." id="sharingLevel">
+          <Field label="Shown to buyers as" hint="Lowers, not removes, identification risk." id="sharingLevel">
             <select id="sharingLevel" value={v.sharingLevel} onChange={(e) => set("sharingLevel", e.target.value as SharingLevel)} disabled={locked}>
               {SHARING_LEVELS.map((s) => (
                 <option key={s} value={s}>
@@ -321,13 +316,13 @@ function IncidentFormBody({
           {touched && Object.keys(errors).length > 0 && <span className="field-error">Fix the highlighted fields.</span>}
           <ErrorBox message={save.error} />
           {saved && <SuccessBox>Draft saved.</SuccessBox>}
-          <button className="btn primary" type="submit" disabled={save.pending}>
+          <button className={`btn ${draftId ? "" : "primary"}`} type="submit" disabled={save.pending}>
             {save.pending ? "Saving…" : "Save draft"}
           </button>
           {draftId && (
             <button
               type="button"
-              className="btn"
+              className="btn primary"
               disabled={save.pending}
               onClick={async () => {
                 setTouched(true);
@@ -335,7 +330,7 @@ function IncidentFormBody({
                 if (await save.run()) navigate(`/contribute/drafts/${draftId}/playbook`);
               }}
             >
-              Save & continue to the guide →
+              Save & continue <Icon name="arrow" size={16} className="icon-arrow" />
             </button>
           )}
         </div>

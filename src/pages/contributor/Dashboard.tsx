@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { useSession } from "../../session";
 import { Empty, EvidenceBadge, Loading, Money, PageHeader, RoleGate, StatusBadge, formatDate } from "../../components/ui";
+import { Icon } from "../../components/icons";
+import { CountUp } from "../../components/motion";
 
 export default function ContributorDashboard() {
   return (
@@ -28,106 +30,119 @@ function Dashboard() {
     published: data.drafts.filter((d) => d.status === "published").length + data.catalog.length,
   };
 
+  const simulated = BigInt(data.simulatedAccruedAtomic ?? "0");
+
   return (
     <div>
-      <PageHeader eyebrow={data.org.displayName + " · contributor workspace"} title="My incidents">
+      <PageHeader eyebrow={data.org.displayName} title="My incidents">
         <Link className="btn primary" to="/contribute/new">
-          Share an incident
+          <Icon name="plus" size={16} /> Share an incident
         </Link>
       </PageHeader>
 
-      <div className="stats">
+      <div className="stats stagger">
         <div className="stat">
           <span className="stat-label">In progress</span>
-          <span className="stat-value">{counts.working}</span>
+          <span className="stat-value">
+            <CountUp to={counts.working} />
+          </span>
         </div>
         <div className="stat">
           <span className="stat-label">In review</span>
-          <span className="stat-value">{counts.review}</span>
+          <span className="stat-value">
+            <CountUp to={counts.review} />
+          </span>
         </div>
         <div className="stat">
           <span className="stat-label">Published</span>
-          <span className="stat-value">{counts.published}</span>
+          <span className="stat-value">
+            <CountUp to={counts.published} />
+          </span>
         </div>
         <div className="stat earnings">
-          <span className="stat-label">Earnings accrued (not paid out)</span>
+          <span className="stat-label">Earned</span>
           <span className="stat-value">
             <Money atomic={data.accruedAtomic} currency={data.currency} />
           </span>
-          <span className="small muted">
-            {data.sales} sale{data.sales === 1 ? "" : "s"} · 80% contributor share (prototype assumption) · paid out:{" "}
-            <Money atomic={data.paidOutAtomic} currency={data.currency} /> — accruals are an internal ledger, not on-chain payouts.
-            In production, earnings would clear after a 14-day hold (refund and fraud window) and pay out via a payments provider.
+          <span className="small muted" title="Accrued from settled test payments; nothing is paid out in this prototype.">
+            {data.sales} sale{data.sales === 1 ? "" : "s"} · 80% share · not paid out
           </span>
+          {simulated > 0n && (
+            <span className="small muted">
+              +<Money atomic={data.simulatedAccruedAtomic} currency={data.currency} /> simulated, not counted
+            </span>
+          )}
         </div>
       </div>
 
       <section className="card">
-        <h2>Incident reports</h2>
+        <h2>Incidents</h2>
         {data.drafts.length === 0 ? (
-          <Empty title="No incident reports yet">
+          <Empty title="Nothing shared yet">
             <Link to="/contribute/new">Share your first incident</Link>
           </Empty>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Incident</th>
-                <th>Status</th>
-                <th>Evidence</th>
-                <th>Sales</th>
-                <th>Updated</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {data.drafts.map((d) => (
-                <tr key={d._id}>
-                  <td>
-                    <strong>{d.title}</strong>
-                    <div className="small muted">Public title: {d.publicTitle || "—"}</div>
-                    {d.reviewerNote && <div className="small note">Reviewer: {d.reviewerNote}</div>}
-                  </td>
-                  <td>
-                    <StatusBadge status={d.status} />
-                  </td>
-                  <td>{d.evidenceLevel ? <EvidenceBadge level={d.evidenceLevel} /> : <span className="muted">—</span>}</td>
-                  <td>
-                    {d.stats ? (
-                      <>
-                        {d.stats.sales} · <Money atomic={d.stats.accruedAtomic} /> accrued
-                        {d.stats.outcomes.count > 0 && (
-                          <div className="small muted">
-                            {d.stats.outcomes.resolved}/{d.stats.outcomes.count} buyers reported resolved
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </td>
-                  <td className="small">{formatDate(d.updatedAt)}</td>
-                  <td>
-                    <Link className="btn sm" to={nextStepPath(d)}>
-                      Open
-                    </Link>
-                  </td>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Incident</th>
+                  <th>Status</th>
+                  <th>Evidence</th>
+                  <th>Sales</th>
+                  <th>Updated</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.drafts.map((d) => (
+                  <tr key={d._id}>
+                    <td>
+                      <strong>{d.title}</strong>
+                      {d.publicTitle && d.publicTitle !== d.title && <div className="small muted">Public: {d.publicTitle}</div>}
+                      {d.reviewerNote && <div className="small note">Reviewer: {d.reviewerNote}</div>}
+                    </td>
+                    <td>
+                      <StatusBadge status={d.status} />
+                    </td>
+                    <td>{d.evidenceLevel ? <EvidenceBadge level={d.evidenceLevel} /> : <span className="muted">—</span>}</td>
+                    <td>
+                      {d.stats ? (
+                        <>
+                          {d.stats.sales} · <Money atomic={d.stats.accruedAtomic} />
+                          {d.stats.outcomes.count > 0 && (
+                            <div className="small muted">
+                              {d.stats.outcomes.resolved}/{d.stats.outcomes.count} resolved
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td className="small muted">{formatDate(d.updatedAt)}</td>
+                    <td>
+                      <Link className="btn sm" to={nextStepPath(d)}>
+                        Open
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
       {data.catalog.length > 0 && (
         <section className="card">
-          <h2>Previously published guides</h2>
+          <h2>Published earlier</h2>
           <ul className="plain-list">
             {data.catalog.map((c) => (
-              <li key={c._id}>
-                <Link to={`/playbooks/${c._id}`}>{c.publicTitle}</Link>{" "}
+              <li key={c._id} className="row gap wrap">
+                <Link className="grow" to={`/playbooks/${c._id}`}>{c.publicTitle}</Link>
                 <span className="muted small">
-                  · {c.stats.sales} sales · <Money atomic={c.stats.accruedAtomic} /> accrued
+                  {c.stats.sales} sales · <Money atomic={c.stats.accruedAtomic} />
                 </span>
               </li>
             ))}

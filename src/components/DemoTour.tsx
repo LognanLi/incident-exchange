@@ -36,7 +36,7 @@ export function DemoTour() {
   });
   const session = useSession();
   const navigate = useNavigate();
-  const drafts = useQuery(api.drafts.listMine, session.orgs ? { actor: "northstar" } : "skip");
+  const drafts = useQuery(api.drafts.listMine, session.orgs ? { actor: session.actorFor("northstar") } : "skip");
   const primary = drafts?.drafts.find((d) => d.publicTitle.toLowerCase().includes("webhook")) ?? drafts?.drafts[drafts.drafts.length - 1];
   const ids: Ids = { draftId: primary?._id, playbookId: primary?.playbookId };
 
@@ -58,24 +58,26 @@ export function DemoTour() {
     setState({ open: true, step: index });
   };
   return (
-    <aside className="tour" aria-label="Guided demo">
+    <aside className="tour" aria-label="Guided tour">
       <div className="tour-head">
-        <span className="pill">Guided demo · {state.step + 1}/{STEPS.length}</span>
-        <button className="icon-btn" aria-label="Close guided demo" onClick={() => setState((s) => ({ ...s, open: false }))}>
+        <span className="pill">
+          Tour · {String(state.step + 1).padStart(2, "0")}/{String(STEPS.length).padStart(2, "0")}
+        </span>
+        <button className="icon-btn" aria-label="Close guided tour" onClick={() => setState((s) => ({ ...s, open: false }))}>
           <Icon name="x" size={16} />
         </button>
       </div>
       <div className="tour-progress" aria-hidden>
         <span style={{ width: `${((state.step + 1) / STEPS.length) * 100}%` }} />
       </div>
-      <div className="eyebrow">As {WHO[step.who]}</div>
-      <h3>{step.title}</h3>
-      <p className="small">
-        <strong>Click:</strong> {step.click}
-      </p>
-      <p className="small muted">
-        <strong>Say:</strong> “{step.say}”
-      </p>
+      <div className="tour-step" key={state.step}>
+        <div className="eyebrow">As {WHO[step.who]}</div>
+        <h3>{step.title}</h3>
+        <p className="small">
+          <strong>Click</strong> {step.click}
+        </p>
+        <p className="small muted">“{step.say}”</p>
+      </div>
       <div className="row gap">
         <button className="btn sm" disabled={state.step === 0} onClick={() => go(state.step - 1)}>
           Back
@@ -84,7 +86,7 @@ export function DemoTour() {
           Take me there
         </button>
         <button className="btn sm" disabled={state.step === STEPS.length - 1} onClick={() => go(state.step + 1)}>
-          Next <Icon name="arrow" size={14} />
+          Next <Icon name="arrow" size={14} className="icon-arrow" />
         </button>
       </div>
     </aside>

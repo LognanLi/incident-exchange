@@ -27,15 +27,15 @@ function AuditLog() {
   };
   return (
     <div>
-      <PageHeader eyebrow="Append-only record" title="Audit log">
+      <PageHeader eyebrow="Reviewer" title="Audit log" sub="Append-only. Every action, who, and when.">
         <button className="btn" onClick={download} disabled={events.length === 0}>
           Export CSV
         </button>
       </PageHeader>
       {events.length === 0 ? (
-        <Empty title="No events yet" />
+        <Empty title="No events yet." />
       ) : (
-        <section className="card">
+        <section className="table-wrap">
           <table className="table">
             <thead>
               <tr>
@@ -49,7 +49,7 @@ function AuditLog() {
             <tbody>
               {events.map((e) => (
                 <tr key={e._id}>
-                  <td className="small">{formatDate(e.at)}</td>
+                  <td className="small muted nowrap">{formatDate(e.at)}</td>
                   <td>{e.actorName}</td>
                   <td>
                     <code>{e.action}</code>

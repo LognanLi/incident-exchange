@@ -18,20 +18,14 @@ function Queue() {
   if (!data) return <Loading />;
   return (
     <div>
-      <PageHeader eyebrow="Reviewer console" title="Review queue" />
+      <PageHeader eyebrow="Reviewer" title="Review queue" sub={`${data.pending.length} waiting`} />
       <section className="card">
-        <h2>Awaiting review ({data.pending.length})</h2>
-        {data.pending.length === 0 ? (
-          <Empty title="Nothing to review">
-            Submitted reports appear here after the contributor approves the buyer-facing version.
-          </Empty>
-        ) : (
-          <QueueTable rows={data.pending} />
-        )}
+        <h2>Waiting</h2>
+        {data.pending.length === 0 ? <Empty title="All caught up." /> : <QueueTable rows={data.pending} primary />}
       </section>
       <section className="card">
-        <h2>Recently decided</h2>
-        {data.decided.length === 0 ? <p className="muted">No decisions yet.</p> : <QueueTable rows={data.decided} />}
+        <h2>Decided</h2>
+        {data.decided.length === 0 ? <p className="muted small">No decisions yet.</p> : <QueueTable rows={data.decided} />}
       </section>
     </div>
   );
@@ -47,8 +41,9 @@ type Row = {
   updatedAt: number;
 };
 
-function QueueTable({ rows }: { rows: Row[] }) {
+function QueueTable({ rows, primary = false }: { rows: Row[]; primary?: boolean }) {
   return (
+    <div className="table-wrap">
     <table className="table">
       <thead>
         <tr>
@@ -70,11 +65,11 @@ function QueueTable({ rows }: { rows: Row[] }) {
             <td>
               <StatusBadge status={r.status} />
             </td>
-            <td>{r.highFindings === 0 ? <span className="badge ok">No high findings</span> : <span className="badge sev-high">{r.highFindings} high</span>}</td>
+            <td>{r.highFindings === 0 ? <span className="badge ok">Clean</span> : <span className="badge sev-high">{r.highFindings} high</span>}</td>
             <td>{r.evidenceLevel ? <EvidenceBadge level={r.evidenceLevel} /> : <span className="muted">—</span>}</td>
-            <td className="small">{formatDate(r.updatedAt)}</td>
+            <td className="small muted">{formatDate(r.updatedAt)}</td>
             <td>
-              <Link className="btn sm primary" to={`/review/${r._id}`}>
+              <Link className={`btn sm ${primary ? "primary" : ""}`} to={`/review/${r._id}`}>
                 Open
               </Link>
             </td>
@@ -82,5 +77,6 @@ function QueueTable({ rows }: { rows: Row[] }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

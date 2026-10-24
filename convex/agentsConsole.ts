@@ -31,7 +31,7 @@ export const overview = query({
 export const canRunDemo = query({
   args: { actor: v.string() },
   handler: async (ctx, { actor }) => {
-    await requireRole(ctx, actor, ["reviewer", "buyer", "contributor"]);
+    await requireRole(ctx, actor, ["reviewer"]); // operator control
     const running = (await ctx.db.query("jobs").withIndex("by_startedAt").order("desc").take(1))[0];
     return { ok: !(running && (running.status === "running" || running.status === "queued")) };
   },

@@ -3,34 +3,31 @@ import { Icon, type IconName } from "../components/icons";
 import { TLP_INFO, LICENSE_TERMS } from "../../convex/lib/license";
 
 const PILLARS: { icon: IconName; title: string; body: string }[] = [
-  { icon: "lock", title: "Contributor privacy", body: "Raw notes never leave the contributor's workspace. An automatic privacy check removes identifiers, and the contributor approves the exact text. Buyers see a pseudonym; the platform privately keeps the relationship for review and payouts. Re-identification risk can be reduced, not eliminated." },
-  { icon: "shield", title: "Human review & honest evidence", body: "Every guide is reviewed before it is sold. Labels say exactly what backs it: the contributor's account, reviewed evidence, or a fix reproduced on a sample app. AI never certifies safety." },
-  { icon: "users", title: "Who can buy", body: "Guides are defensive only. Sensitive guides are labeled TLP:AMBER and sold only to verified organizations. Every purchase includes a Data Use License and is recorded in the audit log." },
-  { icon: "coin", title: "Payments", body: "This demo uses test USDC on Base Sepolia via the x402 standard, or a clearly labeled simulator. Access unlocks only after a verified settlement. Contributor earnings are an internal ledger until paid out." },
-  { icon: "list", title: "Accountability", body: "Submissions, reviews, publications, purchases, and validation runs are written to an append-only audit log your security team can review." },
-  { icon: "flask", title: "Safe testing", body: "Fixes are tested only against bundled sample apps with synthetic data — never against real customer systems or the internet." },
+  { icon: "lock", title: "Contributor privacy", body: "Raw notes never leave the contributor. A privacy scan removes identifiers and buyers see a pseudonym. Risk is reduced, not eliminated." },
+  { icon: "shield", title: "Human review", body: "Every guide is reviewed before sale. Labels state exactly what backs it. AI never certifies safety." },
+  { icon: "users", title: "Who can buy", body: "Defensive guides only. Sensitive guides (TLP:AMBER) are sold only to verified organizations." },
+  { icon: "coin", title: "Payments", body: "Test USDC on Base Sepolia via x402, or a labeled simulator. Access unlocks only after payment settles." },
+  { icon: "list", title: "Audit trail", body: "Submissions, reviews, purchases, and test runs go to an append-only log." },
+  { icon: "flask", title: "Safe testing", body: "Fixes are tested only on bundled sample apps with fake data — never on real systems." },
 ];
 
 export default function Trust() {
   return (
     <div>
-      <PageHeader eyebrow="How we keep everyone safe" title="Trust & safety" />
-      <div className="grid-3 stagger">
+      <PageHeader eyebrow="Trust & safety" title="Built to be safe to share." />
+      <div className="pillars stagger">
         {PILLARS.map((p) => (
-          <section key={p.title} className="card lift">
-            <div className="step-icon">
-              <Icon name={p.icon} size={20} />
-            </div>
+          <section key={p.title} className="pillar">
+            <Icon name={p.icon} size={20} />
             <h3>{p.title}</h3>
-            <p className="muted small">{p.body}</p>
+            <p>{p.body}</p>
           </section>
         ))}
       </div>
       <div className="grid-2">
         <section className="card">
-          <h2>Sharing labels (Traffic Light Protocol)</h2>
-          <p className="muted small">The standard security teams already use (FIRST TLP 2.0).</p>
-          <ul className="plain-list">
+          <h2>Sharing labels (TLP)</h2>
+          <ul className="plain-list tlp-list">
             {Object.values(TLP_INFO).map((t) => (
               <li key={t.label}>
                 <span className={`tlp tlp-${t.label.split(":")[1].toLowerCase()}`}>{t.label}</span> <span className="small">{t.explanation}</span>
@@ -39,7 +36,7 @@ export default function Trust() {
           </ul>
         </section>
         <section className="card">
-          <h2>Data Use License (every purchase)</h2>
+          <h2>Data use license</h2>
           <ol className="bullets small">
             {LICENSE_TERMS.map((t) => (
               <li key={t}>{t}</li>
@@ -48,11 +45,11 @@ export default function Trust() {
         </section>
       </div>
       <section className="card">
-        <h2>Honest limits of this prototype</h2>
-        <ul className="bullets small">
-          <li>Organization verification is a demo flag; production would verify the business and its domain.</li>
-          <li>Legal protections for sharing threat information vary by country and change over time; a real launch needs legal review.</li>
-          <li>Matching labels help you find candidates; they are not proof two incidents share a cause.</li>
+        <h2>Prototype limits</h2>
+        <ul className="bullets small muted">
+          <li>Organization verification is a demo flag.</li>
+          <li>Legal protections for sharing threat information vary by country.</li>
+          <li>Match labels help find candidates; they don’t prove a shared cause.</li>
         </ul>
       </section>
     </div>

@@ -20,12 +20,12 @@ function FeedbackInbox() {
   if (!items) return <Loading />;
   return (
     <div>
-      <PageHeader eyebrow="Reviewer console" title="Buyer outcome feedback" />
+      <PageHeader eyebrow="Reviewer" title="Outcomes" sub="What buyers reported after using a guide." />
       <ErrorBox message={ack.error} />
       {items.length === 0 ? (
-        <Empty title="No feedback yet">Buyers can report relevance and outcome after unlocking a guide.</Empty>
+        <Empty title="No outcomes yet." />
       ) : (
-        <section className="card">
+        <section className="table-wrap">
           <table className="table">
             <thead>
               <tr>
@@ -53,11 +53,11 @@ function FeedbackInbox() {
                   <td className="small">{formatDate(f.createdAt)}</td>
                   <td>
                     {f.reviewStatus === "new" ? (
-                      <button className="btn sm" disabled={ack.pending} onClick={() => void ack.run({ actor, feedbackId: f._id })}>
+                      <button className="btn sm ghost" disabled={ack.pending} onClick={() => void ack.run({ actor, feedbackId: f._id })}>
                         Acknowledge
                       </button>
                     ) : (
-                      <span className="badge ok">Acknowledged</span>
+                      <span className="small muted">Seen</span>
                     )}
                   </td>
                 </tr>

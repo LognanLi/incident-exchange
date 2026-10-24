@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { ConvexHttpClient } from "convex/browser";
 import { anyApi } from "convex/server";
+import { mintSession } from "../shared/session.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const TOY = join(ROOT, "toy-apps");
@@ -65,6 +66,7 @@ const local = readEnvFile(join(ROOT, ".env.local"));
 const FACTORY_API_KEY = process.env.FACTORY_API_KEY ?? secrets.FACTORY_API_KEY;
 const RUNNER_SECRET = process.env.FACTORY_RUNNER_SECRET ?? secrets.FACTORY_RUNNER_SECRET;
 const CONVEX_URL = process.env.VITE_CONVEX_URL ?? local.VITE_CONVEX_URL;
+const SESSION_SECRET = process.env.DEMO_SESSION_SECRET ?? secrets.DEMO_SESSION_SECRET;
 const ready = Boolean(FACTORY_API_KEY && RUNNER_SECRET && CONVEX_URL && existsSync(DROID));
 let busy = false;
 let demoChild = null;
@@ -305,6 +307,22 @@ const server = http.createServer(async (req, res) => {
   if (origin && !ALLOWED_ORIGINS.has(origin)) return send(403, { error: "Origin not allowed" });
 
   if (req.method === "GET" && req.url === "/health") return send(200, { ready, busy, demoRunning: !!demoChild });
+  // State-changing endpoints are browser-only presenter controls: require an allowed Origin (blocks curl/other local processes
+  // that don't spoof headers, and cross-site pages via CORS).
+  if (req.method === "POST" && !origin) return send(403, { error: "Origin required" });
+  if (req.method === "POST" && req.url === "/session") {
+    // Mints signed demo sessions (the demo's stand-in for sign-in) for existing seeded orgs only.
+    if (!SESSION_SECRET || !CONVEX_URL) return send(503, { error: "DEMO_SESSION_SECRET is not configured. Run `npm run agents:setup`." });
+    let raw = "";
+    for await (const chunk of req) { raw += chunk; if (raw.length > 2000) return send(413, { error: "Request too large" }); }
+    let body; try { body = JSON.parse(raw || "{}"); } catch { return send(400, { error: "Invalid JSON" }); }
+    if (!Array.isArray(body.slugs) || body.slugs.length > 20) return send(400, { error: "slugs required" });
+    const orgs = await new ConvexHttpClient(CONVEX_URL).query(anyApi.demo.listOrgs, {}).catch(() => []);
+    const known = new Set(orgs.map((o) => o.slug));
+    const tokens = {};
+    for (const slug of body.slugs) if (typeof slug === "string" && known.has(slug)) tokens[slug] = await mintSession(SESSION_SECRET, slug);
+    return send(200, { tokens });
+  }
   if (req.method === "POST" && req.url === "/agent-demo") {
     // Presenter control: start the real two-agent demo (connector/demo.mjs). One at a time; fixed script, no arguments from the browser.
     let raw = "";
@@ -314,7 +332,7 @@ const server = http.createServer(async (req, res) => {
     if (demoChild) return send(409, { error: "A demo run is already in progress." });
     const convex = new ConvexHttpClient(CONVEX_URL);
     const ok = await convex.query(anyApi.agentsConsole.canRunDemo, { actor: body.actor }).catch(() => ({ ok: false }));
-    if (!ok.ok) return send(403, { error: "Not allowed, or a run is already in progress." });
+    if (!ok.ok) return send(403, { error: "Switch to the Review Desk role to run the agent demo, or wait for the current run to finish." });
     demoChild = spawn(process.execPath, [join(ROOT, "connector", "demo.mjs"), ...(body.simulatePayment === true ? ["--simulate-payment"] : [])], { cwd: ROOT, stdio: "ignore", env: { PATH: process.env.PATH, HOME: process.env.HOME } });
     demoChild.on("close", () => { demoChild = null; });
     return send(202, { started: true });

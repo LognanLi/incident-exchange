@@ -4,7 +4,8 @@ import { lstatSync, readdirSync, realpathSync } from "node:fs";
 import { join, relative, sep, isAbsolute } from "node:path";
 import { scanSecrets, scanInjection } from "../../shared/bundle.mjs";
 
-const DENIED = [/(^|\/)\.env/i, /(^|\/)\.git(\/|$)/, /(^|\/)\.ssh(\/|$)/, /id_(rsa|ed25519)/, /(^|\/)package(-lock)?\.json$/, /(^|\/)\.github\//, /\.test\.m?js$/, /(^|\/)protected-tests(\/|$)/, /wallet/i, /secret/i];
+// Case-insensitive: macOS/Windows filesystems are case-insensitive, so `.GIT/` or `X.TEST.MJS` must not slip through.
+const DENIED = [/(^|\/)\.env/i, /(^|\/)\.git(\/|$)/i, /(^|\/)\.ssh(\/|$)/i, /id_(rsa|ed25519)/i, /(^|\/)package(-lock)?\.json$/i, /(^|\/)\.github\//i, /\.test\.m?js$/i, /(^|\/)protected-tests(\/|$)/i, /wallet/i, /secret/i];
 
 /** List files under dir (relative), refusing symlinks anywhere in the tree. */
 export function listFiles(dir) {
@@ -41,8 +42,36 @@ export function enforceCandidate({ workspace, before, editable }) {
     if (isAbsolute(f) || f.includes("..")) throw new PolicyError("path_traversal", `Path escapes workspace: ${f}`);
     if (DENIED.some((re) => re.test(f))) throw new PolicyError("denied_path", `Write to a denied path: ${f}`);
     if (!editable.includes(f)) throw new PolicyError("not_editable", `Write outside the editable allowlist: ${f}`);
+    checkCandidateContent(before.get(f) ?? "", readNorm(root, f), f);
   }
   return changed;
+}
+
+// Capabilities a repaired file must not gain. The protected runner also sandboxes execution
+// (no fs-write/child-process; reads limited to the candidate dir), but Node has no network sandbox,
+// so the content check is the line of defense for network and dynamic-code use.
+const FORBIDDEN_CODE = [
+  ["dynamic_code", /\beval\s*\(|\bnew\s+Function\b|(?<![\w.])Function\s*\(|\bimport\s*\(/],
+  ["commonjs_require", /\brequire\s*\(|\bcreateRequire\b|\bmodule\.constructor\b/],
+  ["process_access", /\bprocess\s*[.[]|\bglobalThis\s*[.[]\s*['"`]?process/],
+  ["network", /\bfetch\s*\(|\bXMLHttpRequest\b|\bWebSocket\b|\bEventSource\b|\bnavigator\s*\./],
+];
+const importsOf = (src) => new Set([...src.matchAll(/\b(?:import|export)\b[^'"`;]*?\bfrom\s*['"`]([^'"`]+)['"`]|\bimport\s*['"`]([^'"`]+)['"`]/g)].map((m) => m[1] ?? m[2]));
+
+/** Repaired code may only use modules the original already imported, and may not add dynamic code, process, or network access. */
+// Comments are removed before scanning (JSDoc `import("./x").T` types are not code). Naive: a `//` inside a
+// string is treated as a comment start, which can only hide code that is itself inside that string.
+const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:\\])\/\/.*$/gm, "$1");
+
+export function checkCandidateContent(originalSrc, candidateSrc, file = "candidate") {
+  const original = code(originalSrc);
+  const candidate = code(candidateSrc);
+  const allowed = importsOf(original);
+  const added = [...importsOf(candidate)].filter((s) => !allowed.has(s));
+  if (added.length) throw new PolicyError("new_import", `${file} adds imports not present in the original: ${added.join(", ")}`);
+  for (const [kind, re] of FORBIDDEN_CODE) {
+    if (re.test(candidate) && !re.test(original)) throw new PolicyError(kind, `${file} adds forbidden capability: ${kind.replace(/_/g, " ")}`);
+  }
 }
 
 import { readFileSync } from "node:fs";

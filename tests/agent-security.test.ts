@@ -27,8 +27,8 @@ const errCode = async (p: Promise<unknown>) => {
 
 async function setup() {
   const t = convexTest(schema, modules);
-  await t.mutation(api.demo.reset, {});
-  const policy = (max: string, n: number) => ({ maxPerPurchaseAtomic: max, sessionMaxAtomic: String(Number(max) * n), maxPurchases: n, network: "eip155:84532" });
+  await t.mutation(api.demo.reset, { actor: "review-desk" });
+  const policy = (max: string, n: number) => ({ maxPerPurchaseAtomic: max, sessionMaxAtomic: String(Number(max) * n), maxPurchases: n, network: "eip155:84532", allowSimulator: true });
   await t.mutation(internal.mcp.upsertPrincipal, { name: "agent-a", orgSlug: "northstar", scopes: ["search", "preview", "submit", "status"], tokenHash: await sha256Hex(TOKENS.a), ttlDays: 1, policy: policy("0", 0) });
   await t.mutation(internal.mcp.upsertPrincipal, { name: "agent-b", orgSlug: "harbor", scopes: ["search", "preview", "quote", "acquire", "retrieve", "outcome"], tokenHash: await sha256Hex(TOKENS.b), ttlDays: 1, policy: policy("10000", 1) });
   await t.mutation(internal.mcp.upsertPrincipal, { name: "agent-c", orgSlug: "harbor", scopes: ["search", "preview", "quote", "acquire", "retrieve", "outcome"], tokenHash: await sha256Hex(TOKENS.c), ttlDays: 1, policy: policy("10000", 2) });
@@ -134,12 +134,24 @@ describe("SECURITY GATE: tenancy, paywall, payments", () => {
     expect(r2.purchaseId).toBe(r1.purchaseId);
     await t.mutation(api.mcp.completeSimulated, { ...B, purchaseId: r1.purchaseId });
     const q3 = await t.mutation(api.mcp.quote, { ...B, resolutionId });
-    expect(await errCode(t.mutation(api.mcp.acquire, { ...B, quoteId: q3.quoteId, clientRequestId: "req-second", approved: approved(), simulate: true }))).toBe("BUDGET_EXCEEDED"); // maxPurchases 1
+    // Server-side double-purchase guard: a second acquire of the same revision returns the existing entitlement.
+    expect((await t.mutation(api.mcp.acquire, { ...B, quoteId: q3.quoteId, clientRequestId: "req-second", approved: approved(), simulate: true })).purchaseId).toBe(r1.purchaseId);
     expect((await t.query(api.mcp.getResolution, { ...B, resolutionId })).fixPattern).toContain("reserve");
     expect(await errCode(t.query(api.mcp.getResolution, { ...C, resolutionId }))).toBe("ENTITLEMENT_REQUIRED");
     const ledger = await t.run((ctx) => ctx.db.query("purchases").collect());
     expect(ledger).toHaveLength(1);
     expect(ledger[0].contributorShareAtomic).toBe("8000");
+  });
+  it("the simulator requires an operator policy flag; testnet never silently degrades to it", async () => {
+    const t = await setup();
+    const { resolutionId } = await publishOne(t);
+    await t.mutation(internal.mcp.upsertPrincipal, { name: "agent-d", orgSlug: "harbor", scopes: ["quote", "acquire"], tokenHash: await sha256Hex("ixa_test_strict_buyer_token_dddddddddddd"), ttlDays: 1, policy: { maxPerPurchaseAtomic: "10000", sessionMaxAtomic: "10000", maxPurchases: 1, network: "eip155:84532" } });
+    const D = { svc: SVC, token: "ixa_test_strict_buyer_token_dddddddddddd" };
+    const q = await t.mutation(api.mcp.quote, { ...D, resolutionId });
+    expect(await errCode(t.mutation(api.mcp.acquire, { ...D, quoteId: q.quoteId, clientRequestId: "req-sim-denied", approved: approved(), simulate: true }))).toBe("FORBIDDEN");
+    // No CDP credentials in tests: x402 is unavailable and must say so instead of simulating.
+    expect(await errCode(t.mutation(api.mcp.acquire, { ...D, quoteId: q.quoteId, clientRequestId: "req-no-cdp", approved: approved() }))).toBe("PROVIDER_UNAVAILABLE");
+    expect(await t.run((ctx) => ctx.db.query("purchases").collect())).toHaveLength(0);
   });
   it("expired quotes are refused", async () => {
     const t = await setup();
@@ -161,11 +173,26 @@ describe("SECURITY GATE: evidence trust and stale callbacks", () => {
     const run = await t.mutation(api.mcp.recordRepairRun, { runnerSecret: RUNNER, principalName: "agent-b", repo: "repo-b", stage: "candidate", toolName: "runner", passed: true, total: 5, passedCount: 5, tests: [], changedFiles: [], candidateHash: "h", protectedSuiteHash: "s", resolutionId, mode: "local" });
     expect((await t.mutation(api.mcp.recordOutcome, { ...B, resolutionId, passed: true, evidenceRunId: run.runId, summary: "5/5" })).trust).toBe("runner_verified");
     expect((await t.mutation(api.mcp.recordOutcome, { ...B, resolutionId, passed: false, evidenceRunId: run.runId, summary: "mismatch" })).trust).toBe("reported_unverified");
+    // One outcome per evidence run: the same run cannot back a second verified claim.
+    expect((await t.mutation(api.mcp.recordOutcome, { ...B, resolutionId, passed: true, evidenceRunId: run.runId, summary: "again" })).trust).toBe("reported_unverified");
+  });
+  it("evidence for a different revision does not verify; diffs with secrets are refused", async () => {
+    const t = await setup();
+    const { resolutionId } = await publishOne(t);
+    const q = await t.mutation(api.mcp.quote, { ...B, resolutionId });
+    const r = await t.mutation(api.mcp.acquire, { ...B, quoteId: q.quoteId, clientRequestId: "req-outcome-2", approved: approved(), simulate: true });
+    await t.mutation(api.mcp.completeSimulated, { ...B, purchaseId: r.purchaseId });
+    const run = await t.mutation(api.mcp.recordRepairRun, { runnerSecret: RUNNER, principalName: "agent-b", repo: "repo-b", stage: "candidate", toolName: "runner", passed: true, total: 5, passedCount: 5, tests: [], changedFiles: [], candidateHash: "h", protectedSuiteHash: "s", resolutionId, mode: "local" });
+    await t.run((ctx) => ctx.db.patch(run.runId, { revision: 99 }));
+    expect((await t.mutation(api.mcp.recordOutcome, { ...B, resolutionId, passed: true, evidenceRunId: run.runId, summary: "5/5" })).trust).toBe("reported_unverified");
+    const leaky = "+const key = 'ix_canary_9fQ2kLm7Xw4Rt8Zp';";
+    expect(await errCode(t.mutation(api.mcp.recordRepairRun, { runnerSecret: RUNNER, principalName: "agent-b", repo: "repo-b", stage: "candidate", toolName: "runner", passed: true, total: 5, passedCount: 5, tests: [], diff: leaky, changedFiles: [], candidateHash: "h", protectedSuiteHash: "s", resolutionId, mode: "local" }))).toBe("SENSITIVE_CONTENT_DETECTED");
+    expect(await t.run((ctx) => ctx.db.query("repairRuns").collect())).toHaveLength(1);
   });
   it("runner callbacks from before a reset are rejected", async () => {
     const t = await setup();
     const gen = await t.query(api.mcp.generation, {});
-    await t.mutation(api.demo.reset, {});
+    await t.mutation(api.demo.reset, { actor: "review-desk" });
     expect(await errCode(t.mutation(api.mcp.recordRepairRun, { runnerSecret: RUNNER, generation: gen, principalName: "agent-b", repo: "repo-b", stage: "candidate", toolName: "runner", passed: true, total: 5, passedCount: 5, tests: [], changedFiles: [], candidateHash: "h", protectedSuiteHash: "s", mode: "local" }))).toBe("FORBIDDEN");
   });
 });

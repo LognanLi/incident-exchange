@@ -8,6 +8,7 @@ import { FIELD_LABELS, type DraftSource } from "../../../convex/lib/drafting";
 import { useSession } from "../../session";
 import { Boundary, ErrorBox, IntegrationBadge, Loading, RoleGate, useAction } from "../../components/ui";
 import { DraftTabs } from "./DraftTabs";
+import { Icon } from "../../components/icons";
 
 export default function PlaybookEditorPage() {
   return (
@@ -39,13 +40,10 @@ function PlaybookEditor() {
     <div>
       <DraftTabs draft={d} scanIsCurrent={data.scanIsCurrent} />
 
-      <div className="card toolbar">
+      <div className="toolbar editor-toolbar">
         <div>
-          <h2>Your shareable guide (six parts)</h2>
-          <p className="muted small">
-            Structure your notes into Recognize · Check · Contain · Recover · Verify · Limitations. Review each section
-            against your source notes, edit, and accept it individually.
-          </p>
+          <h2>Six-part guide</h2>
+          <p className="muted small">Check each section against your notes, then accept it.</p>
         </div>
         <div className="toolbar-actions">
           {moss && <IntegrationBadge state={moss.state} name="Moss" />}
@@ -69,28 +67,23 @@ function PlaybookEditor() {
 
       {d.draftEngine === "fallback" && (
         <div className="state state-info">
-          <strong>Drafted by the deterministic fallback.</strong> The sections below were assembled directly from your
-          own form answers — no new facts were added.
+          <strong>Drafted by the deterministic fallback.</strong> Built only from your answers — nothing added.
         </div>
       )}
       {d.draftEngine === "moss" && (
         <div className="state state-info">
-          <strong>Drafted by Moss.</strong> Moss Inference structured your incident answers (never your private notes or
-          evidence). Compare every section with your source notes before accepting it.
+          <strong>Drafted by Moss.</strong> From your answers only — never your private notes. Compare before accepting.
         </div>
       )}
 
       {!d.sections ? (
-        <div className="card state-empty">
-          <strong>No guide draft yet.</strong>
-          <span className="muted">Use “Draft with Moss” to structure your incident report into six sections.</span>
+        <div className="state state-empty">
+          <strong>No draft yet.</strong>
+          <span className="muted">Click “Draft with Moss” to start.</span>
         </div>
       ) : (
         <>
-          <Boundary kind="public">
-            Section text becomes buyer-visible after you approve it and a reviewer approves it. Source notes on the right
-            stay private.
-          </Boundary>
+          <Boundary kind="public">After your approval and review. Notes on the right stay private.</Boundary>
           {SECTION_KEYS.map((k) => (
             <SectionEditor key={k + "\u0000" + d.sections![k].body} draft={d} sectionKey={k} editable={editable} />
           ))}
@@ -105,7 +98,7 @@ function PlaybookEditor() {
               </button>
             )}
             <Link className={`btn ${acceptedCount === 6 ? "primary" : ""}`} to={`/contribute/drafts/${id}/privacy`}>
-              Next: privacy review →
+              Next: privacy review <Icon name="arrow" size={16} className="icon-arrow" />
             </Link>
           </div>
         </>
@@ -131,15 +124,15 @@ function SectionEditor({ draft, sectionKey, editable }: { draft: Doc<"incidentDr
         </div>
         <div className="section-meta">
           <span className={`badge origin origin-${section.origin}`}>
-            {section.origin === "fallback" ? "Fallback draft" : section.origin === "moss" ? "Moss draft" : "Edited by you"}
+            {section.origin === "fallback" ? "Fallback" : section.origin === "moss" ? "Moss" : "Edited"}
           </span>
-          {section.accepted ? <span className="badge ok">Accepted</span> : <span className="badge warn">Not accepted</span>}
+          {section.accepted ? <span className="badge ok">Accepted</span> : <span className="badge warn">To review</span>}
         </div>
       </div>
       <div className="split">
         <div>
           <label className="label" htmlFor={`body-${sectionKey}`}>
-            Buyer-facing text
+            Buyer sees
           </label>
           <textarea id={`body-${sectionKey}`} rows={6} value={body} onChange={(e) => setBody(e.target.value)} disabled={!editable} />
           {editable && (
@@ -166,9 +159,11 @@ function SectionEditor({ draft, sectionKey, editable }: { draft: Doc<"incidentDr
           <ErrorBox message={update.error} />
         </div>
         <aside className="source-notes" aria-label="Source notes">
-          <div className="label">🔒 Source notes (private)</div>
+          <div className="label boundary-tag">
+            <Icon name="lock" size={12} /> Your notes
+          </div>
           {section.sourceFields.length === 0 ? (
-            <p className="muted small">No source fields — written by you.</p>
+            <p className="muted small">Written by you.</p>
           ) : (
             section.sourceFields.map((label) => {
               const field = LABEL_TO_FIELD[label];

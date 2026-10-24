@@ -431,7 +431,7 @@ export default defineSchema({
     expiresAt: v.number(),
     revoked: v.boolean(),
     /** Spend policy installed by an operator; retrieved content can never change it. */
-    policy: v.object({ maxPerPurchaseAtomic: v.string(), sessionMaxAtomic: v.string(), maxPurchases: v.number(), network: v.string() }),
+    policy: v.object({ maxPerPurchaseAtomic: v.string(), sessionMaxAtomic: v.string(), maxPurchases: v.number(), network: v.string(), allowSimulator: v.optional(v.boolean()) }),
     createdAt: v.number(),
   })
     .index("by_tokenHash", ["tokenHash"])
@@ -492,6 +492,7 @@ export default defineSchema({
     isDemo: v.boolean(),
   })
     .index("by_playbook", ["playbookId"])
+    .index("by_evidenceRun", ["evidenceRunId"])
     .index("by_isDemo", ["isDemo"]),
 
   /** Minimal, redacted event metadata for the oversight console. */

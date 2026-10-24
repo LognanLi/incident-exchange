@@ -23,8 +23,11 @@ const STORY = [
 ];
 
 export default function Agents() {
-  const { actor } = useSession();
+  const session = useSession();
+  const { actor } = session;
   const o = useOverview(actor);
+  const reviewerSlug = session.slugForRole("reviewer");
+  const reviewerOrg = session.orgs?.find((x) => x.slug === reviewerSlug);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!o) return <Loading />;
@@ -51,19 +54,27 @@ export default function Agents() {
 
   return (
     <div className="agents">
-      <PageHeader eyebrow="Agents learning from each other" title="Agent activity">
+      <PageHeader eyebrow="Agents" title="Agents sharing fixes" sub="Agent A shares a verified fix. Agent B finds it, pays, adapts it, and proves it with tests.">
         <button className="btn primary" disabled={starting || running} onClick={() => void start(false)}>
-          {running ? "Running…" : "Run two-agent demo"}
+          {running ? "Running…" : "Run demo"}
         </button>
-        <button className="btn" disabled={starting || running} onClick={() => void start(true)} title="Same flow, explicit simulator instead of test USDC">
-          Run with simulated payment
+        <button className="btn" disabled={starting || running} onClick={() => void start(true)} title="Same flow, with a payment simulator instead of test USDC">
+          Simulated payment
         </button>
       </PageHeader>
+      {session.role !== "reviewer" && reviewerOrg && (
+        <div className="role-note">
+          <span>Runs are started by the reviewer.</span>
+          <button className="btn sm" onClick={() => session.setActor(reviewerOrg.slug)}>
+            Switch to {reviewerOrg.displayName}
+          </button>
+        </div>
+      )}
       <ErrorBox message={error} />
       {job && (
-        <p className="small muted">
-          Last run: <strong>{job.status}</strong>
-          {job.stage ? ` · ${job.stage}` : ""} · started {formatDate(job.startedAt)}
+        <p className="run-meta">
+          Last run · {job.status}
+          {job.stage ? ` · ${job.stage}` : ""} · {formatDate(job.startedAt)}
           {job.error ? ` · ${job.error}` : ""}
         </p>
       )}
@@ -88,7 +99,7 @@ export default function Agents() {
               <span className="small muted">{name === "contributor" ? "repo-a · Northstar Cloud" : "repo-b · Harbor Analytics"}</span>
             </div>
             {lane(name).length === 0 ? (
-              <p className="muted small">No activity yet. Run the demo or the connector CLI.</p>
+              <p className="muted small">No activity yet.</p>
             ) : (
               <ul className="events stagger">
                 {lane(name).map((e) => (
@@ -109,7 +120,7 @@ export default function Agents() {
       </div>
 
       <section className="card">
-        <h2>Repair evidence (repo B)</h2>
+        <h2>Repair in repo B</h2>
         {!bCand ? (
           <p className="muted small">No candidate patch yet.</p>
         ) : (
@@ -132,17 +143,14 @@ export default function Agents() {
               </ul>
               {bCand.diff && <pre className="diff-view" aria-label="Proposed diff">{bCand.diff}</pre>}
             </div>
-            <p className="small muted">
-              Factory Droid proposed the patch in an isolated copy of repo B (tools: Read/LS/ApplyPatch). The connector checked the
-              changed paths, then a separate protected runner tested it. Failed candidates are discarded; repo B itself is never modified.
-            </p>
+            <p className="small muted">Factory Droid patched an isolated copy; protected tests decided. Repo B itself is never modified.</p>
           </>
         )}
       </section>
 
       <div className="grid-2">
         <section className="card">
-          <h2>Security enforcement</h2>
+          <h2>Security</h2>
           {security.length === 0 ? (
             <p className="muted small">No denials yet.</p>
           ) : (
@@ -154,10 +162,11 @@ export default function Agents() {
               ))}
             </ul>
           )}
-          <p className="small muted">Values are never shown — only categories and decisions. Quarantined submissions: {o.submissions.filter((s) => s.moderation === "quarantined").length}.</p>
+          <p className="small muted">Only categories are shown, never values · {o.submissions.filter((s) => s.moderation === "quarantined").length} quarantined</p>
         </section>
         <section className="card">
           <h2>Policies</h2>
+          <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
@@ -183,7 +192,8 @@ export default function Agents() {
               ))}
             </tbody>
           </table>
-          <p className="small muted">Installed by an operator; retrieved content can never change these.</p>
+          </div>
+          <p className="small muted">Set by an operator. Retrieved content can’t change them.</p>
         </section>
       </div>
 
@@ -192,12 +202,13 @@ export default function Agents() {
         {o.purchases.length === 0 ? (
           <p className="muted small">No agent purchases yet.</p>
         ) : (
+          <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
                 <th>Status</th>
                 <th>Amount</th>
-                <th>Contributor accrual (not paid out)</th>
+                <th>Contributor (accrued)</th>
                 <th>Platform</th>
                 <th>Settlement</th>
               </tr>
@@ -224,6 +235,7 @@ export default function Agents() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </div>

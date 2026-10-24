@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, cpSync, readFileSyn
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 // @ts-expect-error plain JS modules
-import { stageField, enforceCandidate, snapshot, safeRead } from "../connector/lib/policy.mjs";
+import { stageField, enforceCandidate, snapshot, safeRead, checkCandidateContent } from "../connector/lib/policy.mjs";
 // @ts-expect-error plain JS modules
 import { buildPrompt } from "../connector/lib/factoryRepair.mjs";
 // @ts-expect-error plain JS modules
@@ -86,5 +86,14 @@ describe("safe rendering", () => {
   it("the web console never renders raw HTML from content", () => {
     const files = readdirSync(join(ROOT, "src"), { recursive: true }).map(String).filter((f) => f.endsWith(".tsx"));
     for (const f of files) expect(readFileSync(join(ROOT, "src", f), "utf8")).not.toMatch(/dangerouslySetInnerHTML|innerHTML\s*=/);
+  });
+
+  it("candidate code cannot add imports, dynamic code, process, or network access", () => {
+    const orig = readFileSync(join(ROOT, "sample-repos/repo-b/src/consumer/messageConsumer.mjs"), "utf8");
+    expect(() => checkCandidateContent(orig, orig)).not.toThrow();
+    const bad = ['import net from "node:net";\n' + orig, orig + '\nawait import("node:fs");', orig + '\neval("1");', orig + '\nnew Function("x");', orig + '\nrequire("fs");', orig + "\nprocess.env.X;", orig + '\nfetch("http://127.0.0.1:3299");', orig + '\nglobalThis["process"];'];
+    for (const c of bad) expect(() => checkCandidateContent(orig, c)).toThrow();
+    const a = readFileSync(join(ROOT, "sample-repos/repo-a/src/handler.mjs"), "utf8");
+    expect(() => checkCandidateContent(a, readFileSync(join(ROOT, "sample-repos/repo-a/reference-fix/handler.mjs"), "utf8"))).not.toThrow();
   });
 });

@@ -5,7 +5,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { FEEDBACK_LABELS, OUTCOME_OPTIONS, RELEVANCE_OPTIONS } from "../../../convex/lib/domain";
 import { useSession } from "../../session";
-import { Empty, ErrorBox, Loading, PageHeader, RoleGate, SuccessBox, useAction } from "../../components/ui";
+import { Empty, ErrorBox, Loading, PageHeader, RoleGate, useAction } from "../../components/ui";
 
 type Relevance = (typeof RELEVANCE_OPTIONS)[number];
 type Outcome = (typeof OUTCOME_OPTIONS)[number];
@@ -35,22 +35,24 @@ function FeedbackForm() {
   if (saved) {
     return (
       <div>
-        <PageHeader eyebrow="Outcome feedback" title="Thanks — feedback saved" />
-        <SuccessBox>
-          Your outcome was recorded for “{pb.publicTitle}”. Reviewers use it to improve the guide for future responders.
-        </SuccessBox>
-        <p>
-          <Link to={`/playbooks/${id}`}>Back to the playbook</Link> · <Link to="/playbooks">Find another playbook</Link>
-        </p>
+        <PageHeader eyebrow="Outcome" title="Thanks — feedback saved" sub={pb.publicTitle} />
+        <div className="row gap wrap">
+          <Link className="btn" to={`/playbooks/${id}`}>
+            Back to the guide
+          </Link>
+          <Link className="btn ghost" to="/playbooks">
+            Find another fix
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
     <div>
-      <PageHeader eyebrow="Outcome feedback" title={pb.publicTitle} />
+      <PageHeader eyebrow="Report your outcome" title={pb.publicTitle} />
       <form
-        className="card feedback-form"
+        className="feedback-form"
         onSubmit={async (e) => {
           e.preventDefault();
           if (!relevance || !outcome) return;
@@ -58,7 +60,7 @@ function FeedbackForm() {
         }}
       >
         <fieldset>
-          <legend className="label">How relevant was this guide to your situation?</legend>
+          <legend className="label">How relevant was it?</legend>
           {RELEVANCE_OPTIONS.map((r) => (
             <label key={r} className="radio">
               <input type="radio" name="relevance" checked={relevance === r} onChange={() => setRelevance(r)} />
@@ -67,7 +69,7 @@ function FeedbackForm() {
           ))}
         </fieldset>
         <fieldset>
-          <legend className="label">What was the outcome?</legend>
+          <legend className="label">Did it fix the problem?</legend>
           {OUTCOME_OPTIONS.map((o) => (
             <label key={o} className="radio">
               <input type="radio" name="outcome" checked={outcome === o} onChange={() => setOutcome(o)} />
@@ -79,7 +81,7 @@ function FeedbackForm() {
           <label className="label" htmlFor="notes">
             Notes (optional)
           </label>
-          <span className="hint">Do not include credentials, personal data, or customer data.</span>
+          <span className="hint">No credentials or personal data.</span>
           <textarea id="notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         <ErrorBox message={submit.error} />

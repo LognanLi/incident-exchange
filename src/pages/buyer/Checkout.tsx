@@ -50,17 +50,26 @@ function Checkout() {
   return (
     <div className="checkout">
       <PageHeader eyebrow="Checkout" title="Unlock the full guide" />
-      <div className="grid-2 align-start">
+      <div className="checkout-grid">
         <section className="card">
           <h2>{pb.publicTitle}</h2>
-          <EvidenceBadge level={pb.evidenceLevel} explain />
-          <h3>What unlocks</h3>
-          <ul className="bullets">
-            <li>Check — defensive evidence to collect and safe checks</li>
-            <li>Contain — steps to limit additional harm</li>
-            <li>Recover — corrective and restoration steps</li>
-            <li>Verify — a checklist to confirm the issue is resolved</li>
-            <li>Grounded Q&A over all six sections</li>
+          <EvidenceBadge level={pb.evidenceLevel} />
+          <ul className="unlock-list">
+            <li>
+              <strong>Check</strong> Evidence to collect, safely
+            </li>
+            <li>
+              <strong>Contain</strong> Limit further harm
+            </li>
+            <li>
+              <strong>Recover</strong> Fix and restore
+            </li>
+            <li>
+              <strong>Verify</strong> Confirm it’s resolved
+            </li>
+            <li>
+              <strong>Q&A</strong> Ask the full guide
+            </li>
           </ul>
           <table className="split-table">
             <tbody>
@@ -84,29 +93,25 @@ function Checkout() {
               </tr>
             </tbody>
           </table>
-          <p className="small muted">Prototype 80/20 split — a demo assumption, not finalized commercial policy.</p>
+          <p className="small muted">80/20 split is a demo assumption.</p>
         </section>
 
         {!purchaseId ? (
           <section className={`card ${options.x402Ready ? "x402-card" : "simulator"}`}>
             {options.x402Ready ? (
               <>
-                <div className="x402-banner">COINBASE x402 · BASE SEPOLIA TESTNET</div>
+                <div className="x402-banner">Coinbase x402 · Base Sepolia testnet</div>
                 <p>
-                  Pays <strong>
+                  Pay <strong>
                     <Money atomic={pb.priceAtomic} />
                   </strong>{" "}
-                  in <strong>test USDC</strong> on Base Sepolia from a backend Coinbase-managed buyer wallet, capped at 1.00
-                  USDC per payment. Test tokens have no real value.
+                  in test USDC. No real value; capped at 1.00 per payment.
                 </p>
               </>
             ) : (
               <>
-                <div className="sim-banner">DEMO PAYMENT — SIMULATED</div>
-                <p>
-                  Coinbase x402 is not set up on this deployment, so checkout uses a payment <strong>simulator</strong>.
-                  No wallet is connected, no funds move, and nothing is settled on any network.
-                </p>
+                <div className="sim-banner">Demo payment — simulated</div>
+                <p>x402 isn’t set up here, so this uses a simulator. No money moves.</p>
               </>
             )}
             <div className="license-box">
@@ -114,11 +119,14 @@ function Checkout() {
                 <strong>Data Use License {LICENSE_VERSION}</strong>
                 <span className={`tlp tlp-${pb.tlp}`}>{TLP_INFO[pb.tlp].label}</span>
               </div>
-              <ul className="bullets small">
-                {LICENSE_TERMS.map((t) => (
-                  <li key={t}>{t}</li>
-                ))}
-              </ul>
+              <details>
+                <summary>Read terms</summary>
+                <ul className="bullets small">
+                  {LICENSE_TERMS.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              </details>
               <label className="check">
                 <input type="checkbox" checked={license} onChange={(e) => setLicense(e.target.checked)} />I agree on behalf of my organization.
               </label>
@@ -141,7 +149,7 @@ function Checkout() {
           </section>
         ) : purchase.provider === "x402_test" && purchase.x402 ? (
           <section className="card x402-card">
-            <div className="x402-banner">COINBASE x402 · BASE SEPOLIA TESTNET</div>
+            <div className="x402-banner">Coinbase x402 · Base Sepolia testnet</div>
             <table className="split-table">
               <tbody>
                 <tr>
@@ -176,16 +184,12 @@ function Checkout() {
                 </tr>
               </tbody>
             </table>
-            <p className="small muted">
-              The backend wallet signs an x402 payment (EIP-3009 authorization); the Coinbase facilitator verifies and
-              settles it on Base Sepolia. The guide unlocks only after settlement succeeds.
-            </p>
+            <p className="small muted">The guide unlocks once the payment settles on-chain.</p>
             {purchase.x402.error && <ErrorBox message={purchase.x402.error} />}
             <ErrorBox message={payX402.error ?? reconcile.error} />
             {purchase.x402.nonce && (
               <div className="state state-info small">
-                A payment for this purchase was signed and is being confirmed on Base Sepolia. To avoid charging you twice,
-                check its status instead of paying again.{" "}
+                A payment is already being confirmed. Check its status instead of paying again.{" "}
                 <button
                   className="btn sm"
                   disabled={reconcile.pending}
@@ -219,21 +223,16 @@ function Checkout() {
                   if (pid) setPurchaseId(pid);
                 }}
               >
-                Use demo simulator instead
+                Use simulator instead
               </button>
             </div>
           </section>
         ) : (
           <section className="card simulator">
-            <div className="sim-banner">DEMO PAYMENT — SIMULATED</div>
-            <p>
-              Payment <strong>simulator</strong>: no wallet is connected, no funds move, and nothing is settled on any
-              network.
-            </p>
+            <div className="sim-banner">Demo payment — simulated</div>
             <div className="sim-step">
-              <div className="small muted">Simulator step</div>
               <p>
-                Pending demo charge of <Money atomic={pb.priceAtomic} />.
+                Demo charge: <strong><Money atomic={pb.priceAtomic} /></strong>. No money moves.
               </p>
               <label className="check">
                 <input type="checkbox" checked={understood} onChange={(e) => setUnderstood(e.target.checked)} />I understand

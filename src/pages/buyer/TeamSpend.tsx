@@ -27,14 +27,14 @@ function TeamSpend() {
   const input = value ?? formatAtomic(data.monthlyBudgetAtomic);
   return (
     <div>
-      <PageHeader eyebrow={data.org.displayName} title="Team & budget">
+      <PageHeader eyebrow={data.org.displayName} title="Budget">
         {data.org.verified && (
           <span className="verified">
-            <Icon name="check" size={16} /> Verified organization · {data.org.verifiedDomain}
+            <Icon name="check" size={14} /> Verified · {data.org.verifiedDomain}
           </span>
         )}
       </PageHeader>
-      <div className="grid-2">
+      <div className="grid-2 align-start">
         <section className="card">
           <h2>This month</h2>
           <div className="big-stat stat-num">
@@ -43,12 +43,12 @@ function TeamSpend() {
           <div className="meter" role="progressbar" aria-label="Monthly budget used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(pct, 100)}>
             <span style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
-          <p className="small muted">Purchases that would go over the budget are blocked until a manager raises it.</p>
+          <p className="small muted">Purchases over budget are blocked.</p>
         </section>
         <section className="card">
           <h2>Monthly budget</h2>
           <form
-            className="row gap"
+            className="row gap budget-form"
             onSubmit={async (e) => {
               e.preventDefault();
               setSaved(false);
@@ -66,15 +66,15 @@ function TeamSpend() {
             </button>
           </form>
           <ErrorBox message={setBudget.error} />
-          {saved && <SuccessBox>Budget updated and recorded in the audit log.</SuccessBox>}
-          <p className="small muted">Coming for Team plans: per-person limits, approval for purchases over a threshold, SSO.</p>
+          {saved && <SuccessBox>Budget saved.</SuccessBox>}
         </section>
       </div>
       <section className="card">
-        <h2>Team activity</h2>
+        <h2>Activity</h2>
         {data.events.length === 0 ? (
           <p className="muted small">No activity yet.</p>
         ) : (
+          <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
@@ -97,6 +97,7 @@ function TeamSpend() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </div>

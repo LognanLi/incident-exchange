@@ -17,7 +17,7 @@ const CHECKLIST = {
 
 async function seeded() {
   const t = convexTest(schema, modules);
-  await t.mutation(api.demo.reset, {});
+  await t.mutation(api.demo.reset, { actor: "review-desk" });
   const mine = await t.query(api.drafts.listMine, { actor: "northstar" });
   return { t, draftId: mine.drafts[0]._id };
 }
@@ -92,7 +92,9 @@ describe("contributor → reviewer → buyer lifecycle", () => {
     expect(await t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId, acceptLicense: true })).toBe(purchaseId);
 
     const earnings = await t.query(api.drafts.listMine, { actor: "northstar" });
-    expect(earnings.accruedAtomic).toBe("400000");
+    // Simulator purchases never count as earnings; they are reported separately.
+    expect(earnings.accruedAtomic).toBe("0");
+    expect(earnings.simulatedAccruedAtomic).toBe("400000");
     expect(earnings.paidOutAtomic).toBe("0");
 
     // Feedback reaches the reviewer.
@@ -141,7 +143,7 @@ describe("contributor → reviewer → buyer lifecycle", () => {
   it("reset restores the seeded state", async () => {
     const { t, draftId } = await seeded();
     await prepareAndSubmit(t, draftId);
-    await t.mutation(api.demo.reset, {});
+    await t.mutation(api.demo.reset, { actor: "review-desk" });
     const mine = await t.query(api.drafts.listMine, { actor: "northstar" });
     expect(mine.drafts).toHaveLength(1);
     expect(mine.drafts[0].status).toBe("draft");
@@ -227,7 +229,7 @@ describe("revisions and payments", () => {
 
   it("a stale Factory callback after reset is rejected", async () => {
     const { t, draftId } = await seeded();
-    await t.mutation(api.demo.reset, {});
+    await t.mutation(api.demo.reset, { actor: "review-desk" });
     await expect(
       t.mutation(api.validation.recordFactoryRun, {
         actor: "review-desk", draftId, runnerSecret: "x", toyCase: "webhook",
