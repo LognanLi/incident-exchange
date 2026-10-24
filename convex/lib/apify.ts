@@ -66,7 +66,7 @@ export async function fetchWithApify(token: string, actorId: string, categories:
   const timer = setTimeout(() => controller.abort(), 120_000);
   try {
     const res = await fetch(
-      `https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/run-sync-get-dataset-items?timeout=110`,
+      `https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/run-sync-get-dataset-items?timeout=110&memory=1024`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },

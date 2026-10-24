@@ -12,15 +12,31 @@ For each sponsor, the most useful items are:
 ---
 
 ## Moss: playbook drafting and grounded Q&A
-- Currently: deterministic fallback (`convex/lib/drafting.ts`, `convex/lib/qa.ts`).
-- Open question: Moss's public npm SDK (`@inferedge/moss`) is a semantic-search/retrieval runtime, not a text generator. Confirm whether the sponsor expects Moss for **retrieval over approved sections** (most natural fit for grounded Q&A) and/or offers a generation endpoint for drafting.
-- Needed: docs link, project ID/key names, whether indexes are created per playbook or per tenant, Node runtime requirements.
-- Hook points: `drafts.generateSections` (drafting) and `playbooks.ask` (Q&A). Only buyer-accessible sections may be sent. Never send `privateNotes`.
+- ✅ **Connected and verified.** Drafting uses Moss Inference (`drafts.draftPlaybook`). Q&A uses per-guide preview/full indexes built at publish (`convex/mossIndex.ts`) and retrieved through Moss Inference (`playbooks.askPlaybook`).
+- Plan limit hit during testing: index builds beyond three per project are rejected. Q&A then uses Moss Inference with sections passed in directly, labeled in the UI.
+
+KEYS:
+
+MOSS_PROJECT_ID=<set in .secrets.local / Convex env>
+MOSS_PROJECT_KEY=<set in .secrets.local / Convex env>
+
+DOCS: 
+https://docs.moss.dev/docs
+
 
 ## Apify: public reference retrieval
-- Currently: implemented (`convex/lib/apify.ts`) but **not yet exercised**, because no token is set.
-- Needed: `APIFY_TOKEN`, plus confirmation of the Actor to use (default `apify~website-content-crawler`) and whether the event provides credits.
+- ✅ **Connected and verified.** A live crawl returned three allowlisted references.
+- Needed: `APIFY_TOKEN`, plus confirmation of the Actor to use (default `apify~website-content-crawler`) and whether the event provides credits
 - To verify: `npx convex env set APIFY_TOKEN …`, then click **Fetch references** in the reviewer console. The badge must change to *Connected*.
+GET
+https://api.apify.com/v2/actors?token=$APIFY_TOKEN
+
+
+Creates a new Actor. The POST payload must be a JSON object with Actor properties.
+POST
+https://api.apify.com/v2/actors?token=$APIFY_TOKEN
+
+
 
 ## Coinbase x402: paid access
 - Currently: demo simulator (`convex/purchases.ts`).
@@ -28,9 +44,25 @@ For each sponsor, the most useful items are:
 - Hook point: add an `x402_test` provider beside `demo_simulator`. Unlock only after the facilitator verifies the payment and returns success.
 
 ## Factory Droid: defensive patch workflow
-- Currently: “Local demo adapter”. The `droid` CLI is not installed on this machine.
+- ✅ **Connected and verified** through `scripts/factory-runner.mjs` (started by `npm run dev`). `droid` is a project dev dependency.
 - Needed: install method (CLI/SDK), API key name, and a confirmed way to restrict it to an allowlist: inspect `convex/lib/toyAuth.ts`, apply a patch, run `npm test -- tests/domain.test.ts`. No arbitrary shell, network, or deployment access.
+
+API key: FACTORY_API_KEY (value in .secrets.local)
 
 ## Armadin: authorized validation
 - Currently: local validator. It is never attributed to Armadin.
 - Needed: the event-supported interface, plus proof that the target can be locked to the local toy app only. No public scanning.
+
+
+
+Here are my keys: 
+
+GET
+https://api.apify.com/v2/actors?token=$APIFY_TOKEN
+
+
+Creates a new Actor. The POST payload must be a JSON object with Actor properties.
+POST
+https://api.apify.com/v2/actors?token=$APIFY_TOKEN
+
+

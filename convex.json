@@ -2,5 +2,10 @@
   "$schema": "node_modules/convex/schemas/convex.schema.json",
   "aiFiles": {
     "enabled": false
+  },
+  "node": {
+    "externalPackages": [
+      "@moss-js/moss"
+    ]
   }
 }

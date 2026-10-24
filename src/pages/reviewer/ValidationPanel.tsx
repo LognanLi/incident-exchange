@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -5,12 +6,45 @@ import { useSession } from "../../session";
 import { ErrorBox, IntegrationBadge, Loading, formatDate, useAction } from "../../components/ui";
 
 const STEP_LABEL = { before: "Check before fix", fix: "Defensive fix", after: "Check after fix" } as const;
+const RUNNER_URL = (import.meta.env.VITE_FACTORY_RUNNER_URL as string | undefined) ?? "http://127.0.0.1:3299";
+
+/** Is the local Factory runner (scripts/factory-runner.mjs) up and configured? */
+function useFactoryRunner() {
+  const [ready, setReady] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${RUNNER_URL}/health`)
+      .then((r) => r.json())
+      .then((b: { ready?: boolean }) => !cancelled && setReady(!!b.ready))
+      .catch(() => !cancelled && setReady(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return ready;
+}
+
+async function runFactoryPatch(actor: string, draftId: string): Promise<{ summary: string }> {
+  const res = await fetch(`${RUNNER_URL}/patch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ actor, draftId }),
+  });
+  const body = (await res.json().catch(() => ({}))) as { error?: string; summary?: string };
+  if (!res.ok) throw new Error(body.error ?? `Factory runner responded ${res.status}`);
+  return { summary: body.summary ?? "" };
+}
 
 export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) {
   const { actor } = useSession();
   const data = useQuery(api.validation.panel, { actor, draftId });
   const runCheck = useAction(useMutation(api.validation.runCheck));
   const applyFix = useAction(useMutation(api.validation.applyFix));
+  const factory = useAction(runFactoryPatch);
+  const runnerReady = useFactoryRunner();
+  const integrations = useQuery(api.integrations.status);
+  const factoryState = integrations?.find((i) => i.key === "factory")?.state;
+  const armadinState = integrations?.find((i) => i.key === "armadin")?.state;
 
   if (!data) return <Loading />;
   const t = data.target;
@@ -18,15 +52,15 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
   const lastBefore = [...runs].reverse().find((r) => r.step === "before");
   const lastFix = [...runs].reverse().find((r) => r.step === "fix");
   const lastAfter = [...runs].reverse().find((r) => r.step === "after");
-  const busy = runCheck.pending || applyFix.pending;
+  const busy = runCheck.pending || applyFix.pending || factory.pending;
 
   return (
     <section className="card validation">
       <div className="toolbar">
         <h3>Validation panel</h3>
         <div className="toolbar-actions">
-          <IntegrationBadge state="unavailable" name="Factory Droid" />
-          <IntegrationBadge state="unavailable" name="Armadin" />
+          {factoryState && <IntegrationBadge state={runnerReady === false && factoryState !== "unavailable" ? "error" : factoryState} name="Factory Droid" />}
+          {armadinState && <IntegrationBadge state={armadinState} name="Armadin" />}
         </div>
       </div>
       {!t ? (
@@ -57,9 +91,15 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
               </button>
             </StepCard>
             <StepCard n={2} title={STEP_LABEL.fix} run={lastFix}>
+              {runnerReady && (
+                <button className="btn sm primary" disabled={busy || !lastBefore} onClick={() => void factory.run(actor, draftId)}>
+                  {factory.pending ? "Factory Droid working…" : "Apply fix with Factory Droid"}
+                </button>
+              )}
               <button className="btn sm" disabled={busy || !lastBefore} onClick={() => void applyFix.run({ actor, draftId })}>
-                Apply defensive fix
+                {runnerReady ? "Use local demo adapter" : "Apply defensive fix"}
               </button>
+              {runnerReady === false && <span className="small muted">Factory runner offline — local demo adapter only.</span>}
             </StepCard>
             <StepCard n={3} title={STEP_LABEL.after} run={lastAfter}>
               <button className="btn sm" disabled={busy || !lastFix} onClick={() => void runCheck.run({ actor, draftId, step: "after" })}>
@@ -72,7 +112,7 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
               {lastFix.patchSummary}
             </pre>
           )}
-          <ErrorBox message={runCheck.error ?? applyFix.error} />
+          <ErrorBox message={runCheck.error ?? applyFix.error ?? factory.error} />
           {runs.length > 0 && (
             <details className="run-log">
               <summary>Run log ({runs.length})</summary>

@@ -245,6 +245,19 @@ export default defineSchema({
     .index("by_playbook", ["playbookId"])
     .index("by_isDemo", ["isDemo"]),
 
+  /** Moss indexes built from published playbook sections (preview = free sections only). */
+  mossIndexes: defineTable({
+    playbookId: v.id("playbooks"),
+    scope: v.union(v.literal("preview"), v.literal("full")),
+    name: v.string(),
+    status: v.union(v.literal("building"), v.literal("ready"), v.literal("failed")),
+    error: v.optional(v.string()),
+    isDemo: v.boolean(),
+    updatedAt: v.number(),
+  })
+    .index("by_playbook_scope", ["playbookId", "scope"])
+    .index("by_isDemo", ["isDemo"]),
+
   integrationEvents: defineTable({
     integration: v.string(),
     outcome: v.union(v.literal("success"), v.literal("failure"), v.literal("fallback")),

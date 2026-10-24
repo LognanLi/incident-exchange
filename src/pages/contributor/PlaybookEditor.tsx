@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction as useConvexAction, useMutation, useQuery } from "convex/react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
@@ -24,7 +24,10 @@ function PlaybookEditor() {
   const { actor } = useSession();
   const id = draftId as Id<"incidentDrafts">;
   const data = useQuery(api.drafts.getMine, { actor, draftId: id });
-  const generate = useAction(useMutation(api.drafts.generateSections));
+  const generate = useAction(useConvexAction(api.drafts.draftPlaybook));
+  const integrations = useQuery(api.integrations.status);
+  const moss = integrations?.find((i) => i.key === "moss");
+  const [draftMessage, setDraftMessage] = useState<string | null>(null);
   const acceptAll = useAction(useMutation(api.drafts.acceptAllSections));
 
   if (!data) return <Loading />;
@@ -45,14 +48,15 @@ function PlaybookEditor() {
           </p>
         </div>
         <div className="toolbar-actions">
-          <IntegrationBadge state="demo" name="Moss" />
+          {moss && <IntegrationBadge state={moss.state} name="Moss" />}
           {editable && (
             <button
               className="btn primary"
               disabled={generate.pending}
               onClick={() => {
                 if (d.sections && !confirm("Replace all six sections with a fresh draft? Your edits will be lost.")) return;
-                void generate.run({ actor, draftId: id });
+                setDraftMessage(null);
+                void generate.run({ actor, draftId: id }).then((r) => r && setDraftMessage(r.message));
               }}
             >
               {generate.pending ? "Drafting…" : d.sections ? "Re-draft with Moss" : "Draft with Moss"}
@@ -61,11 +65,18 @@ function PlaybookEditor() {
         </div>
       </div>
       <ErrorBox message={generate.error} />
+      {draftMessage && <div className="state state-info small">{draftMessage}</div>}
 
       {d.draftEngine === "fallback" && (
         <div className="state state-info">
-          <strong>Drafted by the deterministic fallback.</strong> Moss is not connected in this build, so the sections
-          below were assembled directly from your own form answers — no new facts were added.
+          <strong>Drafted by the deterministic fallback.</strong> The sections below were assembled directly from your
+          own form answers — no new facts were added.
+        </div>
+      )}
+      {d.draftEngine === "moss" && (
+        <div className="state state-info">
+          <strong>Drafted by Moss.</strong> Moss Inference structured your incident answers (never your private notes or
+          evidence). Compare every section with your source notes before accepting it.
         </div>
       )}
 

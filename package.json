@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "setup": "CONVEX_AGENT_MODE=anonymous convex dev --once",
-    "dev": "npm-run-all --parallel dev:backend dev:frontend",
+    "dev": "npm-run-all --parallel dev:backend dev:frontend dev:factory",
     "dev:frontend": "vite --open=false",
     "dev:backend": "convex dev",
+    "dev:factory": "node scripts/factory-runner.mjs",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b && tsc -p convex --noEmit",
     "test": "vitest run",
@@ -15,6 +16,7 @@
     "demo:reset": "convex run demo:reset"
   },
   "dependencies": {
+    "@moss-js/moss": "^1.21.0",
     "convex": "^1.48.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -28,6 +30,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "convex-test": "^0.0.65",
+    "droid": "^0.249.0",
     "npm-run-all2": "^9.0.4",
     "playwright-core": "^1.64.1",
     "typescript": "~5.9.3",

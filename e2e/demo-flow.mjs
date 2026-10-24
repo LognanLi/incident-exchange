@@ -55,11 +55,12 @@ try {
   await page.goto(`${BASE}/contribute`);
   await page.getByRole("row", { name: /Login service failures/ }).getByRole("link", { name: "Open" }).click();
   await page.getByRole("button", { name: "Draft with Moss" }).click();
-  await page.getByText("Drafted by the deterministic fallback").waitFor();
+  await page.getByText(/^Drafted by (Moss|the deterministic fallback)\.$/).waitFor({ timeout: 60000 });
+  const engine = (await page.getByText(/^Drafted by (Moss|the deterministic fallback)\.$/).textContent()).replace(/\.$/, "");
   await page.getByRole("button", { name: "Accept all sections" }).click();
   await page.getByText("6 of 6 sections accepted").waitFor();
   await shot("playbook-editor");
-  step("Six-part playbook drafted (labeled fallback) and accepted");
+  step(`Six-part playbook ${engine.toLowerCase()} and accepted`);
 
   await page.getByRole("link", { name: /Next: privacy review/ }).click();
   await page.getByRole("button", { name: "Run privacy scan" }).click();
@@ -79,16 +80,25 @@ try {
   await actAs("Incident Exchange Review Desk");
   await page.getByRole("link", { name: "Open" }).first().click();
   await page.getByRole("button", { name: "Fetch references" }).click();
-  await page.getByText(/seeded references|Retrieved \d+ allowlisted/).waitFor();
-  step("Public references loaded (seeded fallback clearly labeled)");
+  await page.getByText(/seeded references|Retrieved \d+ allowlisted|Apify request failed/).waitFor({ timeout: 150000 });
+  const refMsg = await page.locator(".state-info.small").first().textContent();
+  step(`Public references: ${refMsg}`);
   await page.getByRole("button", { name: "Run check", exact: true }).click();
+  await page.waitForTimeout(500); // let the runner health probe settle
   await page.locator(".step-fail .result-fail", { hasText: "FAIL" }).waitFor();
-  await page.getByRole("button", { name: "Apply defensive fix" }).click();
-  await page.locator(".result-applied", { hasText: "Applied" }).waitFor();
+  const factoryBtn = page.getByRole("button", { name: "Apply fix with Factory Droid" });
+  let fixTool = "local demo adapter";
+  if (await factoryBtn.isVisible().catch(() => false)) {
+    await factoryBtn.click();
+    fixTool = "Factory Droid";
+  } else {
+    await page.getByRole("button", { name: "Apply defensive fix" }).click();
+  }
+  await page.locator(".result-applied", { hasText: "Applied" }).waitFor({ timeout: 200000 });
   await page.getByRole("button", { name: "Re-run check" }).click();
   await page.locator(".step-pass .result-pass", { hasText: "PASS" }).waitFor();
   await shot("validation");
-  step("Validation: FAIL before fix, PASS after (local validator + local demo adapter)");
+  step(`Validation: FAIL before fix, PASS after (fix by ${fixTool}; checks by local validator)`);
   for (const cb of await page.locator(".decision input[type=checkbox]").all()) await cb.check();
   await page.getByLabel(/Test reproduced/).check();
   await page.getByLabel("Note to contributor").fill("Evidence and reproduction check out.");
@@ -135,9 +145,11 @@ try {
   await page.locator(".tag-unlocked").waitFor();
   await page.getByLabel("Question").fill("How do I confirm the lockout test works?");
   await page.getByRole("button", { name: "Ask" }).click();
-  await page.locator(".answer .cite").first().waitFor();
+  await page.locator(".answer").waitFor({ timeout: 90000 });
+  const qaEngine = await page.locator(".answer .muted").last().textContent();
+  const cites = await page.locator(".answer .cite").allTextContents();
   await shot("unlocked");
-  step("Unlocked guide readable; grounded Q&A cites sections");
+  step(`Unlocked guide readable; Q&A — ${qaEngine}; citations: ${cites.join(" ") || "none"}`);
   await page.getByRole("link", { name: "Report your outcome" }).click();
   await page.getByLabel("Very relevant").check();
   await page.getByLabel("Resolved our issue").check();

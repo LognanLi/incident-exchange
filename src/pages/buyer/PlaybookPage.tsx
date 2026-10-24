@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction as useConvexAction, useQuery } from "convex/react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { CONTRIBUTOR_SHARE_PERCENT, PLATFORM_SHARE_PERCENT, SECTION_INFO, URGENT_SAFETY_ADVICE } from "../../../convex/lib/domain";
 import { splitRevenue } from "../../../convex/lib/money";
+import { NOT_ENOUGH_INFO } from "../../../convex/lib/qa";
 import { useSession } from "../../session";
 import { BulletText, Empty, ErrorBox, EvidenceBadge, IntegrationBadge, Loading, Money, formatDate, useAction } from "../../components/ui";
 
@@ -198,14 +199,16 @@ function VerifyChecklist({ text }: { text: string }) {
 
 function QaBox({ playbookId, unlocked }: { playbookId: Id<"playbooks">; unlocked: boolean }) {
   const { actor } = useSession();
-  const ask = useAction(useMutation(api.playbooks.ask));
+  const ask = useAction(useConvexAction(api.playbooks.askPlaybook));
+  const integrations = useQuery(api.integrations.status);
+  const moss = integrations?.find((i) => i.key === "moss");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Awaited<ReturnType<typeof ask.run>>>(undefined);
   return (
     <section className="card qa">
       <div className="toolbar">
         <h3>Ask this playbook</h3>
-        <IntegrationBadge state="demo" name="Moss" />
+        {moss && <IntegrationBadge state={moss.state} name="Moss" />}
       </div>
       <p className="small muted">
         Answers come only from this guide’s {unlocked ? "sections" : "free preview sections (unlock for the rest)"}, with
@@ -227,7 +230,7 @@ function QaBox({ playbookId, unlocked }: { playbookId: Id<"playbooks">; unlocked
       <ErrorBox message={ask.error} />
       {answer && (
         <div className={`answer ${answer.grounded ? "" : "ungrounded"}`}>
-          {answer.grounded ? (
+          {answer.engine === "fallback" && answer.grounded ? (
             <ul className="bullets">
               {answer.citations.map((c, i) => (
                 <li key={i}>
@@ -236,9 +239,30 @@ function QaBox({ playbookId, unlocked }: { playbookId: Id<"playbooks">; unlocked
               ))}
             </ul>
           ) : (
-            <p>{answer.answer}</p>
+            <p className="answer-text">{answer.answer}</p>
           )}
-          <div className="small muted">Engine: deterministic fallback (Moss not connected)</div>
+          {answer.engine !== "fallback" && answer.citations.length > 0 && (
+            <div className="small">
+              Cited sections:{" "}
+              {answer.citations.map((c) => (
+                <span key={c.section} className="cite">
+                  [{c.title}]{" "}
+                </span>
+              ))}
+            </div>
+          )}
+          {answer.engine !== "fallback" && !answer.grounded && answer.answer !== NOT_ENOUGH_INFO && (
+            <div className="small warn-text">Moss did not cite a section for this answer — check it against the guide.</div>
+          )}
+          {answer.note && <div className="small warn-text">{answer.note}</div>}
+          <div className="small muted">
+            Engine:{" "}
+            {answer.engine === "moss_index"
+              ? "Moss Inference, retrieving from this playbook’s Moss index"
+              : answer.engine === "moss_context"
+                ? "Moss Inference, answering from this playbook’s sections (no index built)"
+                : "deterministic fallback"}
+          </div>
         </div>
       )}
     </section>

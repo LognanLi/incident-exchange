@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireOwnDraft, requireRole } from "./lib/access";
 import { EDITABLE_STATUSES, SECTION_KEYS, SYSTEM_CATEGORIES, type SectionKey } from "./lib/domain";
@@ -9,6 +10,7 @@ import { applyGeneralizations, scanForPrivacyIssues } from "./lib/privacy";
 import { sharingLevelV } from "./schema";
 import { buildSearchText, publicAliasFor } from "./lib/publish";
 import { recordIntegrationEvent } from "./lib/integrations";
+import { MossError, draftWithMoss, mossCredentials } from "./lib/moss";
 
 const sectionKeyV = v.union(
   v.literal("recognize"),
@@ -178,22 +180,106 @@ export const update = mutation({
   },
 });
 
-/**
- * Structure the contributor's notes into the six-part playbook.
- * The Moss adapter is not wired in this build (see README → Sponsor integrations), so the
- * deterministic fallback runs and the draft is labeled accordingly.
- */
+type Sections = NonNullable<Doc<"incidentDrafts">["sections"]>;
+
+const STANDARD_LIMITATION = draftSectionsFallback({
+  symptoms: "", detectionClues: "", attemptedActions: "", containmentSteps: "", recoverySteps: "", verificationSteps: "", limitations: "",
+}).limitations.body;
+
+function fallbackSections(draft: Doc<"incidentDrafts">): Sections {
+  const generated = draftSectionsFallback(draft);
+  return Object.fromEntries(
+    SECTION_KEYS.map((k) => [k, { body: generated[k].body, accepted: false, origin: "fallback" as const, sourceFields: generated[k].sourceFields }]),
+  ) as Sections;
+}
+
+/** Deterministic fallback drafting (always available). */
 export const generateSections = mutation({
   args: { actor: v.string(), draftId: v.id("incidentDrafts") },
   handler: async (ctx, { actor, draftId }) => {
     const { draft } = await requireOwnDraft(ctx, actor, draftId);
     assertEditable(draft);
-    const generated = draftSectionsFallback(draft);
+    await ctx.db.patch(draftId, { sections: fallbackSections(draft), draftEngine: "fallback", ...INVALIDATE, updatedAt: Date.now() });
+    await recordIntegrationEvent(ctx, "moss", "fallback", "Playbook drafted with the deterministic fallback.");
+  },
+});
+
+/** Only the structured response fields — never private notes, evidence, or identifying terms. */
+export const draftSourceForMoss = internalQuery({
+  args: { actor: v.string(), draftId: v.id("incidentDrafts") },
+  handler: async (ctx, { actor, draftId }) => {
+    const { draft } = await requireOwnDraft(ctx, actor, draftId);
+    assertEditable(draft);
+    return {
+      symptoms: draft.symptoms,
+      detectionClues: draft.detectionClues,
+      attemptedActions: draft.attemptedActions,
+      containmentSteps: draft.containmentSteps,
+      recoverySteps: draft.recoverySteps,
+      verificationSteps: draft.verificationSteps,
+      limitations: draft.limitations,
+    };
+  },
+});
+
+export const saveMossSections = internalMutation({
+  args: {
+    actor: v.string(),
+    draftId: v.id("incidentDrafts"),
+    statements: v.object({
+      recognize: v.array(v.string()),
+      check: v.array(v.string()),
+      contain: v.array(v.string()),
+      recover: v.array(v.string()),
+      verify: v.array(v.string()),
+      limitations: v.array(v.string()),
+    }),
+  },
+  handler: async (ctx, { actor, draftId, statements }) => {
+    const { draft } = await requireOwnDraft(ctx, actor, draftId);
+    assertEditable(draft);
+    const sourceFields = Object.fromEntries(SECTION_KEYS.map((k) => [k, draftSectionsFallback(draft)[k].sourceFields]));
     const sections = Object.fromEntries(
-      SECTION_KEYS.map((k) => [k, { body: generated[k].body, accepted: false, origin: "fallback" as const, sourceFields: generated[k].sourceFields }]),
-    ) as NonNullable<Doc<"incidentDrafts">["sections"]>;
-    await ctx.db.patch(draftId, { sections, draftEngine: "fallback", ...INVALIDATE, updatedAt: Date.now() });
-    await recordIntegrationEvent(ctx, "moss", "fallback", "Playbook drafted with the deterministic fallback (Moss not connected).");
+      SECTION_KEYS.map((k) => {
+        const lines = [...statements[k]];
+        if (k === "limitations") lines.push(STANDARD_LIMITATION.replace(/^- /, ""));
+        return [k, { body: lines.map((l) => `- ${l.replace(/^\s*[-*•]\s*/, "")}`).join("\n"), accepted: false, origin: "moss" as const, sourceFields: sourceFields[k] }];
+      }),
+    ) as Sections;
+    await ctx.db.patch(draftId, { sections, draftEngine: "moss", ...INVALIDATE, updatedAt: Date.now() });
+    await recordIntegrationEvent(ctx, "moss", "success", "Playbook drafted by Moss Inference.");
+  },
+});
+
+export const recordMossFailure = internalMutation({
+  args: { message: v.string() },
+  handler: async (ctx, { message }) => {
+    await recordIntegrationEvent(ctx, "moss", "failure", message);
+  },
+});
+
+/**
+ * Structure the contributor's notes into the six-part playbook with Moss Inference when configured;
+ * otherwise (or on any Moss error) use the deterministic fallback and say so.
+ */
+export const draftPlaybook = action({
+  args: { actor: v.string(), draftId: v.id("incidentDrafts") },
+  handler: async (ctx, { actor, draftId }): Promise<{ engine: "moss" | "fallback"; message: string }> => {
+    const source = await ctx.runQuery(internal.drafts.draftSourceForMoss, { actor, draftId });
+    if (!mossCredentials()) {
+      await ctx.runMutation(api.drafts.generateSections, { actor, draftId });
+      return { engine: "fallback", message: "Moss is not configured — drafted with the deterministic fallback." };
+    }
+    try {
+      const statements = await draftWithMoss(source);
+      await ctx.runMutation(internal.drafts.saveMossSections, { actor, draftId, statements });
+      return { engine: "moss", message: "Drafted by Moss. Review each section against your source notes." };
+    } catch (err) {
+      const reason = err instanceof MossError ? err.message : "unexpected error";
+      await ctx.runMutation(internal.drafts.recordMossFailure, { message: `Moss drafting failed (${reason}); used fallback.` });
+      await ctx.runMutation(api.drafts.generateSections, { actor, draftId });
+      return { engine: "fallback", message: `Moss drafting failed (${reason}) — drafted with the deterministic fallback instead.` };
+    }
   },
 });
 
@@ -338,6 +424,7 @@ export const publishFinal = mutation({
     if (playbookId) await ctx.db.patch(playbookId, { ...doc, searchText });
     else playbookId = await ctx.db.insert("playbooks", { ...doc, searchText });
     await ctx.db.patch(draftId, { status: "published", playbookId, updatedAt: Date.now() });
+    if (mossCredentials()) await ctx.scheduler.runAfter(0, internal.mossIndex.buildAll, { playbookId });
     return playbookId;
   },
 });

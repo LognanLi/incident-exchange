@@ -1,11 +1,14 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { getActor } from "./lib/access";
 import { scorePlaybook } from "./lib/search";
 import { answerFromSections } from "./lib/qa";
-import type { SectionKey } from "./lib/domain";
+import { FREE_SECTIONS, SECTION_KEYS, type SectionKey } from "./lib/domain";
+import { askWithMossContext, askWithMossIndex, mossCredentials, playbookIndexName } from "./lib/moss";
+import type { QaAnswer } from "./lib/qa";
 import { evidenceLevelV } from "./schema";
 
 /**
@@ -128,22 +131,81 @@ export const get = query({
   },
 });
 
-/** Grounded Q&A over the sections this viewer may read. Never uses private contributor notes. */
-export const ask = mutation({
-  args: { actor: v.string(), playbookId: v.id("playbooks"), question: v.string() },
-  handler: async (ctx, { actor, playbookId, question }) => {
+/** Sections and Moss index this viewer may query. Locked sections only for unlocked viewers. */
+export const qaContext = internalQuery({
+  args: { actor: v.string(), playbookId: v.id("playbooks") },
+  handler: async (ctx, { actor, playbookId }) => {
     const org = await getActor(ctx, actor);
-    if (question.length > 500) throw new ConvexError("Question is too long.");
     const pb = await ctx.db.get(playbookId);
     if (!pb || !pb.active) throw new ConvexError("Playbook not found.");
     const unlocked = await hasUnlocked(ctx, org, pb);
-    const sections: Partial<Record<SectionKey, string>> = {
-      recognize: pb.publicSteps.recognize,
-      limitations: pb.publicLimitations,
-      ...(unlocked
-        ? { check: pb.publicSteps.check, contain: pb.publicSteps.contain, recover: pb.publicSteps.recover, verify: pb.publicSteps.verify }
-        : {}),
+    const scope = unlocked ? ("full" as const) : ("preview" as const);
+    const allowed: SectionKey[] = unlocked ? [...SECTION_KEYS] : [...FREE_SECTIONS];
+    const all: Record<SectionKey, string> = { ...pb.publicSteps, limitations: pb.publicLimitations };
+    const index = await ctx.db
+      .query("mossIndexes")
+      .withIndex("by_playbook_scope", (q) => q.eq("playbookId", playbookId).eq("scope", scope))
+      .unique();
+    return {
+      scope,
+      allowed,
+      sections: Object.fromEntries(allowed.map((k) => [k, all[k]])) as Partial<Record<SectionKey, string>>,
+      indexName: playbookIndexName(playbookId, scope),
+      indexStatus: index?.status ?? null,
     };
-    return { ...answerFromSections(question, sections), engine: "fallback" as const, searchedLockedSections: unlocked };
+  },
+});
+
+export const recordQaEvent = internalMutation({
+  args: { outcome: v.union(v.literal("success"), v.literal("failure")), message: v.string() },
+  handler: async (ctx, { outcome, message }) => {
+    await ctx.db.insert("integrationEvents", { integration: "moss", outcome, message, at: Date.now() });
+  },
+});
+
+export type AskResult = {
+  answer: string;
+  citations: { section: SectionKey; title: string; excerpt?: string }[];
+  grounded: boolean;
+  engine: "moss_index" | "moss_context" | "fallback";
+  searchedLockedSections: boolean;
+  note?: string;
+};
+
+/**
+ * Grounded Q&A over only the sections this viewer may read.
+ * - Moss index ready for this playbook/scope → Moss Inference retrieves from it.
+ * - Moss configured but no index → Moss Inference with the allowed sections supplied directly.
+ *   (Indexes are built only at publish time, so questions never spend index-build quota.)
+ * - Moss not configured or erroring → deterministic fallback, labeled.
+ */
+export const askPlaybook = action({
+  args: { actor: v.string(), playbookId: v.id("playbooks"), question: v.string() },
+  handler: async (ctx, { actor, playbookId, question }): Promise<AskResult> => {
+    if (question.length > 500) throw new ConvexError("Question is too long.");
+    if (!question.trim()) throw new ConvexError("Ask a question.");
+    const qa = await ctx.runQuery(internal.playbooks.qaContext, { actor, playbookId });
+    const searchedLockedSections = qa.scope === "full";
+    const fallback = (note?: string): AskResult => {
+      const r: QaAnswer = answerFromSections(question, qa.sections);
+      return { ...r, engine: "fallback", searchedLockedSections, note };
+    };
+    if (!mossCredentials()) return fallback();
+
+    try {
+      const useIndex = qa.indexStatus === "ready";
+      const r = useIndex
+        ? await askWithMossIndex(question, qa.indexName, qa.allowed)
+        : await askWithMossContext(question, qa.sections, qa.allowed);
+      await ctx.runMutation(internal.playbooks.recordQaEvent, {
+        outcome: "success",
+        message: useIndex ? "Answered with Moss retrieval from a playbook index." : "Answered with Moss Inference from supplied sections.",
+      });
+      return { ...r, engine: useIndex ? "moss_index" : "moss_context", searchedLockedSections };
+    } catch (err) {
+      const reason = (err instanceof Error ? err.message : "unexpected error").slice(0, 160);
+      await ctx.runMutation(internal.playbooks.recordQaEvent, { outcome: "failure", message: `Moss Q&A failed (${reason}); used fallback.` });
+      return fallback(`Moss was unavailable (${reason}); answered with the deterministic fallback.`);
+    }
   },
 });

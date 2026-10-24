@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { seededReferencesFor } from "./lib/apify";
@@ -73,6 +74,7 @@ async function seed(ctx: MutationCtx) {
 }
 
 const DEMO_TABLES = [
+  "mossIndexes",
   "outcomeFeedback",
   "purchases",
   "validationRuns",
@@ -89,6 +91,8 @@ export const reset = mutation({
   args: {},
   handler: async (ctx) => {
     assertDemoEnabled();
+    const mossNames = (await ctx.db.query("mossIndexes").withIndex("by_isDemo", (q) => q.eq("isDemo", true)).collect()).map((m) => m.name);
+    if (mossNames.length) await ctx.scheduler.runAfter(0, internal.mossIndex.deleteIndexes, { names: mossNames });
     for (const table of DEMO_TABLES) {
       const docs = await ctx.db.query(table).withIndex("by_isDemo", (q) => q.eq("isDemo", true)).collect();
       for (const d of docs) await ctx.db.delete(d._id);
