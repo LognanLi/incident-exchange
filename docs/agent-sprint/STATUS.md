@@ -21,3 +21,13 @@ Missing for this spec: MCP service, agent principals/scopes, local connector wit
 - 14:02 Agent A: 3/5 → 5/5, gate, approval, MCP submit (clean); reviewer approved → published.
 - 14:04 Agent B: x402 settled; Factory candidate 0/5 → rejected. 14:06 after documenting repo B interface: 5/5 accepted, runner_verified.
 - 14:16 live adversarial 9/9; security tests 20/20; console built.
+- 14:17 console “Run two-agent demo” clicked in Chrome → job succeeded in 43 s: A 3/5→5/5, B 2/5→5/5 (new Factory Droid session), runner_verified; B reused its existing entitlement (no second payment).
+
+## Requirement results
+P1–P5 PASS · M1 PASS (real SDK client over HTTP) · M2 PASS · M3 PASS · M4 PASS · M5 PASS (generation guard; cloud state persists) · C1–C5 PASS (C2 live Base Sepolia) · S1–S8 PASS per SECURITY.md (S7: demo identity switcher remains a demo-only mechanism; MCP auth is token-based) · I1 PASS (Convex Cloud dev) · I2 Moss live for Q&A; MCP search lexical (labeled) · I3 PASS · I4 PASS (live Droid artifacts) · I5 Armadin unavailable · Q1–Q4 PASS.
+BLOCKED: externally reachable HTTPS MCP endpoint (no hosting); OAuth discovery not implemented (dev tokens labeled).
+
+## Next three tasks
+1. Host the MCP service behind HTTPS (e.g. a small Node host) and add OAuth resource metadata.
+2. Use Moss retrieval for MCP candidate generation over public previews (one shared preview index).
+3. Run the Factory repair in a container/VM instead of a temp directory.
