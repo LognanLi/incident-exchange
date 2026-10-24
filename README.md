@@ -2,6 +2,8 @@
 
 A private marketplace for practical incident response knowledge. A company contributes a sanitized incident and the fix that helped; another company finds a similar case by symptoms, checks why it may or may not match and what evidence backs it, and pays (test USDC) to unlock the detailed guide. The contributor earns an 80% accrual.
 
+**Highlights:** real-time symptom alerts · explainable fit/mismatch search · privacy scan with undo · human review with sample-app test evidence (Factory Droid repairs code; protected evaluator) · Traffic Light Protocol labels + verified-org gating · Data Use License · x402 test-USDC payments on Base Sepolia · team budgets · audit log (CSV) · runbook + STIX 2.1 export · ⌘K command palette · plain-language guides and glossary on every page.
+
 Demo scenarios (fictional): **duplicate jobs after webhook retries** (primary, walks the full lifecycle), **cross-tenant export access flaw**, and **signing-key cache after rotation**, plus near-miss cases that show mismatch warnings. See `docs/demo/` for the presenter guide, customer brief, integration matrix, and QA notes.
 
 > **Demo build.** Every organization, person, host, and incident in the seed data is fictional. Payments use Base Sepolia **test** USDC (or a labeled simulator); no real funds move. The product spec is in [`docs/BRIEF.md`](docs/BRIEF.md).
@@ -28,7 +30,7 @@ On first load, the app seeds the demo data automatically.
 | --- | --- |
 | `npm run dev` | Backend, frontend, and the local Factory runner, all with live reload |
 | `npm run typecheck` | Typechecks the frontend and the Convex code |
-| `npm test` | 41 Vitest tests + 14 toy-app evaluator tests |
+| `npm test` | 43 Vitest tests + 14 toy-app evaluator tests |
 | `npm run e2e` | Browser run of the whole demo (needs `npm run dev`; spends ~6k Factory credits and 0.50 test USDC) |
 | `node e2e/viewports.mjs` | Screenshots at 1440 / 1024 / 390 px |
 | `npm run x402:setup` | Creates and funds the CDP buyer and receiver wallets on Base Sepolia (needs the CDP secrets) |

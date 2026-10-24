@@ -129,9 +129,19 @@ export const search = query({
       // Ranked by symptom overlap only (price never affects order); newest first when browsing.
       .sort((a, b) => (b.m?.score ?? 0) - (a.m?.score ?? 0) || b.pb.publishedAt - a.pb.publishedAt);
 
+    // Contributor track record: published guides and buyer-reported resolutions (pseudonymous).
+    const record = new Map<string, { guides: number; resolved: number; outcomes: number }>();
+    for (const pb of active) {
+      const r = record.get(pb.contributorOrgId) ?? { guides: 0, resolved: 0, outcomes: 0 };
+      const fb = await feedbackSummary(ctx, pb._id);
+      record.set(pb.contributorOrgId, { guides: r.guides + 1, resolved: r.resolved + fb.resolved, outcomes: r.outcomes + fb.count });
+    }
+
     return await Promise.all(
       rows.map(async ({ pb, m }) => ({
         ...listing(pb),
+        trackRecord: record.get(pb.contributorOrgId)!,
+        keyClueCount: pb.applicability.clues.filter((c) => c.weight === "key").length,
         match: m && {
           ...m,
           relevance: RELEVANCE_INFO[m.relevanceLabel].label,

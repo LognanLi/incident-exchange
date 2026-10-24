@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
@@ -31,6 +31,8 @@ function Search() {
   const evidence = (params.get("evidence") ?? "") as EvidenceLevel | "";
   const maxPrice = params.get("max") ?? "";
   const [input, setInput] = useState(q);
+  // Keep the box in sync when the query changes from elsewhere (e.g. the ⌘K palette).
+  useEffect(() => setInput(q), [q]);
 
   const results = useQuery(api.playbooks.search, {
     actor,
@@ -143,7 +145,9 @@ function Search() {
               <div className="result-head">
                 <div>
                   <div className="eyebrow">
-                    {r.contributorAlias} · contributed incident · updated {new Date(r.publishedAt).toLocaleDateString()}
+                    {r.contributorAlias} · {r.trackRecord.guides} guide{r.trackRecord.guides === 1 ? "" : "s"}
+                    {r.trackRecord.outcomes > 0 ? ` · ${r.trackRecord.resolved}/${r.trackRecord.outcomes} buyers resolved` : ""} · updated{" "}
+                    {new Date(r.publishedAt).toLocaleDateString()}
                   </div>
                   <h2>
                     <Link to={`/playbooks/${r._id}`}>{r.publicTitle}</Link>
@@ -153,8 +157,16 @@ function Search() {
               </div>
               {r.match && (
                 <div className={`match-panel ${LABEL_CLASS[r.match.relevanceLabel]}`}>
-                  <div className="match-label" title={r.match.relevanceExplanation}>
-                    {r.match.relevance}
+                  <div className="row gap match-top">
+                    <div className="match-label" title={r.match.relevanceExplanation}>
+                      {r.match.relevance}
+                    </div>
+                    <div className="meter fit-meter" aria-hidden>
+                      <span style={{ width: `${Math.min(100, Math.round(((r.keyClueCount - r.match.missingChecks.length) / Math.max(1, r.keyClueCount)) * 100))}%` }} />
+                    </div>
+                    <span className="small muted">
+                      {r.keyClueCount - r.match.missingChecks.length}/{r.keyClueCount} key signs match
+                    </span>
                   </div>
                   {r.match.matchedClues.length > 0 && (
                     <div>

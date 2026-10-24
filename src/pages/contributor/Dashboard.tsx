@@ -56,7 +56,8 @@ function Dashboard() {
           </span>
           <span className="small muted">
             {data.sales} sale{data.sales === 1 ? "" : "s"} · 80% contributor share (prototype assumption) · paid out:{" "}
-            <Money atomic={data.paidOutAtomic} currency={data.currency} /> — accruals are an internal ledger, not on-chain payouts
+            <Money atomic={data.paidOutAtomic} currency={data.currency} /> — accruals are an internal ledger, not on-chain payouts.
+            In production, earnings would clear after a 14-day hold (refund and fraud window) and pay out via a payments provider.
           </span>
         </div>
       </div>

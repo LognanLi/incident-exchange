@@ -4,6 +4,7 @@ import { ErrorBoundary } from "./components/ui";
 import { Icon, type IconName } from "./components/icons";
 import { PageGuide } from "./components/PageGuide";
 import { LiveToasts } from "./components/LiveToasts";
+import { CommandPalette } from "./components/CommandPalette";
 import Home from "./pages/Home";
 import HowItWorks from "./pages/HowItWorks";
 import Pricing from "./pages/Pricing";
@@ -112,6 +113,9 @@ export default function App() {
           ))}
         </nav>
 
+        <button className="kbd-hint" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}>
+          <Icon name="search" size={16} /> <span>Jump to…</span> <kbd>⌘K</kbd>
+        </button>
         <div className="sidebar-foot">
           <Link to="/demo" className="vtab presenter">
             <Icon name="sliders" />
@@ -161,6 +165,7 @@ export default function App() {
         </footer>
       </div>
       <LiveToasts />
+      <CommandPalette />
     </div>
   );
 }

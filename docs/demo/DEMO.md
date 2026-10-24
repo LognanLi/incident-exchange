@@ -14,9 +14,10 @@
 | 0:40 | **Next: privacy review** → **Run privacy scan** → **Apply all recommended generalizations** (show Undo) → tick approval → **Approve & submit** | “Emails, internal hosts, timestamps, customer and staff names are caught before anything is shareable.” |
 | 0:55 | Demo menu → **Review Desk** → open the draft → **Run check** (FAIL) → **Apply fix with Factory Droid** (~15 s) or **Use local demo adapter** → **Re-run check** (PASS) → tick checklist → **Test reproduced** → **Approve** | “Real evidence: the same synthetic event delivered twice now creates one job — and legitimate deliveries still work.” |
 | 1:15 | Demo menu → **Northstar** → open → step 4 → tick → **Publish guide** | “Nothing is published without the contributor approving this exact revision.” |
-| 1:25 | Demo menu → **Harbor Analytics** → click scenario chip 1 | “Paraphrased symptoms → **Strong overlap**, with matched clues and what to check first.” Then chip-free query `queue backlog after deploy without repeated event IDs` → near-miss ranks first. |
-| 1:50 | Open guide → **Does this fit?** panel → **Unlock guide** → **Start x402 test checkout** → **Pay 0.50 test USDC with x402** | “Software buys knowledge in the response workflow: real x402 on Base Sepolia, exact price, receipt with BaseScan link.” |
-| 2:20 | **Read the guide** → *What they tried that did not work* → tick a Verify item → open **Test evidence → see run** | “It tells you what failed, what worked, and how to verify — checklist saved to your account.” |
+| 1:22 | Presenter controls → **Harbor Analytics** — a **live alert pops up** (“New guide matches your alert”) because Harbor saved this symptom earlier | “The moment a matching fix is published, the team that needs it is told — in real time.” |
+| 1:25 | Click scenario chip 1 (or press **⌘K** and type the symptom) | “Paraphrased symptoms → **Strong overlap**, with matched clues and what to check first.” Then chip-free query `queue backlog after deploy without repeated event IDs` → near-miss ranks first. |
+| 1:50 | Open guide → **Does this fit?** panel (note the **TLP:GREEN** label) → **Unlock guide** → tick the **Data Use License** → **Start x402 test checkout** → **Pay 0.50 test USDC with x402** | “Software buys knowledge in the response workflow: real x402 on Base Sepolia, exact price, receipt with BaseScan link.” |
+| 2:20 | **Read the guide** → *What they tried that did not work* → tick a Verify item → **Copy as runbook** / **Download STIX 2.1** → open **Test evidence → see run** | “It tells you what failed, what worked, and how to verify — checklist saved to your account.” |
 | 2:40 | **Report your outcome** → submit → Demo menu → **Northstar** → My incidents | “Contributor sees 0.40 USDC accrued (not paid out) and the buyer outcome; platform fee 0.10.” |
 
 ## Two-minute alternate (security buyer)
@@ -28,3 +29,9 @@ Harbor → chip 2 “A signed-in customer can see export data outside their work
 - **Factory runner down or slow:** “Use local demo adapter” (labeled), or show `toy-apps/artifacts/recorded-webhook-factory-run.json` (recorded run).
 - **Facilitator/testnet down or wallet empty:** purchase stays locked with the error shown; click **Use demo simulator instead** (explicit switch, labeled “Demo payment”).
 - **Refresh:** identity, entitlement, checklist, and drafts are server-side and survive reloads.
+
+## Extra “wow” moments (if time allows)
+- **⌘K** anywhere: jump to any page or type a problem to search.
+- **Team & budget** (Harbor): monthly limit with a live meter; going over blocks checkout.
+- **Audit log** (Review Desk): every submission, review, publication, purchase, and Factory run, exportable as CSV.
+- **Trust & safety** and **Pricing** pages explain the business in plain language.
