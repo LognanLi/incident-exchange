@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // Protected test runner: runs a sample repo's protected tests against a
 // candidate source directory and returns a structured result.
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { MACOS_PROFILE } from "./harness/remote.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const TIMEOUT_MS = 30_000;
@@ -74,6 +75,24 @@ export function parseTap(stdout) {
 
 const truncate = (s) => (s.length > MAX_OUTPUT ? s.slice(0, MAX_OUTPUT) + "\n...[truncated]" : s);
 
+let sandboxCache;
+/** Probe for an OS-level sandbox that blocks network access for the candidate process. */
+export function detectSandbox() {
+  if (sandboxCache) return sandboxCache;
+  const probe = (cmd, args) => spawnSync(cmd, args, { stdio: "ignore", timeout: 5000 }).status === 0;
+  const netBlocked = (cmd, args) =>
+    // The probe must succeed at running node but FAIL to open a TCP connection.
+    probe(cmd, [...args, process.execPath, "-e", "require('net').connect(80,'1.1.1.1').on('error',()=>process.exit(0)).on('connect',()=>process.exit(3));setTimeout(()=>process.exit(4),3000)"]);
+  if (process.platform === "darwin" && existsSync("/usr/bin/sandbox-exec") && netBlocked("/usr/bin/sandbox-exec", ["-p", MACOS_PROFILE])) sandboxCache = "macos-sandbox-exec";
+  else if (process.platform === "linux" && existsSync("/usr/bin/unshare") && netBlocked("/usr/bin/unshare", ["--user", "--map-root-user", "--net"])) sandboxCache = "linux-unshare";
+  else sandboxCache = "none";
+  return sandboxCache;
+}
+function isTrustedFixture(dir) {
+  const real = realpathSync(dir);
+  return real.startsWith(realpathSync(ROOT) + sep) && !real.includes(`${sep}node_modules${sep}`);
+}
+
 export async function runProtectedTests({ repo, candidateDir }) {
   const manifest = loadManifest();
   if (typeof repo !== "string" || !Object.prototype.hasOwnProperty.call(manifest, repo)) {
@@ -99,10 +118,19 @@ export async function runProtectedTests({ repo, candidateDir }) {
   const testFiles = spec.testFiles.map((f) => join(repoDir, f));
   for (const f of testFiles) if (!existsSync(f)) throw new Error(`Missing protected test file: ${f}`);
 
+  // Candidate code only runs inside an OS network sandbox. Without one, only committed fixtures
+  // inside sample-repos/ (trusted code we wrote) may run; arbitrary patches are refused.
+  let sandbox = detectSandbox();
+  if (sandbox === "none") {
+    if (!isTrustedFixture(candidate)) {
+      throw new Error("No OS network sandbox is available on this machine (macOS sandbox-exec or Linux unshare). Refusing to execute untrusted candidate code; only committed fixtures under sample-repos/ can run here.");
+    }
+    sandbox = "none-trusted-fixture";
+  }
   const started = Date.now();
   const child = spawn(process.execPath, ["--test", "--test-reporter=tap", ...testFiles], {
     cwd,
-    env: { PATH: process.env.PATH ?? "", CANDIDATE_DIR: candidate },
+    env: { PATH: process.env.PATH ?? "", CANDIDATE_DIR: candidate, IX_SANDBOX: sandbox },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let stdout = "";
@@ -122,6 +150,7 @@ export async function runProtectedTests({ repo, candidateDir }) {
     repo,
     candidateDir: candidate,
     passed: !timedOut && exitCode === 0 && parsed.total > 0 && parsed.failedCount === 0,
+    sandbox,
     ...parsed,
     exitCode,
     timedOut,

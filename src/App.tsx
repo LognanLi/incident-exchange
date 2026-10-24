@@ -109,8 +109,9 @@ export default function App() {
 
           <div className="topbar-right">
             <PageGuide />
-            <button className="top-btn hide-sm" onClick={openPalette} aria-label="Search (⌘K)">
+            <button className="top-btn hide-sm" onClick={openPalette}>
               <Icon name="search" size={16} />
+              <span className="sr-only">Search</span>
               <kbd>⌘K</kbd>
             </button>
             <Link to="/demo" className="identity" title="Switch demo company">

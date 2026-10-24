@@ -480,6 +480,24 @@ export default defineSchema({
     .index("by_at", ["at"])
     .index("by_isDemo", ["isDemo"]),
 
+  /** OAuth 2.1 access tokens (client_credentials) for the remote MCP endpoint. Only hashes are stored. */
+  oauthTokens: defineTable({
+    principalId: v.id("agentPrincipals"),
+    tokenHash: v.string(),
+    audience: v.string(),
+    scopes: v.array(v.string()),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  }).index("by_tokenHash", ["tokenHash"]),
+
+  /** Built web console files served from Convex HTTP actions (scripts/deploy-web.mjs uploads them). */
+  webAssets: defineTable({
+    path: v.string(),
+    storageId: v.id("_storage"),
+    contentType: v.string(),
+    deployId: v.string(),
+  }).index("by_path", ["path"]),
+
   agentOutcomes: defineTable({
     principalId: v.id("agentPrincipals"),
     playbookId: v.id("playbooks"),

@@ -21,7 +21,9 @@
     "mcp": "node mcp/server.mjs",
     "agent:a": "node connector/agentA.mjs",
     "agent:b": "node connector/agentB.mjs",
-    "agents:demo": "node connector/demo.mjs"
+    "agents:demo": "node connector/demo.mjs",
+    "remote:check": "node connector/remote-check.mjs",
+    "deploy:web": "node scripts/deploy-web.mjs"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.60.0",

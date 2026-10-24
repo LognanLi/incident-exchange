@@ -46,9 +46,19 @@ async function principal(ctx: QueryCtx, svc: string, token: string, scope: (type
   if (!expected || svc !== expected) fail("AUTH_REQUIRED", "Unrecognized MCP service.");
   if (!token || token.length < 20) fail("AUTH_REQUIRED", "Missing agent credential.");
   const tokenHash = await sha256Hex(token);
-  const p = await ctx.db.query("agentPrincipals").withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash)).unique();
+  let p: Doc<"agentPrincipals"> | null;
+  let scopes: string[] | undefined;
+  if (token.startsWith("ixat_")) {
+    // OAuth access token (remote endpoint): short-lived, audience-bound, may narrow the principal's scopes.
+    const at = await ctx.db.query("oauthTokens").withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash)).unique();
+    if (!at || at.expiresAt < Date.now()) fail("AUTH_REQUIRED", "Invalid or expired access token.");
+    p = await ctx.db.get(at.principalId);
+    scopes = at.scopes;
+  } else {
+    p = await ctx.db.query("agentPrincipals").withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash)).unique();
+  }
   if (!p || p.revoked || p.expiresAt < Date.now()) fail("AUTH_REQUIRED", "Invalid, expired, or revoked agent credential.");
-  if (!p.scopes.includes(scope)) fail("FORBIDDEN", `This credential lacks the "${scope}" scope.`);
+  if (!p.scopes.includes(scope) || (scopes && !scopes.includes(scope))) fail("FORBIDDEN", `This credential lacks the "${scope}" scope.`);
   const org = await ctx.db.query("organizations").withIndex("by_slug", (q) => q.eq("slug", p.orgSlug)).unique();
   if (!org) fail("PROVIDER_UNAVAILABLE", "Exchange is resetting; try again.", true);
   return { p, org };

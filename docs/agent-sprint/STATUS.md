@@ -28,13 +28,15 @@ Missing for this spec: MCP service, agent principals/scopes, local connector wit
 - 14:35–14:44 signed demo sessions; operator-only reset/demo; simulator policy flag; no silent fallback; testnet-only accruals; double-purchase guard; evidence one-per-run + revision bound; diff scan; candidate content check; rate limit after auth; case-insensitive denies.
 - 14:39 a demo reset was issued from a browser session on the cloud deployment (demo data only); data re-created by the rehearsal.
 - 14:44 rehearsal 92 s; 14:46 live attacks 9/9; 69 + 14 tests.
-- UI/UX redesign (minimal, less copy) in progress by a separate worker.
+- 15:00 UI redesign merged into PR #2.
+- 15:20–16:00 final push: isolated e2e 23/23 (disposable local Convex); OS network sandbox (macOS sandbox-exec) for all candidate execution, refuse-without-sandbox; remote HTTPS MCP on Convex with OAuth client_credentials (13/13); Moss root cause fixed, semantic search verified with a paraphrase.
+- 15:35 web console published on Convex: https://quirky-robin-694.convex.site/ (static files in Convex storage, served by an HTTP action; access-code sessions). Simulated-payment walkthrough on the hosted site delegated to a tester.
 
 ## Requirement results
-P1–P5 PASS · M1 PASS (real SDK client over HTTP) · M2 PASS · M3 PASS · M4 PASS · M5 PASS (generation guard; cloud state persists) · C1–C5 PASS (C2 live Base Sepolia) · S1–S8 PASS per SECURITY.md after the 14:44 fixes (S7 uses signed demo sessions, not real sign-in; network sandbox is a residual risk) · I1 PASS (Convex Cloud dev) · I2 Moss live for Q&A; MCP search lexical (labeled) · I3 PASS · I4 PASS (live Droid artifacts) · I5 Armadin unavailable · Q1–Q4 PASS.
-BLOCKED: externally reachable HTTPS MCP endpoint (no hosting); OAuth discovery not implemented (dev tokens labeled).
+P1–P5 PASS · M1 PASS (real SDK client over HTTP) · M2 PASS · M3 PASS · M4 PASS · M5 PASS (generation guard; cloud state persists) · C1–C5 PASS (C2 live Base Sepolia) · S1–S8 PASS per SECURITY.md (S7 uses signed demo sessions, not real sign-in; execution sandbox verified on macOS only) · I1 PASS (Convex Cloud **dev** deployment; also hosts the web console and remote MCP) · I2 Moss live for Q&A and for local MCP search (semantic, verified with a paraphrase); remote MCP search lexical (labeled) · I3 PASS · I4 PASS (live Droid artifacts) · I5 Armadin unavailable · Q1–Q4 PASS.
+Remote HTTPS MCP: live on Convex HTTP actions with OAuth client_credentials (13/13 remote checks). Not done: end-user OAuth (authorization code + PKCE), remote Moss retrieval (labeled fallback), Linux sandbox verification.
 
 ## Next three tasks
-1. Host the MCP service behind HTTPS (e.g. a small Node host) and add OAuth resource metadata.
-2. Use Moss retrieval for MCP candidate generation over public previews (one shared preview index).
-3. Run the Factory repair in a container/VM instead of a temp directory.
+1. Run candidate execution in a container/VM (Docker is installed here but the daemon was not running) and verify the Linux `unshare` path in CI.
+2. Call Moss from the remote endpoint (Convex action) so remote search matches local retrieval.
+3. Add end-user OAuth (authorization code + PKCE) and per-client rate limits on the remote endpoint.

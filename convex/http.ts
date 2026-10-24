@@ -2,6 +2,8 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { MAX_PAYMENT_HEADER_BYTES } from "./lib/x402";
+import { registerRemoteMcp } from "./mcpRemote";
+import { registerWebHosting } from "./webHosting";
 
 const http = httpRouter();
 
@@ -31,5 +33,8 @@ http.route({
     });
   }),
 });
+
+registerRemoteMcp(http);
+registerWebHosting(http); // last: GET "/" prefix is the catch-all for the hosted console
 
 export default http;

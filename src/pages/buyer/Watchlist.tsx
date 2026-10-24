@@ -74,7 +74,7 @@ function Watchlist() {
             <ul className="plain-list stagger">
               {data.alerts.map((a) => (
                 <li key={a._id}>
-                  {!a.read && <span className="dot good" aria-label="New" />}
+                  {!a.read && <span className="dot good" role="img" aria-label="New" />}
                   <Link to={`/playbooks/${a.playbookId}`}>{a.title}</Link>
                   <div className="small muted">
                     {a.relevance} · {a.matchedClues.join("; ")} · {formatDate(a.createdAt)}

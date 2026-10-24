@@ -20,11 +20,18 @@ import { join, resolve } from "node:path";
 import { ConvexHttpClient } from "convex/browser";
 import { anyApi } from "convex/server";
 import { mintSession } from "../shared/session.mjs";
+import { detectSandbox } from "../sample-repos/run-protected-tests.mjs";
+import { MACOS_PROFILE } from "../sample-repos/harness/remote.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const TOY = join(ROOT, "toy-apps");
 const PORT = Number(process.env.FACTORY_RUNNER_PORT ?? 3299);
-const ALLOWED_ORIGINS = new Set(["http://localhost:5173", "http://127.0.0.1:5173"]);
+const ALLOWED_ORIGINS = new Set(
+  (process.env.IX_ALLOWED_ORIGINS ?? "http://localhost:5173,http://127.0.0.1:5173")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+);
 const DROID = join(ROOT, "node_modules", ".bin", "droid");
 const EDITABLE = "handler.mjs";
 const PROMPT_TAIL =
@@ -111,8 +118,12 @@ async function runEvaluation(toyCase, workspace, candidateFile) {
   const nonce = randomBytes(16).toString("hex");
   // One flag per directory with a trailing "/" so it grants that subtree only (comma lists did not work here).
   const args = [flag, `--allow-fs-read=${workspace}/`, `--allow-fs-read=${toyReal}/`, join(toyReal, "run-evaluation.mjs"), toyCase, candidateFile];
+  // Factory's candidate is untrusted: it only runs inside an OS network sandbox (see sample-repos/run-protected-tests.mjs).
+  const sandbox = detectSandbox();
+  if (sandbox === "none") return { passed: false, summary: "No OS network sandbox available; refusing to execute candidate code.", assertions: [], lines: ["FAIL  Evaluator — no network sandbox on this machine"] };
+  const [cmd, cmdArgs] = sandbox === "macos-sandbox-exec" ? ["/usr/bin/sandbox-exec", ["-p", MACOS_PROFILE, process.execPath, ...args]] : ["/usr/bin/unshare", ["--user", "--map-root-user", "--net", process.execPath, ...args]];
   const { code, out, timedOut } = await new Promise((r) => {
-    const child = spawn(process.execPath, args, { cwd: workspace, env: { PATH: process.env.PATH }, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(cmd, cmdArgs, { cwd: workspace, env: { PATH: process.env.PATH }, stdio: ["pipe", "pipe", "pipe"] });
     let out = "";
     let timedOut = false;
     child.stdout.on("data", (d) => {
