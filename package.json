@@ -13,14 +13,22 @@
     "typecheck": "tsc -b && tsc -p convex --noEmit",
     "test": "vitest run",
     "e2e": "node e2e/demo-flow.mjs",
-    "demo:reset": "convex run demo:reset"
+    "demo:reset": "convex run demo:reset",
+    "x402:setup": "convex run x402Node:setup"
   },
   "dependencies": {
+    "@coinbase/cdp-sdk": "^1.60.0",
     "@moss-js/moss": "^1.21.0",
+    "@x402/core": "^2.28.0",
+    "@x402/evm": "^2.28.0",
+    "@x402/extensions": "^2.28.0",
+    "@x402/fetch": "^2.28.0",
+    "@x402/svm": "^2.28.0",
     "convex": "^1.48.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.4",
+    "viem": "^2.57.11",
     "zod": "^4.6.7"
   },
   "devDependencies": {

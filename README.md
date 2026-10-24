@@ -26,8 +26,9 @@ On first load, the app seeds the demo data automatically.
 | --- | --- |
 | `npm run dev` | Backend, frontend, and the local Factory runner, all with live reload |
 | `npm run typecheck` | Typechecks the frontend and the Convex code |
-| `npm test` | 27 unit and integration tests |
+| `npm test` | 30 unit and integration tests |
 | `npm run e2e` | Browser run of the whole demo (needs `npm run dev` running) |
+| `npm run x402:setup` | Creates and funds the CDP buyer and receiver wallets on Base Sepolia (needs the CDP secrets) |
 | `npm run demo:reset` | Restores the seed data from the CLI (the Demo menu has the same action) |
 | `npm run build` | Production build of the frontend |
 
@@ -63,17 +64,33 @@ Integrations live behind server-side adapters with labeled local fallbacks, so a
 | **Apify** | ✅ Connected | `apify~website-content-crawler` (cheerio, 1 GB memory) crawls an allowlist of OWASP, NIST, and CISA pages. Anything off-allowlist is dropped. | Seeded references, marked “Seeded reference — not live-retrieved” |
 | **Factory Droid** | ✅ Connected (requires the local runner from `npm run dev`) | `scripts/factory-runner.mjs` (bound to 127.0.0.1) runs `droid exec --auto low --only-tools Read,LS,ApplyPatch` in a temp folder that holds **only** a copy of the toy config, with a fixed prompt. It rejects any other file change or malformed config. Convex re-checks a shared secret, the reviewer role, and value ranges. | “Local demo adapter (deterministic patch)” |
 | **Armadin** | ❌ Unavailable: no interface provided | — | “Local validator (toy-auth check)”. Checks are never attributed to Armadin. |
-| **Coinbase x402** | ❌ Not configured | — | “Demo payment” simulator. Purchases are stored as `simulated_success`, never as “settled”. |
+| **Coinbase x402** | 🟡 Code complete and checked against the public x402 facilitator (valid 402 challenge for 0.49 test USDC on Base Sepolia). **Needs the three CDP secrets** before a settled payment can be run. | The buyer pays from a backend CDP Server Wallet (`ix-demo-buyer-harbor`) to a CDP receiver wallet (`ix-demo-platform-receiver`) over the real x402 HTTP flow: Convex endpoint `POST /x402/purchases/<id>` → 402 → signed EIP-3009 payment → Coinbase facilitator verifies and settles → unlock. Spend controls cap each payment at 1 test USDC, Base Sepolia USDC only, to our receiver only. The test charge is the list price ÷ 100 because of faucet limits. | “Demo payment” simulator. Purchases are stored as `simulated_success`, never as “settled”. |
+
+### Coinbase x402 setup (Base Sepolia)
+
+1. In the [CDP Portal](https://portal.cdp.coinbase.com), create a **Secret API key** (you get an *API Key ID* and *API Key Secret*) and a **Wallet Secret**.
+2. Put all three on the **Convex deployment**, in your own terminal (not in chat or any file):
+   ```bash
+   npx convex env set CDP_API_KEY_ID '<id>'
+   npx convex env set CDP_API_KEY_SECRET '<secret>'
+   npx convex env set CDP_WALLET_SECRET '<wallet secret>'
+   ```
+3. `npm run x402:setup` creates (or reuses) the buyer and receiver CDP wallets, stores their addresses, and requests faucet test USDC for the buyer when it holds less than 1 USDC.
+4. Buy a guide as Harbor Analytics. Checkout now says **Coinbase x402 · Base Sepolia testnet**, and the receipt links the transaction on BaseScan.
+
+Optional: `X402_TEST_PRICE_DIVISOR` (default 100). `X402_FACILITATOR_URL` swaps in a different facilitator, such as the public `https://x402.org/facilitator`; the default is the CDP facilitator.
 
 ### Secrets
 
-Real keys live in two places: the gitignored `.secrets.local`, and the Convex deployment environment (`npx convex env set …`). Nothing secret is committed or shipped to the browser. Server-side variables: `APIFY_TOKEN`, `MOSS_PROJECT_ID`, `MOSS_PROJECT_KEY`, `FACTORY_RUNNER_SECRET`. The runner reads `FACTORY_API_KEY` and `FACTORY_RUNNER_SECRET` from `.secrets.local`.
+Real keys live in two places: the gitignored `.secrets.local`, and the Convex deployment environment (`npx convex env set …`). Nothing secret is committed or shipped to the browser. Server-side variables: `APIFY_TOKEN`, `MOSS_PROJECT_ID`, `MOSS_PROJECT_KEY`, `FACTORY_RUNNER_SECRET`, `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`. The runner reads `FACTORY_API_KEY` and `FACTORY_RUNNER_SECRET` from `.secrets.local`.
 
 ### Known limits
 
 - **Moss index quota.** The current Moss plan rejected index builds beyond three per project (“usage limit has been reached; billing must be updated”). One published guide uses two indexes. Further builds fail visibly, and Q&A keeps working through Moss Inference with the sections passed in directly. A demo reset deletes this app's indexes; it only ever deletes names matching `ix-<id>-preview|full`.
 - **Factory runs cost Factory credits** (about 5,900 per patch in testing) and take about 10–15 s.
 - **Apify** uses the free plan's monthly credit. Each fetch is one small crawl.
+- **x402 dependencies:** `@coinbase/cdp-sdk` and `@x402/*` pin zod 3.x, which has a memory-exhaustion advisory (GHSA-mrhx-c7xc-m3w5) with no 3.x fix. The public payment endpoint rejects payment headers over 16 KB before they reach the library.
+- **On-chain vs. app accounting:** the whole x402 test charge goes to the platform receiver wallet. The 80/20 split is app-side demo accounting.
 
 ## How it works
 

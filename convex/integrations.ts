@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
+import { cdpCredentialsPresent } from "./lib/x402";
 
 export type IntegrationState = "connected" | "configured" | "demo" | "unavailable" | "error";
 
@@ -35,6 +36,19 @@ export const status = query({
         : apifyEvent?.outcome === "failure"
           ? "error"
           : "configured";
+
+    const x402Configured = cdpCredentialsPresent();
+    const x402Wallets = !!(await ctx.db.query("x402Wallets").withIndex("by_role", (q) => q.eq("role", "receiver")).unique());
+    const x402Last = await lastRealEvent(ctx, "x402");
+    const x402State: IntegrationState = !x402Configured
+      ? "demo"
+      : !x402Wallets
+        ? "configured"
+        : x402Last?.outcome === "success" && x402Last.message.startsWith("x402 test payment settled")
+          ? "connected"
+          : x402Last?.outcome === "failure"
+            ? "error"
+            : "configured";
 
     const factoryConfigured = !!process.env.FACTORY_RUNNER_SECRET;
     const factoryRealEvent = await lastRealEvent(ctx, "factory");
@@ -93,7 +107,19 @@ export const status = query({
             : (factoryRealEvent?.message ?? ""),
       },
       { key: "armadin", name: "Armadin", role: "Authorized validation", state: "unavailable" as IntegrationState, detail: "Not connected — the local validator runs the known check against the toy target." },
-      { key: "x402", name: "Coinbase x402", role: "Paid access", state: "demo" as IntegrationState, detail: "No x402 test setup — purchases use the “Demo payment” simulator. No funds move." },
+      {
+        key: "x402",
+        name: "Coinbase x402",
+        role: "Paid access (Base Sepolia test USDC)",
+        state: x402State,
+        detail: !x402Configured
+          ? "CDP credentials not set — purchases use the “Demo payment” simulator. No funds move."
+          : !x402Wallets
+            ? "CDP credentials set; run `npm run x402:setup` to create and fund the wallets."
+            : x402State === "configured"
+              ? "Wallets ready; not yet verified by a settled test payment."
+              : (x402Last?.message ?? ""),
+      },
     ];
   },
 });

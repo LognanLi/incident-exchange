@@ -5,7 +5,14 @@
   },
   "node": {
     "externalPackages": [
-      "@moss-js/moss"
+      "@moss-js/moss",
+      "@coinbase/cdp-sdk",
+      "@x402/core",
+      "@x402/evm",
+      "@x402/fetch",
+      "viem",
+      "@x402/extensions",
+      "@x402/svm"
     ]
   }
 }

@@ -3,13 +3,19 @@ import { mutation, query } from "./_generated/server";
 import { requireRole } from "./lib/access";
 import { recordIntegrationEvent } from "./lib/integrations";
 import { splitRevenue } from "./lib/money";
+import { USDC_BASE_SEPOLIA, X402_NETWORK, cdpCredentialsPresent, centsToAtomicUsdc, testChargeCents, testDivisor } from "./lib/x402";
 
-// No x402 test credentials are configured in this build, so every purchase uses the clearly
-// labeled demo simulator. No funds move and nothing is "settled".
+// Purchases use Coinbase x402 on Base Sepolia (test USDC) when CDP credentials are set and the
+// wallet setup has run; otherwise the clearly labeled demo simulator. No real funds ever move.
 
 export const startCheckout = mutation({
-  args: { actor: v.string(), playbookId: v.id("playbooks") },
-  handler: async (ctx, { actor, playbookId }) => {
+  args: {
+    actor: v.string(),
+    playbookId: v.id("playbooks"),
+    /** "auto" = x402 when ready, else simulator. The buyer may explicitly choose the simulator. */
+    preference: v.optional(v.union(v.literal("auto"), v.literal("demo_simulator"))),
+  },
+  handler: async (ctx, { actor, playbookId, preference }) => {
     const buyer = await requireRole(ctx, actor, "buyer");
     const pb = await ctx.db.get(playbookId);
     if (!pb || !pb.active) throw new ConvexError("Playbook not found.");
@@ -19,22 +25,57 @@ export const startCheckout = mutation({
       .collect();
     const done = existing.find((p) => p.paymentStatus === "simulated_success" || p.paymentStatus === "test_success");
     if (done) return done._id;
-    const pending = existing.find((p) => p.paymentStatus === "pending");
-    if (pending) return pending._id;
+
+    const receiver = await ctx.db.query("x402Wallets").withIndex("by_role", (q) => q.eq("role", "receiver")).unique();
+    const useX402 = preference !== "demo_simulator" && cdpCredentialsPresent() && !!receiver;
+    const provider = useX402 ? ("x402_test" as const) : ("demo_simulator" as const);
+
+    // Reuse a pending checkout with the same provider; cancel pending ones with another provider.
+    for (const p of existing.filter((p) => p.paymentStatus === "pending")) {
+      if (p.provider === provider) return p._id;
+      await ctx.db.patch(p._id, { paymentStatus: "cancelled" });
+    }
 
     const split = splitRevenue(pb.priceMinorUnits);
+    const chargeCents = testChargeCents(pb.priceMinorUnits, testDivisor());
     return await ctx.db.insert("purchases", {
       buyerOrgId: buyer._id,
       playbookId,
       amountMinorUnits: pb.priceMinorUnits,
       currency: pb.currency,
-      provider: "demo_simulator",
+      provider,
       paymentStatus: "pending",
       ...split,
-      transactionReference: `DEMO-SIM-${Date.now().toString(36).toUpperCase()}`,
+      transactionReference: `${useX402 ? "X402" : "DEMO-SIM"}-${Date.now().toString(36).toUpperCase()}`,
+      x402: useX402
+        ? {
+            network: X402_NETWORK,
+            asset: USDC_BASE_SEPOLIA,
+            chargeCents,
+            atomicAmount: centsToAtomicUsdc(chargeCents),
+            payTo: receiver!.address,
+          }
+        : undefined,
       isDemo: buyer.isDemo,
       createdAt: Date.now(),
     });
+  },
+});
+
+/** Whether x402 test payments are available (for the checkout UI). */
+export const paymentOptions = query({
+  args: {},
+  handler: async (ctx) => {
+    const receiver = await ctx.db.query("x402Wallets").withIndex("by_role", (q) => q.eq("role", "receiver")).unique();
+    const buyer = await ctx.db.query("x402Wallets").withIndex("by_role", (q) => q.eq("role", "buyer")).unique();
+    return {
+      x402Ready: cdpCredentialsPresent() && !!receiver && !!buyer,
+      credentialsPresent: cdpCredentialsPresent(),
+      walletsReady: !!receiver && !!buyer,
+      buyerAddress: buyer?.address,
+      receiverAddress: receiver?.address,
+      divisor: testDivisor(),
+    };
   },
 });
 

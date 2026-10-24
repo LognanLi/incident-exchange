@@ -4,12 +4,13 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { CONTRIBUTOR_SHARE_PERCENT, PLATFORM_SHARE_PERCENT } from "../../../convex/lib/domain";
 import { useSession } from "../../session";
+import { explorerAddressUrl, explorerTxUrl } from "../../../convex/lib/x402";
 import { Empty, Loading, Money, PageHeader, RoleGate, formatDate } from "../../components/ui";
 
 const STATUS_TEXT = {
   pending: "Pending — simulator step not completed",
   simulated_success: "Simulated payment completed — no funds moved",
-  test_success: "x402 test-network payment succeeded",
+  test_success: "x402 test payment settled on Base Sepolia (test USDC, no real value)",
   cancelled: "Cancelled",
 } as const;
 
@@ -34,6 +35,7 @@ function PurchaseConfirmation() {
       <PageHeader eyebrow="Purchase confirmation" title={ok ? "Playbook unlocked" : "Purchase not completed"} />
       <section className="card receipt">
         {p.provider === "demo_simulator" && <div className="sim-banner">DEMO PAYMENT — SIMULATED · NOT SETTLED</div>}
+        {p.provider === "x402_test" && <div className="x402-banner">COINBASE x402 · BASE SEPOLIA TESTNET · TEST USDC</div>}
         <h2>{p.playbookTitle}</h2>
         <table className="split-table">
           <tbody>
@@ -45,10 +47,10 @@ function PurchaseConfirmation() {
             </tr>
             <tr>
               <td>Provider</td>
-              <td>{p.provider === "demo_simulator" ? "Demo payment simulator" : "Coinbase x402 (test network)"}</td>
+              <td>{p.provider === "demo_simulator" ? "Demo payment simulator" : "Coinbase x402 · CDP server wallet · Base Sepolia"}</td>
             </tr>
             <tr>
-              <td>Amount</td>
+              <td>{p.x402 ? "List price" : "Amount"}</td>
               <td>
                 <Money minor={p.amountMinorUnits} currency={p.currency} />
               </td>
@@ -65,6 +67,34 @@ function PurchaseConfirmation() {
                 <Money minor={p.platformShareMinorUnits} currency={p.currency} />
               </td>
             </tr>
+            {p.x402 && (
+              <>
+                <tr>
+                  <td>Settled on-chain</td>
+                  <td>{(p.x402.chargeCents / 100).toFixed(2)} test USDC (list price scaled for the testnet faucet)</td>
+                </tr>
+                {p.x402.txHash && (
+                  <tr>
+                    <td>Transaction</td>
+                    <td>
+                      <a href={explorerTxUrl(p.x402.txHash)} target="_blank" rel="noreferrer noopener">
+                        <code>{p.x402.txHash.slice(0, 10)}…{p.x402.txHash.slice(-8)}</code> ↗
+                      </a>
+                    </td>
+                  </tr>
+                )}
+                {p.x402.payer && (
+                  <tr>
+                    <td>Payer wallet</td>
+                    <td>
+                      <a href={explorerAddressUrl(p.x402.payer)} target="_blank" rel="noreferrer noopener">
+                        <code>{p.x402.payer.slice(0, 8)}…{p.x402.payer.slice(-6)}</code>
+                      </a>
+                    </td>
+                  </tr>
+                )}
+              </>
+            )}
             <tr>
               <td>Reference</td>
               <td>
@@ -83,6 +113,12 @@ function PurchaseConfirmation() {
             )}
           </tbody>
         </table>
+        {p.x402 && (
+          <p className="small muted">
+            On-chain, the full test charge goes to the platform receiver wallet. The 80/20 contributor/platform split above
+            is the app's demo accounting on the list price; contributor payouts are not sent on-chain in this prototype.
+          </p>
+        )}
         <div className="row gap">
           <Link className="btn primary" to={`/playbooks/${p.playbookId}`}>
             {ok ? "Read the playbook" : "Back to playbook"}

@@ -218,6 +218,19 @@ export default defineSchema({
     contributorShareMinorUnits: v.number(),
     platformShareMinorUnits: v.number(),
     transactionReference: v.string(),
+    /** Present for x402 test purchases: what actually settled on Base Sepolia. */
+    x402: v.optional(
+      v.object({
+        network: v.string(),
+        asset: v.string(),
+        chargeCents: v.number(),
+        atomicAmount: v.string(),
+        payTo: v.string(),
+        payer: v.optional(v.string()),
+        txHash: v.optional(v.string()),
+        error: v.optional(v.string()),
+      }),
+    ),
     isDemo: v.boolean(),
     createdAt: v.number(),
     completedAt: v.optional(v.number()),
@@ -257,6 +270,15 @@ export default defineSchema({
   })
     .index("by_playbook_scope", ["playbookId", "scope"])
     .index("by_isDemo", ["isDemo"]),
+
+  /** CDP Server Wallet accounts used for x402 test payments (addresses only — keys stay in CDP). */
+  x402Wallets: defineTable({
+    role: v.union(v.literal("buyer"), v.literal("receiver")),
+    accountName: v.string(),
+    address: v.string(),
+    network: v.string(),
+    updatedAt: v.number(),
+  }).index("by_role", ["role"]),
 
   integrationEvents: defineTable({
     integration: v.string(),

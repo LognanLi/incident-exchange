@@ -131,16 +131,28 @@ try {
   await shot("playbook-preview");
   step("Free preview shows evidence, limitations, price; details locked");
   await page.getByRole("link", { name: "Continue to demo checkout" }).click();
-  await page.getByText("DEMO PAYMENT — SIMULATED").waitFor();
-  await page.getByRole("button", { name: "Start demo checkout" }).click();
-  await page.getByLabel(/I understand this is a simulated payment/).check();
-  await shot("checkout");
-  await page.getByRole("button", { name: "Complete simulated payment" }).click();
-  await page.getByRole("heading", { name: "Playbook unlocked" }).waitFor();
-  await page.getByText("$39.20").waitFor();
-  await page.getByText("$9.80").waitFor();
-  await shot("receipt");
-  step("Simulated purchase recorded: $49.00 → $39.20 contributor / $9.80 platform");
+  const x402Start = page.getByRole("button", { name: "Start x402 test checkout" });
+  await page.getByRole("button", { name: /Start (x402 test|demo) checkout/ }).waitFor();
+  if (await x402Start.isVisible()) {
+    await x402Start.click();
+    await page.getByRole("button", { name: /Pay .* test USDC with x402/ }).click();
+    await page.getByRole("heading", { name: "Playbook unlocked" }).waitFor({ timeout: 180000 });
+    await page.getByText("x402 test payment settled on Base Sepolia").waitFor();
+    const tx = await page.locator('a[href*="sepolia.basescan.org/tx/"]').getAttribute("href");
+    await shot("receipt-x402");
+    step(`x402 test payment settled on Base Sepolia: ${tx}`);
+  } else {
+    await page.getByText("DEMO PAYMENT — SIMULATED").waitFor();
+    await page.getByRole("button", { name: "Start demo checkout" }).click();
+    await page.getByLabel(/I understand this is a simulated payment/).check();
+    await shot("checkout");
+    await page.getByRole("button", { name: "Complete simulated payment" }).click();
+    await page.getByRole("heading", { name: "Playbook unlocked" }).waitFor();
+    await page.getByText("$39.20").waitFor();
+    await page.getByText("$9.80").waitFor();
+    await shot("receipt");
+    step("Simulated purchase recorded: $49.00 → $39.20 contributor / $9.80 platform");
+  }
   await page.getByRole("link", { name: "Read the playbook" }).click();
   await page.locator(".tag-unlocked").waitFor();
   await page.getByLabel("Question").fill("How do I confirm the lockout test works?");

@@ -11,6 +11,7 @@
 import type * as demo from "../demo.js";
 import type * as drafts from "../drafts.js";
 import type * as feedback from "../feedback.js";
+import type * as http from "../http.js";
 import type * as integrations from "../integrations.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_apify from "../lib/apify.js";
@@ -26,6 +27,7 @@ import type * as lib_qa from "../lib/qa.js";
 import type * as lib_search from "../lib/search.js";
 import type * as lib_seedData from "../lib/seedData.js";
 import type * as lib_toyAuth from "../lib/toyAuth.js";
+import type * as lib_x402 from "../lib/x402.js";
 import type * as mossIndex from "../mossIndex.js";
 import type * as mossState from "../mossState.js";
 import type * as playbooks from "../playbooks.js";
@@ -33,6 +35,8 @@ import type * as purchases from "../purchases.js";
 import type * as references from "../references.js";
 import type * as reviews from "../reviews.js";
 import type * as validation from "../validation.js";
+import type * as x402Node from "../x402Node.js";
+import type * as x402State from "../x402State.js";
 
 import type {
   ApiFromModules,
@@ -44,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   demo: typeof demo;
   drafts: typeof drafts;
   feedback: typeof feedback;
+  http: typeof http;
   integrations: typeof integrations;
   "lib/access": typeof lib_access;
   "lib/apify": typeof lib_apify;
@@ -59,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   "lib/search": typeof lib_search;
   "lib/seedData": typeof lib_seedData;
   "lib/toyAuth": typeof lib_toyAuth;
+  "lib/x402": typeof lib_x402;
   mossIndex: typeof mossIndex;
   mossState: typeof mossState;
   playbooks: typeof playbooks;
@@ -66,6 +72,8 @@ declare const fullApi: ApiFromModules<{
   references: typeof references;
   reviews: typeof reviews;
   validation: typeof validation;
+  x402Node: typeof x402Node;
+  x402State: typeof x402State;
 }>;
 
 /**

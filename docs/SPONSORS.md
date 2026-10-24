@@ -39,9 +39,10 @@ https://api.apify.com/v2/actors?token=$APIFY_TOKEN
 
 
 ## Coinbase x402: paid access
-- Currently: demo simulator (`convex/purchases.ts`).
-- Needed: target network (e.g. Base Sepolia), facilitator URL, the receiving test address (`payTo`), test asset (USDC contract on that network), and how buyers sign during the demo (browser wallet vs. Coinbase-provided test wallet). No private keys will be stored server-side.
-- Hook point: add an `x402_test` provider beside `demo_simulator`. Unlock only after the facilitator verifies the payment and returns success.
+- 🟡 **Code complete; waiting on CDP secrets.** Base Sepolia, with a backend Coinbase-managed (CDP Server Wallet) buyer.
+- Secrets go on the **Convex deployment environment**, the only backend that runs payment code: `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`. Set them with `npx convex env set` in your own terminal.
+- Then run `npm run x402:setup` to create and fund the wallets, and buy a guide as Harbor Analytics.
+- Code: `convex/x402Node.ts` (setup, seller endpoint logic, buyer payment), `convex/http.ts` (`POST /x402/purchases/<id>`), `convex/x402State.ts`.
 
 ## Factory Droid: defensive patch workflow
 - ✅ **Connected and verified** through `scripts/factory-runner.mjs` (started by `npm run dev`). `droid` is a project dev dependency.

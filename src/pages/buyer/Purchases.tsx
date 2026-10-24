@@ -45,6 +45,7 @@ function Purchases() {
                   <td>
                     <span className="badge">{p.paymentStatus.replace("_", " ")}</span>
                     {p.provider === "demo_simulator" && <span className="badge muted-badge">Demo payment</span>}
+                    {p.provider === "x402_test" && <span className="badge ok">x402 · Base Sepolia</span>}
                   </td>
                   <td className="small">{formatDate(p.createdAt)}</td>
                   <td>

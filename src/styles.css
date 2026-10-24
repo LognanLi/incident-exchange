@@ -319,3 +319,5 @@ legend { font-weight: 700; font-size: 1rem; padding: 0; margin-bottom: 8px; }
 .org-card:hover { border-color: var(--brand); }
 .org-card.selected { border: 2px solid var(--brand); background: #f0f9ff; }
 .script li { margin: 6px 0; }
+.x402-card { border: 2px solid #3b82f6; }
+.x402-banner { background: #dbeafe; color: #1e3a8a; font-weight: 800; font-size: 0.78rem; letter-spacing: 0.06em; text-align: center; padding: 6px; border-radius: 6px; margin-bottom: 12px; }
