@@ -732,3 +732,9 @@ h1, h2, h3 { letter-spacing: -0.02em; font-weight: 650; }
 .x402-banner { background: #f4f4f2; color: var(--ink); }
 .simulator { border: 1px dashed var(--line-2); }
 .x402-card { border: 1px solid var(--ink); }
+/* overflow fixes */
+.term-tip { display: none; max-width: min(260px, 80vw); }
+.term:hover .term-tip, .term:focus .term-tip { display: block; animation: fadeUp 160ms var(--ease-out) both; }
+.shell > * { min-width: 0; }
+@media (max-width: 960px) { .sidebar { max-width: 100vw; min-width: 0; } }
+.page-guide .term-tip { left: auto; right: 0; }
