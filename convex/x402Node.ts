@@ -13,7 +13,7 @@ import { wrapFetchWithPayment } from "@x402/fetch";
 import { createPublicClient, erc20Abi, formatUnits, http } from "viem";
 import { baseSepolia } from "viem/chains";
 import { action, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import {
   BUYER_WALLET_NAME,
   CDP_NETWORK,
@@ -241,5 +241,44 @@ export const reconcilePayment = action({
       return { status: "not_settled_retry_allowed" };
     }
     return { status: "still_pending" };
+  },
+});
+
+/**
+ * Agent payment adapter (MCP flow). The connector never holds wallet keys: this action signs with
+ * the backend CDP buyer wallet, with spend controls pinned to the purchase's quoted payee and amount,
+ * then performs the standard x402 request against the fixed allowlisted paid endpoint.
+ */
+export const agentPay = action({
+  args: { svc: v.string(), token: v.string(), purchaseId: v.string() },
+  handler: async (ctx, { svc, token, purchaseId }): Promise<{ status: string; txHash?: string }> => {
+    requireCdp();
+    const info = await ctx.runQuery(api.mcp.purchaseForAgent, { svc, token, purchaseId });
+    if (info.status !== "pending") return { status: info.status === "test_success" ? "entitled" : info.status };
+    if (info.x402.nonce) throw new ConvexError({ code: "PAYMENT_PENDING", message: "An earlier payment is still being confirmed.", retryable: true });
+    const siteUrl = process.env.CONVEX_SITE_URL;
+    if (!siteUrl) throw new ConvexError({ code: "PROVIDER_UNAVAILABLE", message: "Payment endpoint unavailable.", retryable: true });
+    try {
+      const cdp = new CdpClient();
+      const account = await cdp.evm.getOrCreateAccount({ name: BUYER_WALLET_NAME });
+      const client = new x402Client();
+      registerExactEvmScheme(client, { signer: fromCdpEvmAccount(account) });
+      applySpendControls(client, {
+        maxAmountPerPayment: { atomic: BigInt(info.x402.atomicAmount), asset: USDC_BASE_SEPOLIA },
+        allowedNetworks: [X402_NETWORK],
+        allowedAssets: [USDC_BASE_SEPOLIA],
+        allowedPayees: [info.x402.payTo as `0x${string}`],
+      });
+      const fetchWithPayment = wrapFetchWithPayment(fetch, client);
+      // Fixed endpoint built from our own site URL — never a URL taken from retrieved content.
+      const res = await fetchWithPayment(`${siteUrl}/x402/purchases/${info.purchaseId}`, { method: "POST", headers: { Accept: "application/json" } });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; txHash?: string; error?: string };
+      if (!res.ok || !body.ok) throw new Error(body.error ?? `Payment endpoint responded ${res.status}`);
+      return { status: "entitled", txHash: body.txHash };
+    } catch (err) {
+      const message = err instanceof Error ? err.message.slice(0, 200) : "unknown error";
+      await ctx.runMutation(internal.x402State.recordFailure, { purchaseId: info.purchaseId, message: `Agent x402 payment failed: ${message}` });
+      throw new ConvexError({ code: "PAYMENT_FAILED", message: `Payment failed: ${message}`, retryable: false });
+    }
   },
 });

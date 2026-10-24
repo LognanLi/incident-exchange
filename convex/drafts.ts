@@ -1,5 +1,6 @@
 import { ConvexError, v, type Infer } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireOwnDraft, requireRole } from "./lib/access";
@@ -435,43 +436,52 @@ export const approveAndSubmit = mutation({
 export const publishFinal = mutation({
   args: { actor: v.string(), draftId: v.id("incidentDrafts"), confirmed: v.boolean() },
   handler: async (ctx, { actor, draftId, confirmed }) => {
-    const { draft, org } = await requireOwnDraft(ctx, actor, draftId);
+    const { draft } = await requireOwnDraft(ctx, actor, draftId);
     if (draft.status !== "approved") throw new ConvexError("Only reviewer-approved drafts can be published.");
     if (!confirmed) throw new ConvexError("Confirm your final approval to publish.");
     if (!draft.sections || !draft.evidenceLevel) throw new ConvexError("Draft is incomplete.");
     if (draft.contributorApproval?.contentHash !== draftContentHash(draft)) {
       throw new ConvexError("Content changed since your approval. Re-approve before publishing.");
     }
-    const s = draft.sections;
-    const body = (k: SectionKey) => s[k].body;
-    const playbookId = await publishPlaybook(ctx, {
-      existingPlaybookId: draft.playbookId,
-      incidentDraftId: draftId,
-      contributorOrgId: org._id,
-      contributorAlias: publicAliasFor(draft.sharingLevel, org),
-      sharingLevel: draft.sharingLevel,
-      tlp: draft.tlp,
-      publicTitle: draft.publicTitle,
-      publicSummary: draft.sanitizedSummary,
-      systemCategories: draft.systemCategories,
-      environment: draft.environment,
-      clues: draft.applicability?.clues ?? [],
-      mismatchSignals: draft.applicability?.mismatchSignals ?? [],
-      checksBeforeUse: draft.applicability?.checksBeforeUse ?? [],
-      evidenceScope: draft.evidenceScope,
-      evidenceLevel: draft.evidenceLevel,
-      toyCase: draft.toyCase,
-      priceAtomic: draft.priceAtomic,
-      revision: draft.revision,
-      contentHash: draftContentHash(draft),
-      sections: { recognize: body("recognize"), check: body("check"), contain: body("contain"), recover: body("recover"), verify: body("verify"), limitations: body("limitations") },
-      failedAttempts: draft.failedAttempts,
-      publishedAt: Date.now(),
-      isDemo: draft.isDemo,
-    });
-    await ctx.db.patch(draftId, { status: "published", playbookId, updatedAt: Date.now() });
-    await audit(ctx, org, "guide.published", draft.publicTitle, `revision ${draft.revision} · ${draft.evidenceLevel}`);
-    if (mossCredentials()) await ctx.scheduler.runAfter(0, internal.mossIndex.buildAll, { playbookId });
-    return playbookId;
+    return await publishApprovedDraft(ctx, draftId);
   },
 });
+
+/** Publish an approved draft whose contributor approval matches its current content (shared by web and agent flows). */
+export async function publishApprovedDraft(ctx: MutationCtx, draftId: Id<"incidentDrafts">) {
+  const draft = (await ctx.db.get(draftId))!;
+  const org = (await ctx.db.get(draft.contributorOrgId))!;
+  if (!draft.sections || !draft.evidenceLevel) throw new ConvexError("Draft is incomplete.");
+  if (draft.contributorApproval?.contentHash !== draftContentHash(draft)) throw new ConvexError("Content changed since approval.");
+    const s = draft.sections;
+  const body = (k: SectionKey) => s[k].body;
+  const playbookId = await publishPlaybook(ctx, {
+    existingPlaybookId: draft.playbookId,
+    incidentDraftId: draftId,
+    contributorOrgId: org._id,
+    contributorAlias: publicAliasFor(draft.sharingLevel, org),
+    sharingLevel: draft.sharingLevel,
+    tlp: draft.tlp,
+    publicTitle: draft.publicTitle,
+    publicSummary: draft.sanitizedSummary,
+    systemCategories: draft.systemCategories,
+    environment: draft.environment,
+    clues: draft.applicability?.clues ?? [],
+    mismatchSignals: draft.applicability?.mismatchSignals ?? [],
+    checksBeforeUse: draft.applicability?.checksBeforeUse ?? [],
+    evidenceScope: draft.evidenceScope,
+    evidenceLevel: draft.evidenceLevel,
+    toyCase: draft.toyCase,
+    priceAtomic: draft.priceAtomic,
+    revision: draft.revision,
+    contentHash: draftContentHash(draft),
+    sections: { recognize: body("recognize"), check: body("check"), contain: body("contain"), recover: body("recover"), verify: body("verify"), limitations: body("limitations") },
+    failedAttempts: draft.failedAttempts,
+    publishedAt: Date.now(),
+    isDemo: draft.isDemo,
+  });
+  await ctx.db.patch(draftId, { status: "published", playbookId, updatedAt: Date.now() });
+  await audit(ctx, org, "guide.published", draft.publicTitle, `revision ${draft.revision} · ${draft.evidenceLevel}`);
+  // Per-guide Moss indexes are no longer built (plan quota); Moss retrieval uses one shared public-preview index in the MCP service.
+  return playbookId;
+}

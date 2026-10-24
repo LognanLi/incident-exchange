@@ -67,6 +67,7 @@ const RUNNER_SECRET = process.env.FACTORY_RUNNER_SECRET ?? secrets.FACTORY_RUNNE
 const CONVEX_URL = process.env.VITE_CONVEX_URL ?? local.VITE_CONVEX_URL;
 const ready = Boolean(FACTORY_API_KEY && RUNNER_SECRET && CONVEX_URL && existsSync(DROID));
 let busy = false;
+let demoChild = null;
 
 function runDroid(cwd, prompt) {
   return new Promise((resolvePromise) => {
@@ -303,7 +304,21 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") return send(204, {});
   if (origin && !ALLOWED_ORIGINS.has(origin)) return send(403, { error: "Origin not allowed" });
 
-  if (req.method === "GET" && req.url === "/health") return send(200, { ready, busy });
+  if (req.method === "GET" && req.url === "/health") return send(200, { ready, busy, demoRunning: !!demoChild });
+  if (req.method === "POST" && req.url === "/agent-demo") {
+    // Presenter control: start the real two-agent demo (connector/demo.mjs). One at a time; fixed script, no arguments from the browser.
+    let raw = "";
+    for await (const chunk of req) { raw += chunk; if (raw.length > 500) return send(413, { error: "Request too large" }); }
+    let body; try { body = JSON.parse(raw || "{}"); } catch { return send(400, { error: "Invalid JSON" }); }
+    if (typeof body.actor !== "string") return send(400, { error: "actor required" });
+    if (demoChild) return send(409, { error: "A demo run is already in progress." });
+    const convex = new ConvexHttpClient(CONVEX_URL);
+    const ok = await convex.query(anyApi.agentsConsole.canRunDemo, { actor: body.actor }).catch(() => ({ ok: false }));
+    if (!ok.ok) return send(403, { error: "Not allowed, or a run is already in progress." });
+    demoChild = spawn(process.execPath, [join(ROOT, "connector", "demo.mjs"), ...(body.simulatePayment === true ? ["--simulate-payment"] : [])], { cwd: ROOT, stdio: "ignore", env: { PATH: process.env.PATH, HOME: process.env.HOME } });
+    demoChild.on("close", () => { demoChild = null; });
+    return send(202, { started: true });
+  }
   if (req.method === "POST" && req.url === "/patch") {
     if (!ready) return send(503, { error: "Factory runner is not configured." });
     if (busy) return send(409, { error: "A Factory run is already in progress." });

@@ -35,6 +35,7 @@ type Guide = { title: string; body: string; terms?: string[] };
 
 const GUIDES: [string, Guide][] = [
   ["/", { title: "Welcome", body: "Learn how another company fixed a problem like yours. It is private, checked by a person, and costs a small fee.", terms: ["guide"] }],
+  ["/agents", { title: "Agent activity", body: "One developer's coding agent shares a fix it verified; another agent finds it through MCP, pays a tiny test amount, adapts it with Factory Droid, and proves it with protected tests.", terms: ["x402"] }],
   ["/how-it-works", { title: "How it works", body: "A 60-second walkthrough of the whole loop, from a private incident to a paid, tested guide.", terms: [] }],
   ["/pricing", { title: "Pricing", body: "What buyers pay, what contributors earn, and what teams get.", terms: ["accrual"] }],
   ["/trust", { title: "Trust & safety", body: "How we hide who shared a guide, keep payments safe, and stop misuse.", terms: ["tlp", "privacy scan"] }],
