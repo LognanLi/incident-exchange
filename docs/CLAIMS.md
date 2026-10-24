@@ -4,7 +4,7 @@ Agents working in this repository in parallel (Droid and Claude) list the shared
 
 | Branch / PR | Agent | Files | Notes |
 | --- | --- | --- | --- |
-| `moss-semantic-search` (PR #4, rebased on `agent-sprint` @ a590a0e) | Droid | `mcp/tools.mjs` (`search_resolutions` calls `semanticSearch.mcpSearch`; agreed with Claude), `convex/playbooks.ts` (search split into `search` + `searchRanked`), `convex/drafts.ts` (publish schedules an index refresh), `convex/demo.ts` (reset/seed schedule an index refresh), `mcp/server.mjs` (`search_resolutions` calls `semanticSearch.mcpSearch`), `src/pages/buyer/Search.tsx`, removed `mcp/mossSearch.mjs`; new: `convex/semanticSearch.ts`, `convex/searchIndex.ts`, `convex/lib/searchIndex.ts`, `convex/crons.ts`, `tests/searchIndex.test.ts` | `convex/mcp.ts` is not changed; `mcp.publicPreviews` is now unused and can be removed by its owner. |
+| `moss-semantic-search` (PR #5 into `agent-sprint` @ 53e6021; early version merged to `main` in #3/#4) | Droid | `mcp/tools.mjs` (`search_resolutions` calls `semanticSearch.mcpSearch`; agreed with Claude), `convex/playbooks.ts` (search split into `search` + `searchRanked`), `convex/drafts.ts` (publish schedules an index refresh), `convex/demo.ts` (reset/seed schedule an index refresh), `mcp/server.mjs` (`search_resolutions` calls `semanticSearch.mcpSearch`), `src/pages/buyer/Search.tsx`, removed `mcp/mossSearch.mjs`; new: `convex/semanticSearch.ts`, `convex/searchIndex.ts`, `convex/lib/searchIndex.ts`, `convex/crons.ts`, `tests/searchIndex.test.ts` | `convex/mcp.ts` is not changed; `mcp.publicPreviews` is now unused and can be removed by its owner. |
 
 ## Shared cloud deployment
 
