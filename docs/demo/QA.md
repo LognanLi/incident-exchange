@@ -4,9 +4,9 @@
 | Command | Result |
 | --- | --- |
 | `npm run typecheck` | pass |
-| `npm test` (Vitest 41 + toy node:test 14) | 55/55 pass |
+| `npm test` (Vitest 43 + toy node:test 14) | 57/57 pass |
 | `npm run build` | pass |
-| `npm run e2e` (Chrome, live Moss/Apify/Factory/x402) | 19 steps pass, ~60 s, no console errors |
+| `npm run e2e` (Chrome, live Moss/Apify/Factory/x402) | 23 steps pass (incl. live alert toast, license, exports), ~100 s, no console errors |
 | `node e2e/viewports.mjs` | 1440 / 1024 / 390 px: no horizontal overflow on guide page; home + search inspected visually |
 
 ## Critical checks → evidence
@@ -30,3 +30,8 @@
 - Moss plan caps index builds (3 per project); additional guides use Moss Inference with supplied sections, labeled.
 - zod 3.x advisory via `@coinbase/cdp-sdk`/`@x402/*` (no 3.x fix); payment header size capped at 16 KB.
 - Keyboard: native controls and visible focus; no custom dialogs/drawers (evidence uses `<details>`). Full screen-reader audit not performed.
+
+## Goal round additions
+- License, TLP:AMBER verification, and budget enforcement — lifecycle test.
+- Saved symptom alert fires on publish — lifecycle test + e2e toast.
+- ⌘K palette search and guided demo navigation verified in Chrome (no page errors); 1440 and 390 px layouts without horizontal overflow.

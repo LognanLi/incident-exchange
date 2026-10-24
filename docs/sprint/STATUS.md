@@ -37,3 +37,10 @@ Cut to conserve time/tokens (user asked for ~90 min): sidebar navigation redesig
 - 03:35 full e2e with live Moss/Apify/Factory/x402 passes (19 steps).
 - 03:38 live failed-payment check: stays locked.
 - Current runnable state: `npm run dev`; branch `polish-sprint`; see docs/demo/DEMO.md.
+
+## Goal round: startup features + design system (04:00–04:30 PDT)
+- Research: `docs/research/DESIGN_RESEARCH.md` (24 sites; 23 fetched live for theme/font/motion signals) and `MARKET_RESEARCH.md` (TLP, ISACs, STIX/TAXII, data marketplaces, trust centers, procurement, legal).
+- Shipped: vertical-tab sidebar, page guides + glossary, motion recipes, ⌘K palette, guided demo tour, real-time symptom alerts, audit log + CSV, TLP labels + verified-org gating, Data Use License, team budget, runbook + STIX 2.1 export, fit meter, contributor track record, How it works / Pricing / Trust pages, new home with live stats.
+- Fidelity check vs. original brief: `docs/BRIEF_COMPARISON.md`.
+- Checks: typecheck, build, 43 Vitest + 14 toy tests, e2e 23 steps with live Moss/Apify/Factory/x402.
+- Remote: https://github.com/LognanLi/incident-exchange (private).
