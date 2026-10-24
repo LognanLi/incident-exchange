@@ -176,7 +176,7 @@ export const quote = mutation({
       currency: "USDC", decimals: 6, network: X402_NETWORK, payTo: receiver?.address ?? "simulator", expiresAt, status: "open", isDemo: true, createdAt: Date.now(),
     });
     await event(ctx, "consumer", p.name, "quote_resolution", `Quote for “${pb.publicTitle}” rev ${pb.revision}: ${pb.priceAtomic} atomic USDC`, "ok", [quoteId]);
-    return { quoteId, resolutionId: pb._id, revision: pb.revision, revisionHash: paid.contentHash, price: { amountAtomic: pb.priceAtomic, currency: "USDC", decimals: 6 }, network: X402_NETWORK, payTo: receiver?.address ?? "simulator", expiresAt, buyer: p.name };
+    return { quoteId, resolutionId: pb._id, revision: pb.revision, revisionHash: paid.contentHash, price: { amountAtomic: pb.priceAtomic, currency: "USDC", decimals: 6 }, network: X402_NETWORK, asset: USDC_BASE_SEPOLIA, payTo: receiver?.address ?? "simulator", expiresAt, buyer: p.name };
   },
 });
 
@@ -190,7 +190,7 @@ export const acquire = mutation({
     ...authArgs,
     quoteId: v.string(),
     clientRequestId: v.string(),
-    approved: v.object({ payTo: v.string(), maxAmountAtomic: v.string(), network: v.string() }),
+    approved: v.object({ payTo: v.string(), maxAmountAtomic: v.string(), network: v.string(), asset: v.optional(v.string()) }),
     simulate: v.optional(v.boolean()),
   },
   handler: async (ctx, { svc, token, quoteId, clientRequestId, approved, simulate }) => {
@@ -208,19 +208,32 @@ export const acquire = mutation({
     if (!pb || !pb.active || pb.revision !== qt.revision) fail("REVISION_CHANGED", "The resolution revision changed; request a new quote.", true);
 
     // Terms must match what the connector's own policy approved (payee/network/price injection defense).
-    if (approved.payTo.toLowerCase() !== qt.payTo.toLowerCase() || approved.network !== qt.network || BigInt(qt.priceAtomic) > BigInt(approved.maxAmountAtomic)) {
+    const assetMismatch = approved.asset !== undefined && approved.asset.toLowerCase() !== USDC_BASE_SEPOLIA.toLowerCase();
+    if (assetMismatch || approved.payTo.toLowerCase() !== qt.payTo.toLowerCase() || approved.network !== qt.network || BigInt(qt.priceAtomic) > BigInt(approved.maxAmountAtomic)) {
       await event(ctx, "security", p.name, "acquire_denied", "Quote terms did not match the connector's approved payee/network/price — no spend.", "denied", [quoteId]);
       fail("FORBIDDEN", "Quote terms do not match the approved payment policy.");
     }
     // Operator-installed spend policy with reservation of pending + settled purchases.
     const mine = await ctx.db.query("purchases").withIndex("by_principal", (q) => q.eq("principalId", p._id)).collect();
     const live = mine.filter((x) => x.paymentStatus === "pending" || PAID.has(x.paymentStatus));
+    // Server-side double-purchase guard: an existing live purchase of this exact revision is returned, never re-charged.
+    const dup = live.find((x) => x.playbookId === pb._id && x.revision === qt.revision);
+    if (dup) {
+      await ctx.db.patch(qt._id, { status: "used" });
+      return paymentReference(dup);
+    }
+    // The simulator is an operator-granted policy option, never an agent's free choice; testnet never silently degrades to it.
+    if (simulate && !p.policy.allowSimulator) {
+      await event(ctx, "security", p.name, "acquire_denied", "Simulated payment requested but not allowed by this agent's policy.", "denied", [quoteId]);
+      fail("FORBIDDEN", "This agent's policy does not allow simulated payments.");
+    }
+    if (!simulate && (!cdpCredentialsPresent() || qt.payTo === "simulator")) fail("PROVIDER_UNAVAILABLE", "x402 testnet payments are unavailable on this deployment.", true);
     const committed = BigInt(sumAtomic(live.map((x) => x.amountAtomic)));
     if (BigInt(qt.priceAtomic) > BigInt(p.policy.maxPerPurchaseAtomic) || committed + BigInt(qt.priceAtomic) > BigInt(p.policy.sessionMaxAtomic) || live.length >= p.policy.maxPurchases) {
       await event(ctx, "security", p.name, "budget_exceeded", `Purchase of ${qt.priceAtomic} atomic USDC refused by spend policy.`, "denied", [quoteId]);
       fail("BUDGET_EXCEEDED", "Purchase exceeds the agent's spend policy.");
     }
-    const useX402 = !simulate && cdpCredentialsPresent() && qt.payTo !== "simulator";
+    const useX402 = !simulate;
     const purchaseId = await ctx.db.insert("purchases", {
       buyerOrgId: org._id, playbookId: pb._id, revision: qt.revision, amountAtomic: qt.priceAtomic, currency: "USDC",
       provider: useX402 ? "x402_test" : "demo_simulator", paymentStatus: "pending", ...splitRevenue(qt.priceAtomic),
@@ -436,7 +449,9 @@ export const recordOutcome = mutation({
     if (evidenceRunId) {
       const rid = ctx.db.normalizeId("repairRuns", evidenceRunId);
       const run = rid ? await ctx.db.get(rid) : null;
-      if (run && run.stage === "candidate" && run.principalName === p.name && run.playbookId === pb._id && run.passed === passed) {
+      const reused = run ? await ctx.db.query("agentOutcomes").withIndex("by_evidenceRun", (q) => q.eq("evidenceRunId", run._id)).first() : null;
+      // One outcome per evidence run, and the run must have tested the exact purchased revision.
+      if (run && !reused && run.stage === "candidate" && run.principalName === p.name && run.playbookId === pb._id && run.revision === purchase.revision && run.passed === passed) {
         trust = "runner_verified";
         runRef = run._id;
       }
@@ -461,6 +476,11 @@ export const recordRepairRun = mutation({
   handler: async (ctx, a) => {
     if (!process.env.FACTORY_RUNNER_SECRET || a.runnerSecret !== process.env.FACTORY_RUNNER_SECRET) fail("AUTH_REQUIRED", "Unrecognized runner.");
     if (a.generation !== undefined && a.generation !== (await currentGeneration(ctx))) fail("FORBIDDEN", "Stale run from before a reset; ignored.");
+    // Diffs and notes are shown in the console: refuse anything that looks like a credential or private identifier.
+    if (scanSecrets(`${a.diff ?? ""}\n${a.note ?? ""}`).length) {
+      await event(ctx, "security", "protected-runner", "repair_run_rejected", `${a.repo} ${a.stage}: diff contained sensitive-looking content; not stored.`, "denied", [], a.mode);
+      fail("SENSITIVE_CONTENT_DETECTED", "Diff or note contains sensitive-looking content.");
+    }
     const playbookId = a.resolutionId ? ctx.db.normalizeId("playbooks", a.resolutionId) ?? undefined : undefined;
     const pb = playbookId ? await ctx.db.get(playbookId) : null;
     const id = await ctx.db.insert("repairRuns", {
@@ -508,7 +528,7 @@ export const generation = query({ args: {}, handler: async (ctx) => currentGener
 
 /** Operator: install/rotate an agent principal (CLI only). Stores only the token hash. */
 export const upsertPrincipal = internalMutation({
-  args: { name: v.string(), orgSlug: v.string(), scopes: v.array(v.string()), tokenHash: v.string(), ttlDays: v.number(), policy: v.object({ maxPerPurchaseAtomic: v.string(), sessionMaxAtomic: v.string(), maxPurchases: v.number(), network: v.string() }) },
+  args: { name: v.string(), orgSlug: v.string(), scopes: v.array(v.string()), tokenHash: v.string(), ttlDays: v.number(), policy: v.object({ maxPerPurchaseAtomic: v.string(), sessionMaxAtomic: v.string(), maxPurchases: v.number(), network: v.string(), allowSimulator: v.optional(v.boolean()) }) },
   handler: async (ctx, a) => {
     if (a.scopes.some((s) => !(SCOPES as readonly string[]).includes(s))) throw new ConvexError("Unknown scope.");
     const existing = await ctx.db.query("agentPrincipals").withIndex("by_name", (q) => q.eq("name", a.name)).unique();

@@ -2,8 +2,9 @@
 // Protected test runner: runs a sample repo's protected tests against a
 // candidate source directory and returns a structured result.
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -12,6 +13,36 @@ const MAX_OUTPUT = 20 * 1024;
 
 export function loadManifest() {
   return JSON.parse(readFileSync(join(ROOT, "manifest.json"), "utf8"));
+}
+
+function listFiles(dir, out = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) listFiles(full, out);
+    else if (entry.isFile()) out.push(full);
+    else throw new Error(`Unexpected non-regular file in protected suite: ${full}`);
+  }
+  return out;
+}
+
+// sha256 over the sorted (relative path, contents) pairs of the repo's
+// protected-tests/ directory and the shared harness/ directory.
+export function computeSuiteHash(repo) {
+  const manifest = loadManifest();
+  if (!Object.prototype.hasOwnProperty.call(manifest, repo)) throw new Error(`Unknown repo "${repo}"`);
+  const dirs = [join(ROOT, repo, manifest[repo].protectedTests), join(ROOT, "harness")];
+  const files = dirs
+    .flatMap((d) => listFiles(d))
+    .map((f) => ({ rel: relative(ROOT, f).split(sep).join("/"), full: f }))
+    .sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+  const h = createHash("sha256");
+  for (const { rel, full } of files) {
+    const data = readFileSync(full);
+    h.update(`${rel}\0${data.length}\0`);
+    h.update(data);
+    h.update("\0");
+  }
+  return h.digest("hex");
 }
 
 function findTampering(dir, depth = 0) {
@@ -55,6 +86,14 @@ export async function runProtectedTests({ repo, candidateDir }) {
   if (tampered) throw new Error(`Tampering guard: candidate dir contains test material: ${tampered}`);
 
   const spec = manifest[repo];
+  const pinned = spec.protectedSuiteSha256;
+  if (typeof pinned !== "string" || !/^[0-9a-f]{64}$/.test(pinned)) {
+    throw new Error(`Protected suite for ${repo} has no pinned protectedSuiteSha256 in manifest.json`);
+  }
+  const actual = computeSuiteHash(repo);
+  if (actual !== pinned) {
+    throw new Error(`Protected suite hash mismatch for ${repo}: expected ${pinned}, got ${actual}. Refusing to run.`);
+  }
   const repoDir = join(ROOT, repo);
   const cwd = join(repoDir, spec.protectedTests);
   const testFiles = spec.testFiles.map((f) => join(repoDir, f));
@@ -93,9 +132,14 @@ export async function runProtectedTests({ repo, candidateDir }) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+  if (process.argv[2] === "--print-suite-hashes") {
+    const hashes = Object.fromEntries(Object.keys(loadManifest()).map((r) => [r, computeSuiteHash(r)]));
+    console.log(JSON.stringify(hashes, null, 2));
+    process.exit(0);
+  }
   const [repo, candidateDir] = process.argv.slice(2);
   if (!repo || !candidateDir) {
-    console.error("usage: node sample-repos/run-protected-tests.mjs <repo> <candidateDir>");
+    console.error("usage: node sample-repos/run-protected-tests.mjs <repo> <candidateDir>\n       node sample-repos/run-protected-tests.mjs --print-suite-hashes");
     process.exit(2);
   }
   try {

@@ -98,6 +98,7 @@ export const listMine = query({
       .collect();
 
     const allShares: string[] = [];
+    const simShares: string[] = [];
     let sales = 0;
     type Stats = { sales: number; accruedAtomic: string; testnetSales: number; outcomes: { count: number; resolved: number } };
     const perPlaybook = new Map<Id<"playbooks">, Stats>();
@@ -108,7 +109,9 @@ export const listMine = query({
         .collect();
       const done = purchases.filter((p) => p.paymentStatus === "simulated_success" || p.paymentStatus === "test_success");
       const feedback = await ctx.db.query("outcomeFeedback").withIndex("by_playbook", (q) => q.eq("playbookId", pb._id)).collect();
-      const shares = done.map((p) => p.contributorShareAtomic);
+      // Only settled testnet payments accrue; simulator "sales" are tracked separately and never count as earnings.
+      const shares = done.filter((p) => p.paymentStatus === "test_success").map((p) => p.contributorShareAtomic);
+      simShares.push(...done.filter((p) => p.paymentStatus === "simulated_success").map((p) => p.contributorShareAtomic));
       perPlaybook.set(pb._id, {
         sales: done.length,
         accruedAtomic: sumAtomic(shares),
@@ -123,6 +126,7 @@ export const listMine = query({
     return {
       org: { displayName: org.displayName, publicAlias: org.publicAlias },
       accruedAtomic: sumAtomic(allShares),
+      simulatedAccruedAtomic: sumAtomic(simShares),
       /** No payouts are made in this prototype; accruals are an internal ledger. */
       paidOutAtomic: "0",
       sales,

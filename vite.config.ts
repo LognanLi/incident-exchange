@@ -9,5 +9,6 @@ export default defineConfig({
     // toy-apps has its own node:test suite (npm run test:toys).
     exclude: ["**/node_modules/**", "toy-apps/**", "e2e/**", "sample-repos/**"],
     server: { deps: { inline: ["convex-test"] } },
+    setupFiles: ["tests/setup-env.ts"],
   },
 });

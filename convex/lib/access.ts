@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import type { Role } from "./domain";
+import { verifySession } from "../../shared/session.mjs";
 
 /**
  * Demo identity: the browser sends the slug of the organization it is acting as.
@@ -9,9 +10,14 @@ import type { Role } from "./domain";
  * A production deployment would replace this with real authentication (e.g. Convex Auth / Clerk).
  */
 export async function getActor(ctx: QueryCtx, actor: string): Promise<Doc<"organizations">> {
+  // A signed demo session (minted only by the local runner) is required. Bare slugs are accepted only
+  // when DEMO_OPEN_IDENTITY=on (automated tests), never on a shared deployment.
+  let slug = await verifySession(process.env.DEMO_SESSION_SECRET, actor);
+  if (!slug && process.env.DEMO_OPEN_IDENTITY === "on" && /^[a-z0-9-]{2,40}$/.test(actor)) slug = actor;
+  if (!slug) throw new ConvexError("Demo session required or expired. Open Presenter controls and pick a role (the local runner must be running).");
   const org = await ctx.db
     .query("organizations")
-    .withIndex("by_slug", (q) => q.eq("slug", actor))
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
     .unique();
   if (!org) throw new ConvexError("Unknown demo identity. Open the Demo menu and pick a role, or reset demo data.");
   return org;

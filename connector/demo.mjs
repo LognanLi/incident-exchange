@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { ConvexHttpClient } from "convex/browser";
 import { anyApi } from "convex/server";
 import { ROOT, readEnv } from "./lib/mcpClient.mjs";
+import { mintSession } from "../shared/session.mjs";
 
 const secrets = readEnv(join(ROOT, ".secrets.local"));
 const convex = new ConvexHttpClient(readEnv(join(ROOT, ".env.local")).VITE_CONVEX_URL);
@@ -28,7 +29,7 @@ try {
   console.log(run("agentA.mjs", ["--approve", hash]));
   const sub = JSON.parse(readFileSync(join(ROOT, "connector", ".staging", "agent-a-submission.json"), "utf8"));
   await stage("Reviewer approves exact revision (demo reviewer policy)");
-  await convex.mutation(anyApi.reviews.decide, { actor: "review-desk", draftId: sub.submissionId, decision: "approve", note: "Demo reviewer policy: evidence and limits checked.", evidenceLevel: "evidence_reviewed", checklist: { sixSectionsComplete: true, noSensitiveData: true, defensiveOnly: true, evidenceSupportsLabel: true, limitationsStated: true } });
+  await convex.mutation(anyApi.reviews.decide, { actor: await mintSession(secrets.DEMO_SESSION_SECRET, "review-desk", 600_000), draftId: sub.submissionId, decision: "approve", note: "Demo reviewer policy: evidence and limits checked.", evidenceLevel: "evidence_reviewed", checklist: { sixSectionsComplete: true, noSensitiveData: true, defensiveOnly: true, evidenceSupportsLabel: true, limitationsStated: true } });
   await stage("Agent B: search → buy → Factory repair → protected tests");
   console.log(run("agentB.mjs", process.argv.slice(2)));
   await stage("Done", "succeeded");

@@ -1,5 +1,5 @@
 // Operator setup for the agent-to-agent demo. Never prints secret values.
-// - Ensures MCP_SERVICE_SECRET (generated) and FACTORY_RUNNER_SECRET (reused) exist locally and on Convex.
+// - Ensures MCP_SERVICE_SECRET + DEMO_SESSION_SECRET (generated) and FACTORY_RUNNER_SECRET (reused) exist locally and on Convex.
 // - Issues fresh dev service tokens for agent-a (contributor) and agent-b (buyer); only SHA-256 hashes go to Convex.
 // - Writes the connector's pinned policy (endpoint, network, payee, budget).
 import { execFileSync } from "node:child_process";
@@ -32,10 +32,11 @@ function ensure(name, generate) {
 }
 ensure("FACTORY_RUNNER_SECRET", false);
 ensure("MCP_SERVICE_SECRET", true);
+ensure("DEMO_SESSION_SECRET", true);
 
 const AGENTS = [
   { name: "agent-a", env: "AGENT_A_TOKEN", orgSlug: "northstar", scopes: ["search", "preview", "submit", "status"], policy: { maxPerPurchaseAtomic: "0", sessionMaxAtomic: "0", maxPurchases: 0, network: "eip155:84532" } },
-  { name: "agent-b", env: "AGENT_B_TOKEN", orgSlug: "harbor", scopes: ["search", "preview", "quote", "acquire", "retrieve", "outcome"], policy: { maxPerPurchaseAtomic: "10000", sessionMaxAtomic: "50000", maxPurchases: 2, network: "eip155:84532" } },
+  { name: "agent-b", env: "AGENT_B_TOKEN", orgSlug: "harbor", scopes: ["search", "preview", "quote", "acquire", "retrieve", "outcome"], policy: { maxPerPurchaseAtomic: "10000", sessionMaxAtomic: "50000", maxPurchases: 2, network: "eip155:84532", allowSimulator: true } },
 ];
 const lines = ["# Dev service tokens for the demo agents (gitignored). Rotate with `npm run agents:setup`."];
 for (const a of AGENTS) {

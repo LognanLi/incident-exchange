@@ -23,8 +23,15 @@ Missing for this spec: MCP service, agent principals/scopes, local connector wit
 - 14:16 live adversarial 9/9; security tests 20/20; console built.
 - 14:17 console “Run two-agent demo” clicked in Chrome → job succeeded in 43 s: A 3/5→5/5, B 2/5→5/5 (new Factory Droid session), runner_verified; B reused its existing entitlement (no second payment).
 
+- 14:25 independent review: 15 defects, 2 critical (runner isolation, slug identity). Gate re-opened.
+- 14:31 runner isolation rebuilt (child process + `--permission`, pinned suite hashes); 4 attacks fail.
+- 14:35–14:44 signed demo sessions; operator-only reset/demo; simulator policy flag; no silent fallback; testnet-only accruals; double-purchase guard; evidence one-per-run + revision bound; diff scan; candidate content check; rate limit after auth; case-insensitive denies.
+- 14:39 a demo reset was issued from a browser session on the cloud deployment (demo data only); data re-created by the rehearsal.
+- 14:44 rehearsal 92 s; 14:46 live attacks 9/9; 69 + 14 tests.
+- UI/UX redesign (minimal, less copy) in progress by a separate worker.
+
 ## Requirement results
-P1–P5 PASS · M1 PASS (real SDK client over HTTP) · M2 PASS · M3 PASS · M4 PASS · M5 PASS (generation guard; cloud state persists) · C1–C5 PASS (C2 live Base Sepolia) · S1–S8 PASS per SECURITY.md (S7: demo identity switcher remains a demo-only mechanism; MCP auth is token-based) · I1 PASS (Convex Cloud dev) · I2 Moss live for Q&A; MCP search lexical (labeled) · I3 PASS · I4 PASS (live Droid artifacts) · I5 Armadin unavailable · Q1–Q4 PASS.
+P1–P5 PASS · M1 PASS (real SDK client over HTTP) · M2 PASS · M3 PASS · M4 PASS · M5 PASS (generation guard; cloud state persists) · C1–C5 PASS (C2 live Base Sepolia) · S1–S8 PASS per SECURITY.md after the 14:44 fixes (S7 uses signed demo sessions, not real sign-in; network sandbox is a residual risk) · I1 PASS (Convex Cloud dev) · I2 Moss live for Q&A; MCP search lexical (labeled) · I3 PASS · I4 PASS (live Droid artifacts) · I5 Armadin unavailable · Q1–Q4 PASS.
 BLOCKED: externally reachable HTTPS MCP endpoint (no hosting); OAuth discovery not implemented (dev tokens labeled).
 
 ## Next three tasks

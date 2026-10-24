@@ -63,8 +63,8 @@ if (!resolutionCached) {
 const quote = await c.tool("quote_resolution", { resolutionId: pick.resolutionId });
 if (quote.isError) throw new Error(quote.text);
 const q = quote.envelope.data;
-const okTerms = q.payTo.toLowerCase() === String(P.payment.payTo).toLowerCase() && q.network === P.payment.network && BigInt(q.price.amountAtomic) <= BigInt(P.payment.maxPerPurchaseAtomic);
-if (!okTerms && !simulate) {
+const okTerms = q.payTo.toLowerCase() === String(P.payment.payTo).toLowerCase() && q.network === P.payment.network && String(q.asset ?? "").toLowerCase() === String(P.payment.asset).toLowerCase() && BigInt(q.price.amountAtomic) <= BigInt(P.payment.maxPerPurchaseAtomic);
+if (!okTerms) {
   await logEvent("security", "agent-b connector", "quote_rejected", "Quote terms differ from the operator's pinned payee/network/budget — no spend.", "denied", "local", gen);
   say("quote terms violate local policy → refused");
   process.exit(5);
@@ -72,7 +72,7 @@ if (!okTerms && !simulate) {
 say(`quote ${q.quoteId}: ${q.price.amountAtomic} atomic USDC → ${q.payTo.slice(0, 10)}… on ${q.network}; within policy`);
 
 // 4. Acquire (payment via the server-held signer; explicit simulator only if requested).
-const acq = await c.tool("acquire_resolution", { quoteId: q.quoteId, clientRequestId: `b-${gen}-${randomUUID().slice(0, 8)}`, approved: { payTo: P.payment.payTo, maxAmountAtomic: P.payment.maxPerPurchaseAtomic, network: P.payment.network }, paymentMode: simulate ? "simulator" : "x402_testnet" });
+const acq = await c.tool("acquire_resolution", { quoteId: q.quoteId, clientRequestId: `b-${gen}-${randomUUID().slice(0, 8)}`, approved: { payTo: P.payment.payTo, maxAmountAtomic: P.payment.maxPerPurchaseAtomic, network: P.payment.network, asset: P.payment.asset }, paymentMode: simulate ? "simulator" : "x402_testnet" });
 say(`acquire → ${acq.text}`);
 if (acq.isError) process.exit(6);
 stage("acquire", { mode: acq.envelope.provenance.mode, txHash: acq.envelope.data?.txHash });
