@@ -13,6 +13,8 @@ import { evidenceLevelV } from "./schema";
 // Overridable so isolated test backends never touch the shared index.
 const INDEX = process.env.MOSS_SEARCH_INDEX || PUBLIC_INDEX_NAME;
 const QUERY_TIMEOUT_MS = 15_000;
+// A hung Moss step must not leave a rebuild pending forever.
+const STEP_MS = { getDocs: 30_000, deleteIndex: 30_000, createIndex: 180_000 };
 const RELOAD_AFTER_MS = 60_000;
 
 // Node action processes are reused between calls, so keep the loaded index warm.
@@ -59,10 +61,10 @@ async function semanticCandidates(text: string): Promise<Semantic> {
   }
 }
 
-export type Retrieval = { engine: SearchEngine; latencyMs?: number; fallbackReason?: string };
+export type Retrieval = { engine: SearchEngine; index: string; latencyMs?: number; fallbackReason?: string };
 
 const retrievalOf = (s: Semantic): Retrieval =>
-  "error" in s ? { engine: "keyword_fallback", fallbackReason: s.error } : { engine: "moss_semantic", latencyMs: s.latencyMs };
+  "error" in s ? { engine: "keyword_fallback", index: INDEX, fallbackReason: s.error } : { engine: "moss_semantic", index: INDEX, latencyMs: s.latencyMs };
 
 /** Rebuild the shared index when its documents differ from the active public previews. */
 export const rebuildPublicIndex = internalAction({
@@ -71,11 +73,14 @@ export const rebuildPublicIndex = internalAction({
     const c = getClient();
     if (!c) return { ok: false, rebuilt: false, docs: 0, error: "Moss is not configured" };
     const docs = await ctx.runQuery(internal.searchIndex.publicIndexSource, {});
+    // Keep the old index rather than deleting it; search only ever returns active guides anyway.
+    if (docs.length === 0) return { ok: false, rebuilt: false, docs: 0, error: "no public previews to index" };
     try {
-      const remote = await c.getDocs(INDEX).catch(() => null);
+      const remote = await withTimeout(c.getDocs(INDEX), STEP_MS.getDocs, "getDocs").catch(() => null);
       if (remote && sameDocs(remote as never, docs)) return { ok: true, rebuilt: false, docs: docs.length };
-      await c.deleteIndex(INDEX).catch(() => undefined);
-      if (docs.length) await c.createIndex(INDEX, docs);
+      // deleteIndex resolves false when the index does not exist; a real failure stops the rebuild.
+      await withTimeout(c.deleteIndex(INDEX), STEP_MS.deleteIndex, "deleteIndex");
+      await withTimeout(c.createIndex(INDEX, docs), STEP_MS.createIndex, "createIndex");
       loaded = null;
       await ctx.runMutation(internal.searchIndex.recordEvent, { outcome: "success", message: `Rebuilt the Moss public-preview index (${docs.length} guides).` });
       return { ok: true, rebuilt: true, docs: docs.length };

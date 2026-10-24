@@ -47,7 +47,7 @@ function Search() {
     let live = true;
     semanticSearch(JSON.parse(key))
       .then((data) => live && setFound({ key, data }))
-      .catch(() => live && setFound({ key, data: { retrieval: { engine: "keyword_fallback", fallbackReason: "Search failed" }, results: [] } }));
+      .catch(() => live && setFound({ key, data: { retrieval: { engine: "keyword_fallback", index: "", fallbackReason: "Search failed" }, results: [] } }));
     return () => {
       live = false;
     };
