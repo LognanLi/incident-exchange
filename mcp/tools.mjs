@@ -40,7 +40,7 @@ export function buildServer({ token, svc: SVC, exec, deployment }) {
     async () => {
       const r = await call("query", anyApi.mcp.capabilities, { svc: SVC }, (d) => `Schema v${d.schemaVersion}; payments ${d.payment.mode} on ${d.payment.network}.`);
       // Each search reports the engine it actually used (and any fallback reason) in its provenance.
-      if (r.structuredContent?.data) r.structuredContent.data.retrieval = { engine: "moss_semantic", fallback: "keyword", index: "ix-public-previews", reportedPer: "search_resolutions provenance" };
+      if (r.structuredContent?.data) r.structuredContent.data.retrieval = { engine: "moss_semantic", fallback: "keyword", reportedPer: "search_resolutions provenance" };
       return r;
     });
 
