@@ -27,7 +27,7 @@ const actAs = async (orgName) => {
 const started = Date.now();
 try {
   await page.goto(BASE);
-  await page.getByRole("heading", { name: /Turn a hard-won incident/ }).waitFor();
+  await page.getByRole("heading", { name: /Find a resolved incident that fits yours/ }).waitFor();
   await shot("home");
   step("Home loads");
 
@@ -53,7 +53,7 @@ try {
 
   // ---- Contributor: seeded Northstar report
   await page.goto(`${BASE}/contribute`);
-  await page.getByRole("row", { name: /Login service failures/ }).getByRole("link", { name: "Open" }).click();
+  await page.getByRole("row", { name: /duplicate jobs after webhook retries/i }).getByRole("link", { name: "Open" }).click();
   await page.getByRole("button", { name: "Draft with Moss" }).click();
   await page.getByText(/^Drafted by (Moss|the deterministic fallback)\.$/).waitFor({ timeout: 60000 });
   const engine = (await page.getByText(/^Drafted by (Moss|the deterministic fallback)\.$/).textContent()).replace(/\.$/, "");
@@ -95,10 +95,10 @@ try {
     await page.getByRole("button", { name: "Apply defensive fix" }).click();
   }
   await page.locator(".result-applied", { hasText: "Applied" }).waitFor({ timeout: 200000 });
-  await page.getByRole("button", { name: "Re-run check" }).click();
-  await page.locator(".step-pass .result-pass", { hasText: "PASS" }).waitFor();
+  if (fixTool !== "Factory Droid") await page.getByRole("button", { name: "Re-run check" }).click();
+  await page.locator(".step-pass .result-pass", { hasText: "PASS" }).waitFor({ timeout: 30000 });
   await shot("validation");
-  step(`Validation: FAIL before fix, PASS after (fix by ${fixTool}; checks by local validator)`);
+  step(`Validation: FAIL before fix, PASS after (fix by ${fixTool}; protected evaluator)`);
   for (const cb of await page.locator(".decision input[type=checkbox]").all()) await cb.check();
   await page.getByLabel(/Test reproduced/).check();
   await page.getByLabel("Note to contributor").fill("Evidence and reproduction check out.");
@@ -109,7 +109,7 @@ try {
 
   // ---- Contributor final approval
   await actAs("Northstar Cloud");
-  await page.getByRole("row", { name: /Login service failures/ }).getByRole("link", { name: "Open" }).click();
+  await page.getByRole("row", { name: /duplicate jobs after webhook retries/i }).getByRole("link", { name: "Open" }).click();
   await page.getByLabel(/I approve publishing this final/).check();
   await page.getByRole("button", { name: "Publish guide" }).click();
   await page.getByText("Published and searchable.").waitFor();
@@ -117,20 +117,30 @@ try {
 
   // ---- Buyer
   await actAs("Harbor Analytics");
-  await page.getByLabel("Describe what you are seeing").fill("repeated authentication failures after a deployment");
+  await page.getByLabel("Describe what you are seeing").fill("The queue fills again after restarting workers, and identical webhook event IDs create two jobs");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   const first = page.locator(".result").first();
-  await first.getByText("Investigating repeated authentication failures after a deployment").waitFor();
-  await first.getByText("Why this matched:").waitFor();
+  await first.getByText("Duplicate jobs after webhook retries from a payment or event provider").waitFor();
+  await first.getByText("Why this may match:").waitFor();
+  const label = await first.locator(".match-label").textContent();
   await shot("search");
-  step("Buyer search ranks the guide first with a match reason");
+  step(`Buyer search ranks the new guide first: ${label}`);
+  // Journey B: the near-miss query is not a confident match for the primary guide.
+  await page.getByLabel("Describe what you are seeing").fill("queue backlog after deploy without repeated event IDs");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.locator(".result").first().getByText(/slow consumer/i).waitFor();
+  step("Near-miss query ranks the no-duplicates case first (mismatch shown, primary not over-claimed)");
+  await page.getByLabel("Describe what you are seeing").fill("The queue fills again after restarting workers, and identical webhook event IDs create two jobs");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.locator(".result").first().getByText("Duplicate jobs after webhook retries from a payment or event provider").waitFor();
   await first.getByRole("link", { name: "Open free preview" }).click();
   await page.locator(".tag-locked").waitFor();
-  await page.locator(".price-big", { hasText: "$49.00" }).waitFor();
+  await page.locator(".price-big", { hasText: "0.50 USDC" }).waitFor();
+  await page.getByText("Does this fit your incident?").waitFor();
   await page.getByText("Limitations").first().waitFor();
   await shot("playbook-preview");
   step("Free preview shows evidence, limitations, price; details locked");
-  await page.getByRole("link", { name: "Continue to demo checkout" }).click();
+  await page.getByRole("link", { name: "Unlock guide" }).click();
   const x402Start = page.getByRole("button", { name: "Start x402 test checkout" });
   await page.getByRole("button", { name: /Start (x402 test|demo) checkout/ }).waitFor();
   if (await x402Start.isVisible()) {
@@ -148,14 +158,22 @@ try {
     await shot("checkout");
     await page.getByRole("button", { name: "Complete simulated payment" }).click();
     await page.getByRole("heading", { name: "Playbook unlocked" }).waitFor();
-    await page.getByText("$39.20").waitFor();
-    await page.getByText("$9.80").waitFor();
+    await page.getByText("0.40 USDC").first().waitFor();
+    await page.getByText("0.10 USDC").first().waitFor();
     await shot("receipt");
-    step("Simulated purchase recorded: $49.00 → $39.20 contributor / $9.80 platform");
+    step("Simulated purchase recorded: 0.50 USDC → 0.40 contributor accrual / 0.10 platform");
   }
   await page.getByRole("link", { name: "Read the playbook" }).click();
   await page.locator(".tag-unlocked").waitFor();
-  await page.getByLabel("Question").fill("How do I confirm the lockout test works?");
+  await page.getByText("What they tried that did not work").waitFor();
+  await page.locator(".verify-list input[type=checkbox]").first().check();
+  await page.getByText(/1 of \d+ done · saved/).first().waitFor();
+  await page.reload();
+  await page.getByText(/1 of \d+ done · saved/).first().waitFor();
+  step("Failed attempts shown; checklist progress persists across reload");
+  await page.getByText("Fix tested on the sample app — see run").waitFor();
+  step("Buyer sees test evidence with before/after pairing");
+  await page.getByLabel("Question").fill("How do I confirm duplicates stopped?");
   await page.getByRole("button", { name: "Ask" }).click();
   await page.locator(".answer").waitFor({ timeout: 90000 });
   const qaEngine = await page.locator(".answer .muted").last().textContent();

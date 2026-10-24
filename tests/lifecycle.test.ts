@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import schema from "../convex/schema";
 import type { Id } from "../convex/_generated/dataModel";
 
@@ -146,6 +146,65 @@ describe("contributor → reviewer → buyer lifecycle", () => {
     expect(mine.drafts).toHaveLength(1);
     expect(mine.drafts[0].status).toBe("draft");
     expect(mine.accruedAtomic).toBe("0");
+  });
+});
+
+describe("revisions and payments", () => {
+  it("editing shareable text after approval starts a new revision and requires approval again", async () => {
+    const { t, draftId } = await seeded();
+    await prepareAndSubmit(t, draftId);
+    await t.mutation(api.reviews.decide, { actor: "review-desk", draftId, decision: "request_changes", note: "Tighten verify.", checklist: CHECKLIST, sectionKey: "verify" });
+    let d = await t.query(api.drafts.getMine, { actor: "northstar", draftId });
+    expect(d.draft.revision).toBe(1);
+    expect(d.approvalIsCurrent).toBe(true);
+    await t.mutation(api.drafts.updateSection, { actor: "northstar", draftId, key: "verify", body: "- Deliver the same event twice; confirm one job.", accepted: true });
+    d = await t.query(api.drafts.getMine, { actor: "northstar", draftId });
+    expect(d.draft.revision).toBe(2);
+    expect(d.draft.contributorApproval).toBeUndefined();
+    // A reviewer cannot approve text the contributor has not approved (it is not even submitted).
+    await expect(
+      t.mutation(api.reviews.decide, { actor: "review-desk", draftId, decision: "approve", note: "", evidenceLevel: "contributor_reported", checklist: CHECKLIST }),
+    ).rejects.toThrow(/awaiting review/);
+  });
+
+  it("failed or cancelled checkout never unlocks; duplicate settlement callbacks record one purchase and one accrual", async () => {
+    const { t } = await seeded();
+    const list = await t.query(api.playbooks.search, { actor: "harbor", query: "" });
+    const playbookId = list[0]._id;
+    const pid = await t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId });
+    await t.mutation(api.purchases.cancel, { actor: "harbor", purchaseId: pid });
+    let pb = await t.query(api.playbooks.get, { actor: "harbor", playbookId });
+    expect(pb!.unlocked).toBe(false);
+    expect(pb!.lockedSteps).toBeNull();
+    expect(pb!.failedAttempts).toBeNull();
+    // Simulate an x402 purchase settling, with the settlement callback delivered twice.
+    const xid = await t.run(async (ctx) => {
+      const buyer = (await ctx.db.query("organizations").withIndex("by_slug", (q) => q.eq("slug", "harbor")).unique())!;
+      const p = (await ctx.db.get(playbookId))!;
+      return await ctx.db.insert("purchases", {
+        buyerOrgId: buyer._id, playbookId, revision: p.revision, amountAtomic: p.priceAtomic, currency: "USDC", provider: "x402_test",
+        paymentStatus: "pending", contributorShareAtomic: "0", platformShareAtomic: "0", transactionReference: "X402-TEST",
+        x402: { network: "eip155:84532", asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", atomicAmount: p.priceAtomic, payTo: "0x000000000000000000000000000000000000dEaD" },
+        isDemo: true, createdAt: Date.now(),
+      });
+    });
+    await t.mutation(internal.x402State.recordSuccess, { purchaseId: xid, txHash: "0xabc", payer: "0xdef", network: "eip155:84532" });
+    await t.mutation(internal.x402State.recordSuccess, { purchaseId: xid, txHash: "0xabc", payer: "0xdef", network: "eip155:84532" });
+    const mine = await t.query(api.purchases.listMine, { actor: "harbor" });
+    expect(mine.filter((p) => p.paymentStatus === "test_success")).toHaveLength(1);
+    pb = await t.query(api.playbooks.get, { actor: "harbor", playbookId });
+    expect(pb!.unlocked).toBe(true);
+  });
+
+  it("a stale Factory callback after reset is rejected", async () => {
+    const { t, draftId } = await seeded();
+    await t.mutation(api.demo.reset, {});
+    await expect(
+      t.mutation(api.validation.recordFactoryRun, {
+        actor: "review-desk", draftId, runnerSecret: "x", toyCase: "webhook",
+        baseline: { passed: false, lines: [] }, after: { passed: true, lines: [] }, diff: "", changedFiles: ["handler.mjs"], droidSummary: "", sessionId: "",
+      }),
+    ).rejects.toThrow();
   });
 });
 

@@ -17,19 +17,30 @@ export default function Home() {
   return (
     <div className="home">
       <section className="hero">
-        <div className="eyebrow">Private marketplace for defensive security lessons</div>
-        <h1>Turn a hard-won incident into a reviewed playbook the next team can use.</h1>
+        <div className="eyebrow">Private marketplace for incident response knowledge</div>
+        <h1>Find a resolved incident that fits yours — and the fix that actually worked.</h1>
         <p className="lede">
-          Companies that handle a security incident learn what the warning signs looked like, how they investigated,
-          and how they verified the fix. Incident Exchange helps them share that as a privacy-reviewed guide, lets
-          other teams find it by symptoms, and pays contributors when their experience helps.
+          Teams share a sanitized incident and what fixed it. On-call engineers describe their symptoms, see why a case
+          may or may not match, check its evidence, and unlock the detailed response guide for a small fee. The
+          contributor earns 80%.
         </p>
+        <ul className="hero-points">
+          <li>
+            <strong>Free:</strong> symptoms, fit checklist, mismatch warnings, evidence level, public sources
+          </li>
+          <li>
+            <strong>Paid:</strong> what they tried that failed, the step-by-step fix, and how they verified it
+          </li>
+          <li>
+            <strong>Private:</strong> the contributor’s raw notes and identity — never shown to buyers
+          </li>
+        </ul>
         <div className="hero-actions">
           <button className="btn primary lg" onClick={() => go("contributor", "/contribute")}>
             Share an incident
           </button>
           <button className="btn lg" onClick={() => go("buyer", "/playbooks")}>
-            Find a playbook
+            Describe what you’re seeing
           </button>
         </div>
       </section>

@@ -19,6 +19,7 @@ export default function PrivacyReviewPage() {
 const FIELD_NAMES: Record<string, string> = {
   publicTitle: "Public title",
   sanitizedSummary: "Public summary",
+  failedAttempts: "What we tried that did not work",
   ...Object.fromEntries(Object.entries(SECTION_INFO).map(([k, v]) => [k, v.title])),
 };
 
@@ -30,6 +31,7 @@ function PrivacyReview() {
   const data = useQuery(api.drafts.getMine, { actor, draftId: id });
   const scan = useAction(useMutation(api.drafts.runPrivacyScan));
   const generalize = useAction(useMutation(api.drafts.applyGeneralizationsToDraft));
+  const undo = useAction(useMutation(api.drafts.undoGeneralizations));
   const submit = useAction(useMutation(api.drafts.approveAndSubmit));
   const [confirmed, setConfirmed] = useState(false);
 
@@ -62,7 +64,7 @@ function PrivacyReview() {
               )}
             </div>
             {!d.sections && <div className="state state-info">Draft the six-part playbook before scanning.</div>}
-            <ErrorBox message={scan.error ?? generalize.error} />
+            <ErrorBox message={scan.error ?? generalize.error ?? undo.error} />
 
             {d.privacyScannedAt === undefined ? (
               <p className="muted">Not scanned yet.</p>
@@ -108,6 +110,14 @@ function PrivacyReview() {
                       {generalize.pending ? "Applying…" : "Apply all recommended generalizations"}
                     </button>
                     <span className="muted small">Or edit the text yourself on the playbook step, then re-scan.</span>
+                  </div>
+                )}
+                {editable && d.undoSnapshot && (
+                  <div className="row gap">
+                    <button className="btn sm ghost" disabled={undo.pending} onClick={() => void undo.run({ actor, draftId: id })}>
+                      Undo last generalization
+                    </button>
+                    <span className="muted small">Restores the previous text; you will need to re-scan.</span>
                   </div>
                 )}
               </>
@@ -194,6 +204,12 @@ function BuyerPreview({ draft, alias }: { draft: Doc<"incidentDrafts">; alias: s
             </div>
           ))}
           <h4 className="preview-part">Unlocked after purchase</h4>
+          {draft.failedAttempts.trim() && (
+            <div className="preview-section locked-preview">
+              <h5>🔒 What we tried that did not work</h5>
+              <BulletText text={draft.failedAttempts} />
+            </div>
+          )}
           {LOCKED_SECTIONS.map((k) => (
             <div key={k} className="preview-section locked-preview">
               <h5>🔒 {SECTION_INFO[k].title}</h5>

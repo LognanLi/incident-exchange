@@ -250,6 +250,7 @@ function DecisionPanel({
   });
   const [evidence, setEvidence] = useState<EvidenceLevel | "">("");
   const [note, setNote] = useState("");
+  const [sectionKey, setSectionKey] = useState("");
   const allChecked = Object.values(checklist).every(Boolean);
 
   const hints: Partial<Record<keyof Checklist, boolean>> = {
@@ -259,7 +260,7 @@ function DecisionPanel({
   };
 
   const run = (decision: "approve" | "request_changes" | "reject") =>
-    decide.run({ actor, draftId, decision, note, evidenceLevel: decision === "approve" && evidence ? evidence : undefined, checklist });
+    decide.run({ actor, draftId, decision, note, evidenceLevel: decision === "approve" && evidence ? evidence : undefined, checklist, sectionKey: sectionKey || undefined });
 
   return (
     <section className="card decision">
@@ -282,8 +283,22 @@ function DecisionPanel({
         <label className="label" htmlFor="note">
           Note to contributor
         </label>
-        <span className="hint">Required when requesting changes or rejecting.</span>
+        <span className="hint">Required when requesting changes or rejecting. Say exactly what to fix.</span>
         <textarea id="note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <div className="field">
+        <label className="label" htmlFor="section">
+          Section to fix (for “Request changes”)
+        </label>
+        <select id="section" value={sectionKey} onChange={(e) => setSectionKey(e.target.value)}>
+          <option value="">Whole guide</option>
+          {SECTION_KEYS.map((k) => (
+            <option key={k} value={k}>
+              {SECTION_INFO[k].title}
+            </option>
+          ))}
+          <option value="failedAttempts">What they tried that did not work</option>
+        </select>
       </div>
       <ErrorBox message={decide.error} />
       <div className="row gap wrap">

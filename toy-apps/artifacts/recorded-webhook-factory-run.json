@@ -1,0 +1,91 @@
+{
+  "toyCase": "webhook",
+  "startedAt": "2026-10-24T10:34:36.314Z",
+  "finishedAt": "2026-10-24T10:35:03.975Z",
+  "baseline": {
+    "passed": false,
+    "summary": "2/5 webhook assertions passed",
+    "assertions": [
+      {
+        "name": "Same event delivered twice creates exactly one job",
+        "ok": false,
+        "detail": "expected 1 job, got 2"
+      },
+      {
+        "name": "Two different events create two jobs (legitimate deliveries still processed)",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "Five concurrent duplicate deliveries create one job",
+        "ok": false,
+        "detail": "expected 1 job, got 5"
+      },
+      {
+        "name": "Redelivery after restart (new service, same store) creates no new job",
+        "ok": false,
+        "detail": "expected 1 job, got 2"
+      },
+      {
+        "name": "Every delivery is acknowledged with 200",
+        "ok": true,
+        "detail": "ok"
+      }
+    ],
+    "lines": [
+      "FAIL  Same event delivered twice creates exactly one job — expected 1 job, got 2",
+      "PASS  Two different events create two jobs (legitimate deliveries still processed)",
+      "FAIL  Five concurrent duplicate deliveries create one job — expected 1 job, got 5",
+      "FAIL  Redelivery after restart (new service, same store) creates no new job — expected 1 job, got 2",
+      "PASS  Every delivery is acknowledged with 200"
+    ]
+  },
+  "after": {
+    "passed": true,
+    "summary": "5/5 webhook assertions passed",
+    "assertions": [
+      {
+        "name": "Same event delivered twice creates exactly one job",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "Two different events create two jobs (legitimate deliveries still processed)",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "Five concurrent duplicate deliveries create one job",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "Redelivery after restart (new service, same store) creates no new job",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "Every delivery is acknowledged with 200",
+        "ok": true,
+        "detail": "ok"
+      }
+    ],
+    "lines": [
+      "PASS  Same event delivered twice creates exactly one job",
+      "PASS  Two different events create two jobs (legitimate deliveries still processed)",
+      "PASS  Five concurrent duplicate deliveries create one job",
+      "PASS  Redelivery after restart (new service, same store) creates no new job",
+      "PASS  Every delivery is acknowledged with 200"
+    ]
+  },
+  "diff": "--- a/handler.mjs\n+++ b/handler.mjs\n@@\n- // Toy webhook receiver (fictional, local only) — VULNERABLE version.\n+ // Toy webhook receiver (fictional, local only).\n  //\n  // API:\n@@\n  //   service.handleDelivery({ id, type, payload }) -> Promise<{ status: 200, outcome: \"enqueued\" | \"duplicate\" }>\n  //\n- // Bug: every delivery is enqueued, so provider retries (same event id) create duplicate jobs.\n+ // Atomically claim each event id so provider retries enqueue only one job.\n  export function createWebhookService(store) {\n    return {\n      async handleDelivery({ id, type, payload }) {\n+       if (!(await store.insertIfAbsent(id))) {\n+         return { status: 200, outcome: \"duplicate\" };\n+       }\n        await store.enqueueJob({ id, type, payload });\n        return { status: 200, outcome: \"enqueued\" };",
+  "changedFiles": [
+    "handler.mjs"
+  ],
+  "droid": {
+    "sessionId": "5f800ec7-41da-41b2-9f62-53ed78b33406",
+    "summary": "Updated only `handler.mjs` to deduplicate atomically with `store.insertIfAbsent(id)`, preserving the exported API and status 200 acknowledgments; ad hoc tests passed for retries, concurrent deliveries, and distinct events.",
+    "durationMs": 27541,
+    "reportedDurationMs": 25356
+  }
+}

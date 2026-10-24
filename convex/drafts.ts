@@ -161,7 +161,7 @@ export const getMine = query({
     return {
       draft,
       orgAlias: publicAliasFor(draft.sharingLevel, org),
-      reviews: reviews.map((r) => ({ decision: r.decision, note: r.note, evidenceLevel: r.evidenceLevel, createdAt: r.createdAt })),
+      reviews: reviews.map((r) => ({ decision: r.decision, note: r.note, evidenceLevel: r.evidenceLevel, createdAt: r.createdAt, sectionKey: r.sectionKey, revision: r.revision })),
       references,
       scanIsCurrent: draft.privacyScannedHash === currentHash,
       approvalIsCurrent: draft.contributorApproval?.contentHash === currentHash,
@@ -383,6 +383,7 @@ export const applyGeneralizationsToDraft = mutation({
     const next = { ...draft, publicTitle: gen(draft.publicTitle), sanitizedSummary: gen(draft.sanitizedSummary), failedAttempts: gen(draft.failedAttempts), sections };
     const findings = scanForPrivacyIssues(buyerFacingFields(next), otherTerms, orgTerms);
     await ctx.db.patch(draftId, {
+      undoSnapshot: { publicTitle: draft.publicTitle, sanitizedSummary: draft.sanitizedSummary, failedAttempts: draft.failedAttempts, sections: draft.sections },
       publicTitle: next.publicTitle,
       sanitizedSummary: next.sanitizedSummary,
       failedAttempts: next.failedAttempts,
@@ -393,6 +394,17 @@ export const applyGeneralizationsToDraft = mutation({
       ...invalidate(draft),
       updatedAt: Date.now(),
     });
+  },
+});
+
+/** Undo the last "apply all generalizations" (restores the previous shareable text; requires a re-scan). */
+export const undoGeneralizations = mutation({
+  args: { actor: v.string(), draftId: v.id("incidentDrafts") },
+  handler: async (ctx, { actor, draftId }) => {
+    const { draft } = await requireOwnDraft(ctx, actor, draftId);
+    assertEditable(draft);
+    if (!draft.undoSnapshot) throw new ConvexError("Nothing to undo.");
+    await ctx.db.patch(draftId, { ...draft.undoSnapshot, undoSnapshot: undefined, ...invalidate(draft), updatedAt: Date.now() });
   },
 });
 
@@ -410,6 +422,7 @@ export const approveAndSubmit = mutation({
       contributorApproval: { at: now, contentHash: draftContentHash(draft), revision: draft.revision },
       status: "submitted",
       reviewerNote: undefined,
+      undoSnapshot: undefined,
       updatedAt: now,
     });
     return { ok: true };

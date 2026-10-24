@@ -1,6 +1,8 @@
 # Incident Exchange
 
-A private marketplace where companies turn security incidents into reviewed **defensive** playbooks. Other companies find them by symptoms and pay to unlock them, and contributors earn a share when their experience helps.
+A private marketplace for practical incident response knowledge. A company contributes a sanitized incident and the fix that helped; another company finds a similar case by symptoms, checks why it may or may not match and what evidence backs it, and pays (test USDC) to unlock the detailed guide. The contributor earns an 80% accrual.
+
+Demo scenarios (fictional): **duplicate jobs after webhook retries** (primary, walks the full lifecycle), **cross-tenant export access flaw**, and **signing-key cache after rotation**, plus near-miss cases that show mismatch warnings. See `docs/demo/` for the presenter guide, customer brief, integration matrix, and QA notes.
 
 > **Demo build.** Every organization, person, host, and incident in the seed data is fictional. Payments use Base Sepolia **test** USDC (or a labeled simulator); no real funds move. The product spec is in [`docs/BRIEF.md`](docs/BRIEF.md).
 
@@ -26,8 +28,9 @@ On first load, the app seeds the demo data automatically.
 | --- | --- |
 | `npm run dev` | Backend, frontend, and the local Factory runner, all with live reload |
 | `npm run typecheck` | Typechecks the frontend and the Convex code |
-| `npm test` | 30 unit and integration tests |
-| `npm run e2e` | Browser run of the whole demo (needs `npm run dev` running) |
+| `npm test` | 41 Vitest tests + 14 toy-app evaluator tests |
+| `npm run e2e` | Browser run of the whole demo (needs `npm run dev`; spends ~6k Factory credits and 0.50 test USDC) |
+| `node e2e/viewports.mjs` | Screenshots at 1440 / 1024 / 390 px |
 | `npm run x402:setup` | Creates and funds the CDP buyer and receiver wallets on Base Sepolia (needs the CDP secrets) |
 | `npm run demo:reset` | Restores the seed data from the CLI (the Demo menu has the same action) |
 | `npm run build` | Production build of the frontend |

@@ -108,6 +108,10 @@ export default defineSchema({
     privacyFindings: v.array(privacyFindingV),
     privacyScannedHash: v.optional(v.string()),
     privacyScannedAt: v.optional(v.number()),
+    /** Shareable text before the last "apply generalizations", so the contributor can undo it. */
+    undoSnapshot: v.optional(
+      v.object({ publicTitle: v.string(), sanitizedSummary: v.string(), failedAttempts: v.string(), sections: v.optional(sectionsV) }),
+    ),
     contributorApproval: v.optional(v.object({ at: v.number(), contentHash: v.string(), revision: v.number() })),
     // ---- Lifecycle ----
     status: draftStatusV,

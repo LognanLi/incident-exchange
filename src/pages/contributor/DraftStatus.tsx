@@ -47,7 +47,14 @@ function DraftStatus() {
             <div className="state state-warn">
               <strong>The reviewer asked for changes.</strong> {d.reviewerNote}
               <div>
-                <Link to={`/contribute/drafts/${id}/playbook`}>Edit the playbook →</Link>
+                {data.reviews[0]?.sectionKey === "failedAttempts" ? (
+                  <Link to={`/contribute/drafts/${id}/report`}>Fix “What we tried that did not work” →</Link>
+                ) : (
+                  <Link to={`/contribute/drafts/${id}/playbook${data.reviews[0]?.sectionKey ? `#sec-${data.reviews[0].sectionKey}` : ""}`}>
+                    Fix {data.reviews[0]?.sectionKey ? `the ${data.reviews[0].sectionKey} section` : "the playbook"} →
+                  </Link>
+                )}
+                <div className="small muted">Editing creates revision {d.revision + 1}; you will approve it again before resubmitting.</div>
               </div>
             </div>
           )}
@@ -104,7 +111,7 @@ function DraftStatus() {
               {data.reviews.map((r, i) => (
                 <li key={i}>
                   <div>
-                    <strong>{DECISION_LABEL[r.decision]}</strong> · <span className="small muted">{formatDate(r.createdAt)}</span>
+                    <strong>{DECISION_LABEL[r.decision]}</strong> · revision {r.revision} · <span className="small muted">{formatDate(r.createdAt)}</span>
                   </div>
                   {r.evidenceLevel && <EvidenceBadge level={r.evidenceLevel} />}
                   {r.note && <p className="note">“{r.note}”</p>}

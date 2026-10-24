@@ -30,10 +30,12 @@ export default function PlaybookPage() {
     );
 
   const split = splitRevenue(pb.priceAtomic);
+  // Pair the latest fix with the check just before it and the first check after it.
   const runs = pb.validationRuns;
-  const before = runs.filter((r) => r.step === "before").at(-1);
-  const fix = runs.filter((r) => r.step === "fix").at(-1);
-  const after = runs.filter((r) => r.step === "after").at(-1);
+  const fixIdx = runs.map((r) => r.step).lastIndexOf("fix");
+  const fix = fixIdx >= 0 ? runs[fixIdx] : undefined;
+  const before = runs.slice(0, Math.max(fixIdx, 0)).filter((r) => r.step === "before").at(-1);
+  const after = fixIdx >= 0 ? runs.slice(fixIdx + 1).find((r) => r.step === "after") : undefined;
   const reproduced = !!(before && after && before.passed === false && after.passed === true);
 
   return (
@@ -276,9 +278,12 @@ function EvidenceDetails({ before, fix, after }: { before: Run; fix?: Run; after
 function ActionChecklist({ playbookId, prefix, text, checked, enabled }: { playbookId: Id<"playbooks">; prefix: string; text: string; checked: string[]; enabled: boolean }) {
   const { actor } = useSession();
   const set = useAction(useMutation(api.playbooks.setChecklistItem));
+  // Optimistic local state; the server copy (checked) wins once it arrives.
+  const [local, setLocal] = useState<Record<string, boolean>>({});
+  const isChecked = (id: string) => local[id] ?? checked.includes(id);
   const items = text.split("\n").map((l) => l.replace(/^\s*-\s*/, "").trim()).filter(Boolean);
   if (!enabled) return <BulletText text={text} />;
-  const done = items.filter((_, i) => checked.includes(`${prefix}-${i}`)).length;
+  const done = items.filter((_, i) => isChecked(`${prefix}-${i}`)).length;
   return (
     <div className="verify-list">
       {items.map((it, i) => {
@@ -287,9 +292,12 @@ function ActionChecklist({ playbookId, prefix, text, checked, enabled }: { playb
           <label key={itemId} className="check">
             <input
               type="checkbox"
-              checked={checked.includes(itemId)}
-              disabled={set.pending}
-              onChange={(e) => void set.run({ actor, playbookId, itemId, checked: e.target.checked })}
+              checked={isChecked(itemId)}
+              onChange={(e) => {
+                const value = e.target.checked;
+                setLocal((l) => ({ ...l, [itemId]: value }));
+                void set.run({ actor, playbookId, itemId, checked: value });
+              }}
             />
             {it}
           </label>

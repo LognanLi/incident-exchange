@@ -51,7 +51,8 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
   const runs = data.runs;
   const lastBefore = [...runs].reverse().find((r) => r.step === "before");
   const lastFix = [...runs].reverse().find((r) => r.step === "fix");
-  const lastAfter = [...runs].reverse().find((r) => r.step === "after");
+  const lastFixIdx = runs.map((r) => r.step).lastIndexOf("fix");
+  const lastAfter = lastFixIdx >= 0 ? runs.slice(lastFixIdx + 1).find((r) => r.step === "after") : undefined;
   const busy = runCheck.pending || applyFix.pending || factory.pending;
 
   return (
@@ -101,9 +102,13 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
               {runnerReady === false && <span className="small muted">Factory runner offline — local demo adapter only.</span>}
             </StepCard>
             <StepCard n={3} title={STEP_LABEL.after} run={lastAfter}>
-              <button className="btn sm" disabled={busy || !lastFix} onClick={() => void runCheck.run({ actor, draftId, step: "after" })}>
-                Re-run check
-              </button>
+              {lastFix?.toolName.startsWith("Factory") ? (
+                <span className="small muted">Re-checked by the protected evaluator against Factory’s candidate code.</span>
+              ) : (
+                <button className="btn sm" disabled={busy || !lastFix} onClick={() => void runCheck.run({ actor, draftId, step: "after" })}>
+                  Re-run check
+                </button>
+              )}
             </StepCard>
           </div>
           {lastFix?.patchSummary && (

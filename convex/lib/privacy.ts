@@ -67,7 +67,7 @@ const RULES: Rule[] = [
     kind: "timestamp",
     label: "Exact timestamp (can help identify the incident)",
     severity: "medium",
-    pattern: /\b\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?\b/g,
+    pattern: /\b\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2}|\s?UTC|\s?GMT)?)?\b/g,
     replacement: "[date generalized]",
   },
 ];

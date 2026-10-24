@@ -19,15 +19,21 @@
 | Factory runtime | Edits a config copy; brief wants a code change + protected tests in a separate runner |
 | Layout | Top nav only; needs sidebar, presenter menu separation, 390px mobile verification |
 
-## Task board
+## Task board (final)
 
 | Owner | Task | Status |
 | --- | --- | --- |
-| Lead | Contracts, schema (prices atomic, revisions, playbookRevisions), seed loader, playbooks/purchases backend, integration | in progress |
-| A | Scenario content `convex/lib/scenarios.ts`, `docs/demo/CUSTOMER_BRIEF.md` | queued |
-| B | Design system + app shell (styles.css, App.tsx, components/ui.tsx), then buyer UI | queued |
-| E | Toy apps + protected evaluators (`toy-apps/`), Factory runner v2 | queued |
-| Lead | Contributor/reviewer/buyer UI changes, QA, docs (no extra workers, to conserve tokens) | queued |
+| Lead | Contracts, schema (atomic USDC, revisions, playbookRevisions, buyer checklists), matching, seed, buyer/contributor/reviewer UI, QA, docs | done |
+| Worker A | `convex/lib/scenarios.ts` (primary draft + 6 listings), `docs/demo/CUSTOMER_BRIEF.md` | done (03:15) |
+| Worker E | `toy-apps/` (3 cases + protected evaluators + tests), Factory runner v2 | done (03:16) |
+
+Cut to conserve time/tokens (user asked for ~90 min): sidebar navigation redesign, Moss semantic candidate generation for search (search is explainable lexical/concept matching; Moss handles drafting + Q&A), agent-purchase panel, two-guide comparison, settlement reconcile-by-nonce.
 
 ## Checkpoint log
-- 03:12 baseline captured; branch created.
+- 03:12 baseline captured; branch created; workers launched 03:13.
+- 03:24 backend refactor compiled; schema migrated (demo tables cleared, reseeded).
+- 03:28 fixed-query matching evaluation 8/8.
+- 03:30 commit ad683ec; all tests green.
+- 03:35 full e2e with live Moss/Apify/Factory/x402 passes (19 steps).
+- 03:38 live failed-payment check: stays locked.
+- Current runnable state: `npm run dev`; branch `polish-sprint`; see docs/demo/DEMO.md.
