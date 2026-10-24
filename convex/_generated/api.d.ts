@@ -10,6 +10,7 @@
 
 import type * as agentsConsole from "../agentsConsole.js";
 import type * as business from "../business.js";
+import type * as crons from "../crons.js";
 import type * as demo from "../demo.js";
 import type * as drafts from "../drafts.js";
 import type * as feedback from "../feedback.js";
@@ -32,6 +33,7 @@ import type * as lib_qa from "../lib/qa.js";
 import type * as lib_scenarioTypes from "../lib/scenarioTypes.js";
 import type * as lib_scenarios from "../lib/scenarios.js";
 import type * as lib_search from "../lib/search.js";
+import type * as lib_searchIndex from "../lib/searchIndex.js";
 import type * as lib_seedData from "../lib/seedData.js";
 import type * as lib_x402 from "../lib/x402.js";
 import type * as mcp from "../mcp.js";
@@ -43,6 +45,8 @@ import type * as playbooks from "../playbooks.js";
 import type * as purchases from "../purchases.js";
 import type * as references from "../references.js";
 import type * as reviews from "../reviews.js";
+import type * as searchIndex from "../searchIndex.js";
+import type * as semanticSearch from "../semanticSearch.js";
 import type * as validation from "../validation.js";
 import type * as webHosting from "../webHosting.js";
 import type * as x402Node from "../x402Node.js";
@@ -57,6 +61,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   agentsConsole: typeof agentsConsole;
   business: typeof business;
+  crons: typeof crons;
   demo: typeof demo;
   drafts: typeof drafts;
   feedback: typeof feedback;
@@ -79,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   "lib/scenarioTypes": typeof lib_scenarioTypes;
   "lib/scenarios": typeof lib_scenarios;
   "lib/search": typeof lib_search;
+  "lib/searchIndex": typeof lib_searchIndex;
   "lib/seedData": typeof lib_seedData;
   "lib/x402": typeof lib_x402;
   mcp: typeof mcp;
@@ -90,6 +96,8 @@ declare const fullApi: ApiFromModules<{
   purchases: typeof purchases;
   references: typeof references;
   reviews: typeof reviews;
+  searchIndex: typeof searchIndex;
+  semanticSearch: typeof semanticSearch;
   validation: typeof validation;
   webHosting: typeof webHosting;
   x402Node: typeof x402Node;

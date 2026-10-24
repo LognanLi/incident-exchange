@@ -9,7 +9,6 @@ import { buildServer as buildToolServer } from "./tools.mjs";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ConvexHttpClient } from "convex/browser";
 import { anyApi } from "convex/server";
-import { initMoss, refresh, semanticCandidates, mossStatus } from "./mossSearch.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const PORT = Number(process.env.MCP_PORT ?? 8787);
@@ -30,11 +29,6 @@ if (!SVC || !CONVEX_URL) {
   process.exit(1);
 }
 const convex = new ConvexHttpClient(CONVEX_URL);
-initMoss(secrets.MOSS_PROJECT_ID, secrets.MOSS_PROJECT_KEY);
-const refreshIndex = () => convex.query(anyApi.mcp.publicPreviews, { svc: SVC }).then(refresh).catch((e) => console.warn(`[moss] previews query failed: ${String(e?.message ?? e).slice(0, 200)}`));
-void refreshIndex();
-setTimeout(refreshIndex, 10_000).unref(); // fast retry if Convex was still deploying at startup
-setInterval(refreshIndex, 60_000).unref();
 const hits = new Map(); // per authenticated token hash → recent request times
 let authFailures = []; // global: bounds credential guessing and Convex load from unauthenticated callers
 setInterval(() => {
@@ -44,7 +38,7 @@ setInterval(() => {
 
 function buildServer(token) {
   const exec = (kind, fn, args) => (kind === "query" ? convex.query(fn, args) : kind === "mutation" ? convex.mutation(fn, args) : convex.action(fn, args));
-  return buildToolServer({ token, svc: SVC, exec, semanticCandidates, retrievalStatus: mossStatus, deployment: "local" });
+  return buildToolServer({ token, svc: SVC, exec, deployment: "local" });
 }
 
 function deny(res, status, code, message, extra = {}) {

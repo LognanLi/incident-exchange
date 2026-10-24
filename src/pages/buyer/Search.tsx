@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { EVIDENCE_INFO, EVIDENCE_LEVELS, SYSTEM_CATEGORIES, type EvidenceLevel } from "../../../convex/lib/domain";
@@ -35,13 +36,25 @@ function Search() {
   // Keep the box in sync when the query changes from elsewhere (e.g. the ⌘K palette).
   useEffect(() => setInput(q), [q]);
 
-  const results = useQuery(api.playbooks.search, {
-    actor,
-    query: q,
-    category: category || undefined,
-    evidenceLevel: evidence || undefined,
-    maxPriceAtomic: maxPrice || undefined,
-  });
+  const args = { actor, query: q, category: category || undefined, evidenceLevel: evidence || undefined, maxPriceAtomic: maxPrice || undefined };
+  // Browsing (no query) stays a live query; a symptom query goes through Moss semantic search.
+  const browse = useQuery(api.playbooks.search, q.trim() ? "skip" : args);
+  const semanticSearch = useAction(api.semanticSearch.buyerSearch);
+  const [found, setFound] = useState<{ key: string; data: FunctionReturnType<typeof api.semanticSearch.buyerSearch> } | null>(null);
+  const key = JSON.stringify(args);
+  useEffect(() => {
+    if (!q.trim()) return;
+    let live = true;
+    semanticSearch(JSON.parse(key))
+      .then((data) => live && setFound({ key, data }))
+      .catch(() => live && setFound({ key, data: { retrieval: { engine: "keyword_fallback", index: "", fallbackReason: "Search failed" }, results: [] } }));
+    return () => {
+      live = false;
+    };
+  }, [key, q, semanticSearch]);
+  const current = q.trim() ? (found?.key === key ? found.data : undefined) : undefined;
+  const results = q.trim() ? current?.results : browse;
+  const retrieval = current?.retrieval;
 
   const update = (patch: Record<string, string>) => {
     const next = new URLSearchParams(params);
@@ -132,6 +145,12 @@ function Search() {
 
       <div className="results-meta" aria-live="polite">
         <span>{results === undefined ? "Searching…" : `${results.length} result${results.length === 1 ? "" : "s"}`}</span>
+        {retrieval?.engine === "moss_semantic" && <span className="badge ok">Semantic search · Moss</span>}
+        {retrieval?.engine === "keyword_fallback" && (
+          <span className="badge warn" title={retrieval.fallbackReason}>
+            Keyword matching (Moss unavailable: {retrieval.fallbackReason})
+          </span>
+        )}
         <span>Ranked by fit, never by price</span>
       </div>
 
@@ -202,6 +221,9 @@ function Search() {
               )}
               {r.publicSummary.trim() !== r.publicTitle.trim() && <p>{r.publicSummary}</p>}
               {r.evidenceScope && <p className="small muted">{r.evidenceScope}</p>}
+              {!r.match && r.semanticScore !== null && (
+                <div className="small muted">Similar in meaning to your description. Check the signs in the preview before relying on it.</div>
+              )}
               {!r.match && r.mismatchSignals[0] && (
                 <div className="small muted">May not apply if: {r.mismatchSignals[0].label}</div>
               )}
