@@ -3,6 +3,9 @@ import { mutation, query } from "./_generated/server";
 import { requireRole } from "./lib/access";
 import { recordIntegrationEvent } from "./lib/integrations";
 import { splitRevenue } from "./lib/money";
+import { audit } from "./lib/audit";
+import { LICENSE_VERSION } from "./lib/license";
+import { budgetFor, spendThisMonth } from "./business";
 import { USDC_BASE_SEPOLIA, X402_NETWORK, cdpCredentialsPresent } from "./lib/x402";
 
 // Purchases use Coinbase x402 on Base Sepolia (test USDC) when CDP credentials are set and the
@@ -14,17 +17,27 @@ export const startCheckout = mutation({
     playbookId: v.id("playbooks"),
     /** "auto" = x402 when ready, else simulator. The buyer may explicitly choose the simulator. */
     preference: v.optional(v.union(v.literal("auto"), v.literal("demo_simulator"))),
+    /** The buyer must accept the Data Use License before any checkout starts. */
+    acceptLicense: v.optional(v.boolean()),
   },
-  handler: async (ctx, { actor, playbookId, preference }) => {
+  handler: async (ctx, { actor, playbookId, preference, acceptLicense }) => {
     const buyer = await requireRole(ctx, actor, "buyer");
     const pb = await ctx.db.get(playbookId);
     if (!pb || !pb.active) throw new ConvexError("Playbook not found.");
+    if (pb.tlp === "amber" && !buyer.verified) throw new ConvexError("This TLP:AMBER guide is sold only to verified organizations.");
     const existing = await ctx.db
       .query("purchases")
       .withIndex("by_buyer_playbook", (q) => q.eq("buyerOrgId", buyer._id).eq("playbookId", playbookId))
       .collect();
     const done = existing.find((p) => p.paymentStatus === "simulated_success" || p.paymentStatus === "test_success");
     if (done) return done._id;
+
+    if (!acceptLicense) throw new ConvexError("Accept the Data Use License to continue.");
+    const spent = BigInt(await spendThisMonth(ctx, buyer._id));
+    const budget = BigInt(await budgetFor(ctx, buyer._id));
+    if (spent + BigInt(pb.priceAtomic) > budget) {
+      throw new ConvexError("This purchase would exceed your team's monthly guide budget. Raise it under Team & budget.");
+    }
 
     const receiver = await ctx.db.query("x402Wallets").withIndex("by_role", (q) => q.eq("role", "receiver")).unique();
     const useX402 = preference !== "demo_simulator" && cdpCredentialsPresent() && !!receiver;
@@ -48,6 +61,8 @@ export const startCheckout = mutation({
       paymentStatus: "pending",
       ...split,
       transactionReference: `${useX402 ? "X402" : "DEMO-SIM"}-${Date.now().toString(36).toUpperCase()}`,
+      licenseVersion: LICENSE_VERSION,
+      licenseAcceptedAt: Date.now(),
       x402: useX402
         ? {
             network: X402_NETWORK,
@@ -105,6 +120,8 @@ export const completeSimulated = mutation({
     if (p.provider !== "demo_simulator") throw new ConvexError("Wrong payment provider.");
     if (!confirmed) throw new ConvexError("Confirm the simulated payment step.");
     await ctx.db.patch(purchaseId, { paymentStatus: "simulated_success", completedAt: Date.now() });
+    const pb = await ctx.db.get(p.playbookId);
+    await audit(ctx, buyer, "purchase.simulated", pb?.publicTitle ?? "guide", "Demo payment simulator (no funds moved)");
     await recordIntegrationEvent(ctx, "x402", "fallback", "Purchase completed with the demo payment simulator (x402 not configured).");
     return { ok: true };
   },

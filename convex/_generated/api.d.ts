@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as business from "../business.js";
 import type * as demo from "../demo.js";
 import type * as drafts from "../drafts.js";
 import type * as feedback from "../feedback.js";
@@ -15,10 +16,12 @@ import type * as http from "../http.js";
 import type * as integrations from "../integrations.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_apify from "../lib/apify.js";
+import type * as lib_audit from "../lib/audit.js";
 import type * as lib_domain from "../lib/domain.js";
 import type * as lib_draftContent from "../lib/draftContent.js";
 import type * as lib_drafting from "../lib/drafting.js";
 import type * as lib_integrations from "../lib/integrations.js";
+import type * as lib_license from "../lib/license.js";
 import type * as lib_matching from "../lib/matching.js";
 import type * as lib_money from "../lib/money.js";
 import type * as lib_moss from "../lib/moss.js";
@@ -47,6 +50,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  business: typeof business;
   demo: typeof demo;
   drafts: typeof drafts;
   feedback: typeof feedback;
@@ -54,10 +58,12 @@ declare const fullApi: ApiFromModules<{
   integrations: typeof integrations;
   "lib/access": typeof lib_access;
   "lib/apify": typeof lib_apify;
+  "lib/audit": typeof lib_audit;
   "lib/domain": typeof lib_domain;
   "lib/draftContent": typeof lib_draftContent;
   "lib/drafting": typeof lib_drafting;
   "lib/integrations": typeof lib_integrations;
+  "lib/license": typeof lib_license;
   "lib/matching": typeof lib_matching;
   "lib/money": typeof lib_money;
   "lib/moss": typeof lib_moss;

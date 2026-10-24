@@ -4,6 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { requireRole } from "./lib/access";
 import { recordIntegrationEvent } from "./lib/integrations";
+import { audit } from "./lib/audit";
 import { toyCaseV } from "./schema";
 import type { ToyCase } from "./lib/scenarioTypes";
 // Toy apps are plain ESM shared with the local Factory runner; evaluators are protected (never edited by a repair agent).
@@ -195,6 +196,7 @@ export const recordFactoryRun = mutation({
       outputLines: clip(args.after.lines),
       runAt: now + 2,
     });
+    await audit(ctx, reviewer, "validation.factory_run", target.name, args.after.passed ? "baseline FAIL → candidate PASS" : "candidate failed");
     await recordIntegrationEvent(
       ctx,
       "factory",

@@ -27,6 +27,14 @@ async function seed(ctx: MutationCtx) {
   const now = Date.now();
   const orgIds = new Map<string, Id<"organizations">>();
   for (const o of SEED_ORGS) orgIds.set(o.slug, await ctx.db.insert("organizations", { ...o, isDemo: true, createdAt: now }));
+  // Harbor already watches for its symptoms, so publishing a matching guide triggers a live alert.
+  await ctx.db.insert("watches", {
+    buyerOrgId: orgIds.get("harbor")!,
+    query: "duplicate jobs from the same webhook event id, queue backs up again after restarting workers",
+    createdAt: now,
+    isDemo: true,
+  });
+  await ctx.db.insert("auditEvents", { actorName: "System", action: "demo.reset", subject: "Demo data restored", at: now, isDemo: true });
   const orgBySlug = new Map(SEED_ORGS.map((o) => [o.slug, o]));
 
   for (const toyCase of ["webhook", "tenant", "keycache"] as const) {
@@ -86,6 +94,7 @@ async function seed(ctx: MutationCtx) {
       contributorOrgId: orgIds.get(g.contributorSlug)!,
       contributorAlias: org.publicAlias,
       sharingLevel: "industry_alias",
+      tlp: g.family === "tenant_export_authz" && g.evidenceLevel === "test_reproduced" ? "amber" : "green",
       publicTitle: g.publicTitle,
       publicSummary: g.publicSummary,
       systemCategories: g.systemCategories,
@@ -113,6 +122,10 @@ async function seed(ctx: MutationCtx) {
 }
 
 const DEMO_TABLES = [
+  "alerts",
+  "watches",
+  "auditEvents",
+  "spendPolicies",
   "buyerChecklists",
   "playbookRevisions",
   "mossIndexes",

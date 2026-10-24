@@ -6,6 +6,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { CONTRIBUTOR_SHARE_PERCENT, PLATFORM_SHARE_PERCENT } from "../../../convex/lib/domain";
 import { formatAtomic, splitRevenue } from "../../../convex/lib/money";
 import { explorerAddressUrl } from "../../../convex/lib/x402";
+import { LICENSE_TERMS, LICENSE_VERSION, TLP_INFO } from "../../../convex/lib/license";
 import { useSession } from "../../session";
 import { Empty, ErrorBox, EvidenceBadge, Loading, Money, PageHeader, RoleGate, useAction } from "../../components/ui";
 
@@ -31,6 +32,7 @@ function Checkout() {
   const [purchaseId, setPurchaseId] = useState<Id<"purchases"> | null>(null);
   const purchase = useQuery(api.purchases.get, purchaseId ? { actor, purchaseId } : "skip");
   const [understood, setUnderstood] = useState(false);
+  const [license, setLicense] = useState(false);
 
   if (pb === undefined || options === undefined) return <Loading />;
   if (pb === null) return <Empty title="Playbook not found" />;
@@ -105,14 +107,28 @@ function Checkout() {
                 </p>
               </>
             )}
+            <div className="license-box">
+              <div className="row gap">
+                <strong>Data Use License {LICENSE_VERSION}</strong>
+                <span className={`tlp tlp-${pb.tlp}`}>{TLP_INFO[pb.tlp].label}</span>
+              </div>
+              <ul className="bullets small">
+                {LICENSE_TERMS.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+              <label className="check">
+                <input type="checkbox" checked={license} onChange={(e) => setLicense(e.target.checked)} />I agree on behalf of my organization.
+              </label>
+            </div>
             <ErrorBox message={start.error} />
             <button
               className="btn primary block"
-              disabled={start.pending}
               onClick={async () => {
-                const pid = await start.run({ actor, playbookId: id });
+                const pid = await start.run({ actor, playbookId: id, acceptLicense: license });
                 if (pid) setPurchaseId(pid);
               }}
+              disabled={start.pending || !license}
             >
               {start.pending ? "Starting…" : options.x402Ready ? "Start x402 test checkout" : "Start demo checkout"}
             </button>
@@ -178,7 +194,7 @@ function Checkout() {
                 className="btn ghost"
                 disabled={payX402.pending || start.pending}
                 onClick={async () => {
-                  const pid = await start.run({ actor, playbookId: id, preference: "demo_simulator" });
+                  const pid = await start.run({ actor, playbookId: id, preference: "demo_simulator", acceptLicense: true });
                   if (pid) setPurchaseId(pid);
                 }}
               >

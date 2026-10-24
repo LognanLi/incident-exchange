@@ -18,7 +18,7 @@ function Purchases() {
   if (!list) return <Loading />;
   return (
     <div>
-      <PageHeader eyebrow="Harbor Analytics · buyer" title="My purchases" />
+      <PageHeader eyebrow="Unlocked guides and receipts" title="My guides" />
       {list.length === 0 ? (
         <Empty title="No purchases yet">
           <Link to="/playbooks">Find a playbook</Link>

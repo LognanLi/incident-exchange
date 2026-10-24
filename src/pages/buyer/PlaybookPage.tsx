@@ -7,6 +7,9 @@ import { CONTRIBUTOR_SHARE_PERCENT, PLATFORM_SHARE_PERCENT, SECTION_INFO, URGENT
 import { splitRevenue } from "../../../convex/lib/money";
 import { NOT_ENOUGH_INFO } from "../../../convex/lib/qa";
 import { useSession } from "../../session";
+import { TLP_INFO } from "../../../convex/lib/license";
+import { download, toRunbookMarkdown, toStixBundle } from "../../lib/exportGuide";
+import { Icon } from "../../components/icons";
 import { BulletText, Empty, ErrorBox, EvidenceBadge, IntegrationBadge, Loading, Money, formatDate, useAction } from "../../components/ui";
 
 type Guide = NonNullable<ReturnType<typeof useGuide>>;
@@ -18,8 +21,9 @@ function useGuide(id: Id<"playbooks">, actor: string) {
 export default function PlaybookPage() {
   const { playbookId } = useParams();
   const id = playbookId as Id<"playbooks">;
-  const { actor } = useSession();
+  const { actor, org } = useSession();
   const pb = useGuide(id, actor);
+  const [copied, setCopied] = useState(false);
 
   if (pb === undefined) return <Loading />;
   if (pb === null)
@@ -50,6 +54,9 @@ export default function PlaybookPage() {
         <h1>{pb.publicTitle}</h1>
         <p className="lede">{pb.publicSummary}</p>
         <div className="row gap wrap">
+          <span className={`tlp tlp-${pb.tlp}`} title={TLP_INFO[pb.tlp].explanation}>
+            {TLP_INFO[pb.tlp].label}
+          </span>
           {pb.environment.map((c) => (
             <span key={c} className="badge cat">
               {c}
@@ -111,6 +118,22 @@ export default function PlaybookPage() {
                   <ActionChecklist playbookId={pb._id} prefix={k} text={pb.lockedSteps![k]} checked={pb.checkedItems} enabled={pb.viewerRole === "buyer"} />
                 </div>
               ))}
+              <div className="export-row">
+                <span className="small muted">Take it into your workflow:</span>
+                <button
+                  className="btn sm"
+                  onClick={() => {
+                    const md = toRunbookMarkdown({ ...pb, lockedSteps: pb.lockedSteps! }, org?.displayName ?? "your organization");
+                    void navigator.clipboard?.writeText(md);
+                    setCopied(true);
+                  }}
+                >
+                  <Icon name="copy" size={16} /> {copied ? "Copied runbook" : "Copy as runbook (Markdown)"}
+                </button>
+                <button className="btn sm" onClick={() => download(`${pb._id}-stix.json`, toStixBundle({ ...pb, lockedSteps: pb.lockedSteps! }), "application/json")}>
+                  Download STIX 2.1
+                </button>
+              </div>
               {pb.viewerRole === "buyer" && (
                 <div className="row gap wrap">
                   <Link className="btn primary" to={`/playbooks/${id}/feedback`}>

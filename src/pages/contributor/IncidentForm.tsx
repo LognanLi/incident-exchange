@@ -27,6 +27,7 @@ type FormValues = {
   sanitizedSummary: string;
   systemCategories: string[];
   sharingLevel: SharingLevel;
+  tlp: "clear" | "green" | "amber";
   price: string;
 };
 
@@ -48,6 +49,7 @@ const EMPTY: FormValues = {
   sanitizedSummary: "",
   systemCategories: [],
   sharingLevel: "industry_alias",
+  tlp: "green",
   price: "0.50",
 };
 
@@ -128,6 +130,7 @@ function IncidentFormLoader() {
           sanitizedSummary: d.sanitizedSummary,
           systemCategories: d.systemCategories,
           sharingLevel: d.sharingLevel,
+          tlp: d.tlp ?? "green",
           price: formatAtomic(d.priceAtomic),
         }}
       />
@@ -172,6 +175,7 @@ function IncidentFormBody({
       sanitizedSummary: v.sanitizedSummary,
       systemCategories: v.systemCategories,
       sharingLevel: v.sharingLevel,
+      tlp: v.tlp,
       priceAtomic: parsePrice(v.price)!,
     };
     if (draftId) {
@@ -292,6 +296,13 @@ function IncidentFormBody({
         <div className="row">
           <Field label="Price (test USDC)" hint="0.10–1.00 test USDC (Base Sepolia). Demo pricing only." error={err("price")} id="price">
             <input id="price" inputMode="decimal" value={v.price} onChange={(e) => set("price", e.target.value)} disabled={locked} />
+          </Field>
+          <Field label="Sharing label (TLP)" hint="Traffic Light Protocol. AMBER guides are sold only to verified organizations." id="tlp">
+            <select id="tlp" value={v.tlp} onChange={(e) => set("tlp", e.target.value as FormValues["tlp"])} disabled={locked}>
+              <option value="clear">TLP:CLEAR — no limits beyond the license</option>
+              <option value="green">TLP:GREEN — your org and trusted partners</option>
+              <option value="amber">TLP:AMBER — need-to-know, verified orgs only</option>
+            </select>
           </Field>
           <Field label="How you appear to buyers" hint="Reduces identification risk; perfect anonymity is not promised." id="sharingLevel">
             <select id="sharingLevel" value={v.sharingLevel} onChange={(e) => set("sharingLevel", e.target.value as SharingLevel)} disabled={locked}>

@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { requireRole } from "./lib/access";
 import { recordIntegrationEvent } from "./lib/integrations";
+import { audit } from "./lib/audit";
 
 export const getWallets = internalQuery({
   args: {},
@@ -61,6 +62,9 @@ export const recordSuccess = internalMutation({
       transactionReference: txHash ?? p.transactionReference,
       x402: { ...p.x402, payer, txHash, error: undefined },
     });
+    const buyer = await ctx.db.get(p.buyerOrgId);
+    const pb = await ctx.db.get(p.playbookId);
+    await audit(ctx, buyer, "purchase.settled", pb?.publicTitle ?? "guide", `x402 Base Sepolia ${txHash ? txHash.slice(0, 12) + "…" : ""}`);
     await recordIntegrationEvent(ctx, "x402", "success", `x402 test payment settled on Base Sepolia${txHash ? ` (${txHash.slice(0, 10)}…)` : ""}.`);
   },
 });

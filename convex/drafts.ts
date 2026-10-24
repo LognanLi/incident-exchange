@@ -1,4 +1,4 @@
-import { ConvexError, v } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -7,7 +7,8 @@ import { EDITABLE_STATUSES, SECTION_KEYS, SYSTEM_CATEGORIES, type SectionKey } f
 import { draftSectionsFallback } from "./lib/drafting";
 import { buyerFacingFields, draftContentHash, identifyingTermsFor, submissionBlockers } from "./lib/draftContent";
 import { applyGeneralizations, scanForPrivacyIssues } from "./lib/privacy";
-import { sharingLevelV } from "./schema";
+import { sharingLevelV, tlpV } from "./schema";
+import { audit } from "./lib/audit";
 import { publicAliasFor, publishPlaybook } from "./lib/publish";
 import { ATOMIC_PER_CENT, sumAtomic } from "./lib/money";
 import { recordIntegrationEvent } from "./lib/integrations";
@@ -40,12 +41,12 @@ const draftFieldsV = {
   systemCategories: v.array(v.string()),
   environment: v.array(v.string()),
   sharingLevel: sharingLevelV,
+  tlp: v.optional(tlpV),
   priceAtomic: v.string(),
 };
 
-type DraftFields = {
-  [K in keyof typeof draftFieldsV]: Doc<"incidentDrafts">[K];
-};
+const draftFieldsObjV = v.object(draftFieldsV);
+type DraftFields = Infer<typeof draftFieldsObjV>;
 
 const MAX_TEXT = 4000;
 
@@ -425,6 +426,7 @@ export const approveAndSubmit = mutation({
       undoSnapshot: undefined,
       updatedAt: now,
     });
+    await audit(ctx, (await ctx.db.get(draft.contributorOrgId))!, "guide.submitted", draft.publicTitle, `revision ${draft.revision}`);
     return { ok: true };
   },
 });
@@ -448,6 +450,7 @@ export const publishFinal = mutation({
       contributorOrgId: org._id,
       contributorAlias: publicAliasFor(draft.sharingLevel, org),
       sharingLevel: draft.sharingLevel,
+      tlp: draft.tlp,
       publicTitle: draft.publicTitle,
       publicSummary: draft.sanitizedSummary,
       systemCategories: draft.systemCategories,
@@ -467,6 +470,7 @@ export const publishFinal = mutation({
       isDemo: draft.isDemo,
     });
     await ctx.db.patch(draftId, { status: "published", playbookId, updatedAt: Date.now() });
+    await audit(ctx, org, "guide.published", draft.publicTitle, `revision ${draft.revision} · ${draft.evidenceLevel}`);
     if (mossCredentials()) await ctx.scheduler.runAfter(0, internal.mossIndex.buildAll, { playbookId });
     return playbookId;
   },

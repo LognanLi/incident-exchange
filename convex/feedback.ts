@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { requireRole } from "./lib/access";
+import { audit } from "./lib/audit";
 
 export const submit = mutation({
   args: {
@@ -15,6 +16,7 @@ export const submit = mutation({
     const pb = await ctx.db.get(playbookId);
     if (!pb || !pb.active) throw new ConvexError("Playbook not found.");
     if (notes.length > 2000) throw new ConvexError("Notes are too long.");
+    await audit(ctx, buyer, "feedback.submitted", pb.publicTitle, `${relevance} · ${outcome}`);
     return await ctx.db.insert("outcomeFeedback", {
       buyerOrgId: buyer._id,
       playbookId,

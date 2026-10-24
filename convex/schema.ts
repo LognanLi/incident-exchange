@@ -20,6 +20,9 @@ export const evidenceLevelV = v.union(
 
 export const sharingLevelV = v.union(v.literal("anonymous"), v.literal("industry_alias"));
 
+/** Traffic Light Protocol 2.0 sharing label (FIRST.org). AMBER guides are sold only to verified organizations. */
+export const tlpV = v.union(v.literal("clear"), v.literal("green"), v.literal("amber"));
+
 export const sectionV = v.object({
   body: v.string(),
   accepted: v.boolean(),
@@ -65,6 +68,9 @@ export default defineSchema({
     publicAlias: v.string(),
     demoRole: roleV,
     description: v.string(),
+    /** Business verification (KYB) — demo flag; a real deployment would verify domain + entity. */
+    verified: v.optional(v.boolean()),
+    verifiedDomain: v.optional(v.string()),
     isDemo: v.boolean(),
     createdAt: v.number(),
   })
@@ -94,6 +100,7 @@ export default defineSchema({
     systemCategories: v.array(v.string()),
     environment: v.array(v.string()),
     sharingLevel: sharingLevelV,
+    tlp: v.optional(tlpV),
     /** Integer atomic units of `currency` (USDC: 6 decimals). */
     priceAtomic: v.string(),
     currency: v.string(),
@@ -141,6 +148,7 @@ export default defineSchema({
     evidenceScope: v.string(),
     toyCase: v.optional(toyCaseV),
     sharingLevel: sharingLevelV,
+    tlp: v.optional(tlpV),
     evidenceLevel: evidenceLevelV,
     priceAtomic: v.string(),
     currency: v.string(),
@@ -283,6 +291,9 @@ export default defineSchema({
     contributorShareAtomic: v.string(),
     platformShareAtomic: v.string(),
     transactionReference: v.string(),
+    /** Data Use License acceptance (internal defensive use, no resale, no re-identification). */
+    licenseVersion: v.optional(v.string()),
+    licenseAcceptedAt: v.optional(v.number()),
     /** Present for x402 test purchases: what actually settled on Base Sepolia. */
     x402: v.optional(
       v.object({
@@ -343,6 +354,53 @@ export default defineSchema({
     network: v.string(),
     updatedAt: v.number(),
   }).index("by_role", ["role"]),
+
+  /** Saved symptom searches. New matching guides create alerts in real time. */
+  watches: defineTable({
+    buyerOrgId: v.id("organizations"),
+    query: v.string(),
+    createdAt: v.number(),
+    isDemo: v.boolean(),
+  })
+    .index("by_buyer", ["buyerOrgId"])
+    .index("by_isDemo", ["isDemo"]),
+
+  alerts: defineTable({
+    buyerOrgId: v.id("organizations"),
+    watchId: v.id("watches"),
+    playbookId: v.id("playbooks"),
+    title: v.string(),
+    relevance: v.string(),
+    matchedClues: v.array(v.string()),
+    read: v.boolean(),
+    createdAt: v.number(),
+    isDemo: v.boolean(),
+  })
+    .index("by_buyer", ["buyerOrgId", "createdAt"])
+    .index("by_isDemo", ["isDemo"]),
+
+  /** Append-only record of security-relevant actions (who did what, when). */
+  auditEvents: defineTable({
+    orgId: v.optional(v.id("organizations")),
+    actorName: v.string(),
+    action: v.string(),
+    subject: v.string(),
+    detail: v.optional(v.string()),
+    at: v.number(),
+    isDemo: v.boolean(),
+  })
+    .index("by_at", ["at"])
+    .index("by_org", ["orgId", "at"])
+    .index("by_isDemo", ["isDemo"]),
+
+  /** Buyer organization spend controls (monthly budget). */
+  spendPolicies: defineTable({
+    orgId: v.id("organizations"),
+    monthlyBudgetAtomic: v.string(),
+    isDemo: v.boolean(),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_isDemo", ["isDemo"]),
 
   integrationEvents: defineTable({
     integration: v.string(),

@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { EVIDENCE_INFO, EVIDENCE_LEVELS, SYSTEM_CATEGORIES, type EvidenceLevel } from "../../../convex/lib/domain";
 import { useSession } from "../../session";
+import { TLP_INFO } from "../../../convex/lib/license";
 import { Empty, EvidenceBadge, Money, PageHeader, RoleGate } from "../../components/ui";
 
 const SCENARIOS = [
@@ -50,7 +51,7 @@ function Search() {
 
   return (
     <div>
-      <PageHeader eyebrow="Harbor Analytics · buyer" title="Find a playbook" />
+      <PageHeader eyebrow="Describe it in your own words" title="Find guidance" />
       <form
         className="search-bar card"
         onSubmit={(e) => {
@@ -66,7 +67,7 @@ function Search() {
           <input
             id="q"
             className="grow"
-            placeholder="e.g. repeated authentication failures after a deployment"
+            placeholder="e.g. orders are being created twice and the queue keeps filling up"
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />
@@ -184,6 +185,7 @@ function Search() {
               )}
               <p>{r.publicSummary}</p>
               <div className="row gap wrap">
+                <span className={`tlp tlp-${r.tlp}`}>{TLP_INFO[r.tlp].label}</span>
                 <EvidenceBadge level={r.evidenceLevel} />
                 <span className="small muted">{r.evidenceScope}</span>
               </div>

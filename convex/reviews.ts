@@ -6,6 +6,7 @@ import { requireRole } from "./lib/access";
 import { SECTION_KEYS, type EvidenceLevel } from "./lib/domain";
 import { draftContentHash } from "./lib/draftContent";
 import { evidenceLevelV } from "./schema";
+import { audit } from "./lib/audit";
 
 const checklistV = v.object({
   sixSectionsComplete: v.boolean(),
@@ -157,6 +158,7 @@ export const decide = mutation({
       isDemo: draft.isDemo,
       createdAt: Date.now(),
     });
+    await audit(ctx, reviewer, `review.${decision}`, draft.publicTitle, decision === "approve" ? `evidence: ${evidenceLevel}` : note.slice(0, 120));
     await ctx.db.patch(draftId, {
       status: decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "changes_requested",
       evidenceLevel: decision === "approve" ? evidenceLevel : draft.evidenceLevel,

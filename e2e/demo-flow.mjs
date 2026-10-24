@@ -27,7 +27,7 @@ const actAs = async (orgName) => {
 const started = Date.now();
 try {
   await page.goto(BASE);
-  await page.getByRole("heading", { name: /Find a resolved incident that fits yours/ }).waitFor();
+  await page.getByRole("heading", { name: /learn from the team that already fixed it/ }).waitFor();
   await shot("home");
   step("Home loads");
 
@@ -117,6 +117,9 @@ try {
 
   // ---- Buyer
   await actAs("Harbor Analytics");
+  await page.getByText("New guide matches your alert").waitFor();
+  await shot("live-alert");
+  step("Live alert toast: Harbor's saved symptom alert matched the newly published guide");
   await page.getByLabel("Describe what you are seeing").fill("The queue fills again after restarting workers, and identical webhook event IDs create two jobs");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   const first = page.locator(".result").first();
@@ -143,6 +146,8 @@ try {
   await page.getByRole("link", { name: "Unlock guide" }).click();
   const x402Start = page.getByRole("button", { name: "Start x402 test checkout" });
   await page.getByRole("button", { name: /Start (x402 test|demo) checkout/ }).waitFor();
+  await page.getByLabel(/I agree on behalf of my organization/).check();
+  step("Data Use License accepted (TLP label shown)");
   if (await x402Start.isVisible()) {
     await x402Start.click();
     await page.getByRole("button", { name: /Pay .* test USDC with x402/ }).click();
@@ -171,6 +176,8 @@ try {
   await page.reload();
   await page.getByText(/1 of \d+ done · saved/).first().waitFor();
   step("Failed attempts shown; checklist progress persists across reload");
+  await page.getByRole("button", { name: /Copy as runbook/ }).waitFor();
+  step("Runbook (Markdown) and STIX 2.1 export available on the unlocked guide");
   await page.getByText("Fix tested on the sample app — see run").waitFor();
   step("Buyer sees test evidence with before/after pairing");
   await page.getByLabel("Question").fill("How do I confirm duplicates stopped?");

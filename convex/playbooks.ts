@@ -36,6 +36,7 @@ function listing(pb: Doc<"playbooks">) {
     priceAtomic: pb.priceAtomic,
     currency: pb.currency,
     contributorAlias: pb.contributorAlias,
+    tlp: pb.tlp ?? "green",
     publishedAt: pb.publishedAt,
     sourceKind: "private_contribution" as const,
   };

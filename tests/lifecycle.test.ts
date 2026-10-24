@@ -78,7 +78,7 @@ describe("contributor → reviewer → buyer lifecycle", () => {
     expect(pb!.lockedSteps).toBeNull();
     expect(pb!.references.length).toBeGreaterThanOrEqual(2);
 
-    const purchaseId = await t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId });
+    const purchaseId = await t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId, acceptLicense: true });
     pb = await t.query(api.playbooks.get, { actor: "harbor", playbookId });
     expect(pb!.lockedSteps).toBeNull(); // pending is not paid
     await t.mutation(api.purchases.completeSimulated, { actor: "harbor", purchaseId, confirmed: true });
@@ -89,7 +89,7 @@ describe("contributor → reviewer → buyer lifecycle", () => {
     const receipt = await t.query(api.purchases.get, { actor: "harbor", purchaseId });
     expect(receipt).toMatchObject({ amountAtomic: "500000", contributorShareAtomic: "400000", platformShareAtomic: "100000", paymentStatus: "simulated_success", provider: "demo_simulator", revision: 1 });
     // Retrying checkout after success returns the same purchase (no second charge / accrual).
-    expect(await t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId })).toBe(purchaseId);
+    expect(await t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId, acceptLicense: true })).toBe(purchaseId);
 
     const earnings = await t.query(api.drafts.listMine, { actor: "northstar" });
     expect(earnings.accruedAtomic).toBe("400000");
@@ -171,7 +171,7 @@ describe("revisions and payments", () => {
     const { t } = await seeded();
     const list = await t.query(api.playbooks.search, { actor: "harbor", query: "" });
     const playbookId = list[0]._id;
-    const pid = await t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId });
+    const pid = await t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId, acceptLicense: true });
     await t.mutation(api.purchases.cancel, { actor: "harbor", purchaseId: pid });
     let pb = await t.query(api.playbooks.get, { actor: "harbor", playbookId });
     expect(pb!.unlocked).toBe(false);
@@ -194,6 +194,35 @@ describe("revisions and payments", () => {
     expect(mine.filter((p) => p.paymentStatus === "test_success")).toHaveLength(1);
     pb = await t.query(api.playbooks.get, { actor: "harbor", playbookId });
     expect(pb!.unlocked).toBe(true);
+  });
+
+  it("enforces the Data Use License, TLP:AMBER verification, and the monthly budget", async () => {
+    const { t } = await seeded();
+    const list = await t.query(api.playbooks.search, { actor: "harbor", query: "" });
+    const amber = list.find((p) => p.tlp === "amber")!;
+    const green = list.find((p) => p.tlp === "green")!;
+    await expect(t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId: green._id })).rejects.toThrow(/License/);
+    // Harbor is verified, so it can buy AMBER; an unverified buyer cannot.
+    await t.run(async (ctx) => {
+      const h = (await ctx.db.query("organizations").withIndex("by_slug", (q) => q.eq("slug", "harbor")).unique())!;
+      await ctx.db.patch(h._id, { verified: false });
+    });
+    await expect(t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId: amber._id, acceptLicense: true })).rejects.toThrow(/verified/);
+    await t.mutation(api.business.setBudget, { actor: "harbor", monthlyBudgetAtomic: "100000" });
+    await expect(t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId: green._id, acceptLicense: true })).rejects.toThrow(/budget/);
+    const log = await t.query(api.business.auditLog, { actor: "review-desk" });
+    expect(log.some((e) => e.action === "budget.updated")).toBe(true);
+  });
+
+  it("a saved symptom alert fires when a matching guide is published", async () => {
+    const { t, draftId } = await seeded();
+    await prepareAndSubmit(t, draftId);
+    await t.mutation(api.reviews.decide, { actor: "review-desk", draftId, decision: "approve", note: "ok", evidenceLevel: "contributor_reported", checklist: CHECKLIST });
+    expect(await t.query(api.business.unreadAlerts, { actor: "harbor" })).toHaveLength(0);
+    await t.mutation(api.drafts.publishFinal, { actor: "northstar", draftId, confirmed: true });
+    const alerts = await t.query(api.business.unreadAlerts, { actor: "harbor" });
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].relevance).toBe("Strong overlap");
   });
 
   it("a stale Factory callback after reset is rejected", async () => {
@@ -238,7 +267,7 @@ describe("access control", () => {
       t.mutation(api.reviews.decide, { actor: "northstar", draftId, decision: "approve", note: "", evidenceLevel: "contributor_reported", checklist: CHECKLIST }),
     ).rejects.toThrow(/reviewer role/);
     const catalog = await t.query(api.playbooks.search, { actor: "harbor", query: "" });
-    await expect(t.mutation(api.purchases.startCheckout, { actor: "northstar", playbookId: catalog[0]._id })).rejects.toThrow(/buyer role/);
+    await expect(t.mutation(api.purchases.startCheckout, { actor: "northstar", playbookId: catalog[0]._id, acceptLicense: true })).rejects.toThrow(/buyer role/);
   });
 
   it("locks content once submitted", async () => {
