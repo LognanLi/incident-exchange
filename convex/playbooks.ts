@@ -9,6 +9,7 @@ import { FREE_SECTIONS, SECTION_KEYS, type SectionKey } from "./lib/domain";
 import { askWithMossContext, askWithMossIndex, mossCredentials, playbookIndexName } from "./lib/moss";
 import type { QaAnswer } from "./lib/qa";
 import { matchGuide, RELEVANCE_INFO } from "./lib/matching";
+import { rankKey, type SemanticCandidate } from "./lib/searchIndex";
 import { evidenceLevelV } from "./schema";
 
 const PAID = ["simulated_success", "test_success"] as const;
@@ -91,15 +92,31 @@ async function evidenceRuns(ctx: QueryCtx, pb: Doc<"playbooks">) {
     }));
 }
 
+const searchArgs = {
+  actor: v.string(),
+  query: v.string(),
+  category: v.optional(v.string()),
+  evidenceLevel: v.optional(evidenceLevelV),
+  maxPriceAtomic: v.optional(v.string()),
+};
+type SearchArgs = { actor: string; query: string; category?: string; evidenceLevel?: Doc<"playbooks">["evidenceLevel"]; maxPriceAtomic?: string };
+
+/** Keyword clue matching only. Kept as the labeled fallback; buyers normally go through semanticSearch.buyerSearch. */
 export const search = query({
-  args: {
-    actor: v.string(),
-    query: v.string(),
-    category: v.optional(v.string()),
-    evidenceLevel: v.optional(evidenceLevelV),
-    maxPriceAtomic: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
+  args: searchArgs,
+  handler: (ctx, args) => runSearch(ctx, args),
+});
+
+/** Ranking with Moss semantic candidates (ids + scores) from the shared public-preview index. */
+export const searchRanked = internalQuery({
+  args: { ...searchArgs, semantic: v.optional(v.array(v.object({ id: v.string(), score: v.number() }))) },
+  handler: (ctx, { semantic, ...args }) => runSearch(ctx, args, semantic),
+});
+
+export type SearchResults = Awaited<ReturnType<typeof runSearch>>;
+
+async function runSearch(ctx: QueryCtx, args: SearchArgs, semantic?: SemanticCandidate[]) {
+  {
     const org = await getActor(ctx, args.actor);
     if (args.query.length > 600) throw new ConvexError("Description is too long.");
     const active = await ctx.db.query("playbooks").withIndex("by_active", (q) => q.eq("active", true)).collect();
@@ -110,6 +127,7 @@ export const search = query({
         (!args.maxPriceAtomic || BigInt(pb.priceAtomic) <= BigInt(args.maxPriceAtomic)),
     );
     const hasQuery = args.query.trim().length > 0;
+    const semScore = new Map((semantic ?? []).map((s) => [s.id, s.score]));
     const rows = filtered
       .map((pb) => ({
         pb,
@@ -125,9 +143,11 @@ export const search = query({
             })
           : null,
       }))
-      .filter(({ m }) => !hasQuery || m !== null)
-      // Ranked by symptom overlap only (price never affects order); newest first when browsing.
-      .sort((a, b) => (b.m?.score ?? 0) - (a.m?.score ?? 0) || b.pb.publishedAt - a.pb.publishedAt);
+      .map((r) => ({ ...r, semanticScore: semScore.get(r.pb._id) }))
+      .map((r) => ({ ...r, rank: hasQuery ? rankKey(r.m?.relevanceLabel ?? null, r.m?.score ?? 0, r.semanticScore, semantic !== undefined) : 0 }))
+      .filter((r) => r.rank !== null)
+      // Ranked by fit only (price never affects order); newest first when browsing.
+      .sort((a, b) => b.rank! - a.rank! || b.pb.publishedAt - a.pb.publishedAt);
 
     // Contributor track record: published guides and buyer-reported resolutions (pseudonymous).
     const record = new Map<string, { guides: number; resolved: number; outcomes: number }>();
@@ -138,8 +158,9 @@ export const search = query({
     }
 
     return await Promise.all(
-      rows.map(async ({ pb, m }) => ({
+      rows.map(async ({ pb, m, semanticScore }) => ({
         ...listing(pb),
+        semanticScore: semanticScore ?? null,
         trackRecord: record.get(pb.contributorOrgId)!,
         keyClueCount: pb.applicability.clues.filter((c) => c.weight === "key").length,
         match: m && {
@@ -151,8 +172,8 @@ export const search = query({
         unlocked: (await entitledRevision(ctx, org, pb)) !== null,
       })),
     );
-  },
-});
+  }
+}
 
 export const get = query({
   args: { actor: v.string(), playbookId: v.id("playbooks") },

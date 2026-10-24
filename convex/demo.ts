@@ -167,6 +167,7 @@ export const reset = mutation({
     if (gen) await ctx.db.patch(gen._id, { value: gen.value + 1 });
     else await ctx.db.insert("meta", { key: "generation", value: 1 });
     await seed(ctx);
+    await ctx.scheduler.runAfter(0, internal.semanticSearch.rebuildPublicIndex, {});
     return { ok: true };
   },
 });
@@ -179,6 +180,7 @@ export const ensureSeeded = mutation({
     const any = await ctx.db.query("organizations").first();
     if (any) return { seeded: false };
     await seed(ctx);
+    await ctx.scheduler.runAfter(0, internal.semanticSearch.rebuildPublicIndex, {});
     return { seeded: true };
   },
 });

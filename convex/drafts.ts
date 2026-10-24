@@ -486,6 +486,7 @@ export async function publishApprovedDraft(ctx: MutationCtx, draftId: Id<"incide
   });
   await ctx.db.patch(draftId, { status: "published", playbookId, updatedAt: Date.now() });
   await audit(ctx, org, "guide.published", draft.publicTitle, `revision ${draft.revision} · ${draft.evidenceLevel}`);
-  // Per-guide Moss indexes are no longer built (plan quota); Moss retrieval uses one shared public-preview index in the MCP service.
+  // One shared public-preview index serves search (per-guide indexes exceeded the Moss plan quota).
+  await ctx.scheduler.runAfter(0, internal.semanticSearch.rebuildPublicIndex, {});
   return playbookId;
 }
