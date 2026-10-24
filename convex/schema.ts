@@ -304,6 +304,9 @@ export default defineSchema({
         payer: v.optional(v.string()),
         txHash: v.optional(v.string()),
         error: v.optional(v.string()),
+        /** EIP-3009 authorization nonce recorded before settlement, for on-chain reconciliation. */
+        nonce: v.optional(v.string()),
+        settlingAt: v.optional(v.number()),
       }),
     ),
     isDemo: v.boolean(),

@@ -32,7 +32,7 @@ function PurchaseConfirmation() {
 
   return (
     <div className="confirmation">
-      <PageHeader eyebrow="Purchase confirmation" title={ok ? "Playbook unlocked" : "Purchase not completed"} />
+      <PageHeader eyebrow="Purchase confirmation" title={ok ? "Guide unlocked" : "Purchase not completed"} />
       <section className="card receipt">
         {p.provider === "demo_simulator" && <div className="sim-banner">DEMO PAYMENT — SIMULATED · NOT SETTLED</div>}
         {p.provider === "x402_test" && <div className="x402-banner">COINBASE x402 · BASE SEPOLIA TESTNET · TEST USDC</div>}
@@ -127,7 +127,7 @@ function PurchaseConfirmation() {
         )}
         <div className="row gap">
           <Link className="btn primary" to={`/playbooks/${p.playbookId}`}>
-            {ok ? "Read the playbook" : "Back to playbook"}
+            {ok ? "Read the guide" : "Back to the guide"}
           </Link>
           {ok && (
             <Link className="btn" to={`/playbooks/${p.playbookId}/feedback`}>

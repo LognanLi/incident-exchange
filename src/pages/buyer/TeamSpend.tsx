@@ -40,7 +40,7 @@ function TeamSpend() {
           <div className="big-stat stat-num">
             <Money atomic={data.spentThisMonthAtomic} /> <span className="muted small">of</span> <Money atomic={data.monthlyBudgetAtomic} />
           </div>
-          <div className="meter" aria-label={`${pct}% of monthly budget used`}>
+          <div className="meter" role="progressbar" aria-label="Monthly budget used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(pct, 100)}>
             <span style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
           <p className="small muted">Purchases that would go over the budget are blocked until a manager raises it.</p>

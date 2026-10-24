@@ -559,3 +559,12 @@ kbd { font-family: var(--mono); font-size: 0.7rem; padding: 2px 6px; border-radi
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 960px) { .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); } }
 .ref-list a { overflow-wrap: anywhere; }
+/* a11y: WCAG AA contrast on dark sidebar and muted text */
+.vtabs-label, .sidebar-note { color: #9aa4b5; }
+.identity-sub { color: #a3acbb; }
+.hero2 .tiny.muted { color: #94a3b8; }
+kbd { opacity: 1; }
+.kbd-hint { color: #a3acbb; }
+.kbd-hint kbd { color: #c7cdd8; border-color: #6b7588; }
+.integration-unavailable { color: #475467; }
+.badge.muted-badge, .small.muted, .muted { color: #5d6b82; }

@@ -26,6 +26,8 @@ function Checkout() {
   const pb = useQuery(api.playbooks.get, { actor, playbookId: id });
   const start = useAction(useMutation(api.purchases.startCheckout));
   const payX402 = useAction(useConvexAction(api.x402Node.payWithX402));
+  const reconcile = useAction(useConvexAction(api.x402Node.reconcilePayment));
+  const [reconcileMsg, setReconcileMsg] = useState<string | null>(null);
   const options = useQuery(api.purchases.paymentOptions);
   const complete = useAction(useMutation(api.purchases.completeSimulated));
   const cancel = useAction(useMutation(api.purchases.cancel));
@@ -35,10 +37,10 @@ function Checkout() {
   const [license, setLicense] = useState(false);
 
   if (pb === undefined || options === undefined) return <Loading />;
-  if (pb === null) return <Empty title="Playbook not found" />;
+  if (pb === null) return <Empty title="Guide not found" />;
   if (pb.unlocked && pb.successfulPurchaseId && !purchaseId) {
     return (
-      <Empty title="You already unlocked this playbook">
+      <Empty title="You already unlocked this guide">
         <Link to={`/playbooks/${id}`}>Read it now</Link>
       </Empty>
     );
@@ -47,7 +49,7 @@ function Checkout() {
 
   return (
     <div className="checkout">
-      <PageHeader eyebrow="Checkout" title="Unlock detailed playbook" />
+      <PageHeader eyebrow="Checkout" title="Unlock the full guide" />
       <div className="grid-2 align-start">
         <section className="card">
           <h2>{pb.publicTitle}</h2>
@@ -179,11 +181,30 @@ function Checkout() {
               settles it on Base Sepolia. The guide unlocks only after settlement succeeds.
             </p>
             {purchase.x402.error && <ErrorBox message={purchase.x402.error} />}
-            <ErrorBox message={payX402.error} />
+            <ErrorBox message={payX402.error ?? reconcile.error} />
+            {purchase.x402.nonce && (
+              <div className="state state-info small">
+                A payment for this purchase was signed and is being confirmed on Base Sepolia. To avoid charging you twice,
+                check its status instead of paying again.{" "}
+                <button
+                  className="btn sm"
+                  disabled={reconcile.pending}
+                  onClick={async () => {
+                    const r = await reconcile.run({ actor, purchaseId });
+                    if (!r) return;
+                    if (r.status === "settled" || r.status === "already_done") navigate(`/purchases/${purchaseId}`);
+                    else setReconcileMsg(r.status === "still_pending" ? "Still confirming — try again in a minute." : "That payment never went through. You can safely pay now.");
+                  }}
+                >
+                  {reconcile.pending ? "Checking the blockchain…" : "Check payment status"}
+                </button>
+              </div>
+            )}
+            {reconcileMsg && <div className="state state-info small">{reconcileMsg}</div>}
             <div className="row gap wrap">
               <button
                 className="btn primary"
-                disabled={payX402.pending}
+                disabled={payX402.pending || !!purchase.x402.nonce}
                 onClick={async () => {
                   if (await payX402.run({ actor, purchaseId })) navigate(`/purchases/${purchaseId}`);
                 }}

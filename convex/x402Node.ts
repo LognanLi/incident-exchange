@@ -123,6 +123,14 @@ export const sellerHandle = internalAction({
       if (result.paymentRequirements.amount !== purchase.x402.atomicAmount) {
         return { status: 402, headers: {}, body: { error: "Payment amount does not match this purchase." } };
       }
+      // Persist the authorization before settling so a crash after settlement can be reconciled on-chain.
+      const auth = (result.paymentPayload.payload as { authorization?: { from?: string; nonce?: string } } | undefined)?.authorization;
+      if (auth?.from && auth?.nonce) {
+        const marked = await ctx.runMutation(internal.x402State.markSettling, { purchaseId: purchase._id, payer: auth.from, nonce: auth.nonce });
+        if (!marked.ok) {
+          return { status: 409, headers: {}, body: { error: "An earlier payment for this purchase is still being confirmed. Use “Check payment status”." } };
+        }
+      }
       const settle = await httpServer.processSettlement(result.paymentPayload, result.paymentRequirements, result.declaredExtensions, {
         request: context,
       });
@@ -154,6 +162,9 @@ export const payWithX402 = action({
   handler: async (ctx, { actor, purchaseId }): Promise<{ txHash?: string }> => {
     requireCdp();
     const purchase = await ctx.runQuery(internal.x402State.purchaseForBuyer, { actor, purchaseId });
+    if (purchase.paymentStatus !== "pending") throw new ConvexError("This checkout is no longer pending.");
+    // Never sign a second authorization while an earlier one is unresolved.
+    if (purchase.x402.nonce) throw new ConvexError("An earlier payment is still being confirmed. Use “Check payment status” instead of paying again.");
     const siteUrl = process.env.CONVEX_SITE_URL;
     if (!siteUrl) throw new ConvexError("CONVEX_SITE_URL is not available.");
 
@@ -178,5 +189,57 @@ export const payWithX402 = action({
       await ctx.runMutation(internal.x402State.recordFailure, { purchaseId, message: `x402 payment failed: ${message}` });
       throw new ConvexError(`x402 payment failed: ${message}`);
     }
+  },
+});
+
+const AUTH_STATE_ABI = [
+  { inputs: [{ name: "authorizer", type: "address" }, { name: "nonce", type: "bytes32" }], name: "authorizationState", outputs: [{ name: "", type: "bool" }], stateMutability: "view", type: "function" },
+] as const;
+const AUTH_USED_EVENT = {
+  type: "event",
+  name: "AuthorizationUsed",
+  inputs: [
+    { name: "authorizer", type: "address", indexed: true },
+    { name: "nonce", type: "bytes32", indexed: true },
+  ],
+} as const;
+
+/**
+ * Settlement recovery: if a payment was settled but the app never recorded it (crash, timeout),
+ * check USDC's EIP-3009 authorizationState on Base Sepolia. Used → record the purchase (and find the tx);
+ * unused and expired → clear it so the buyer can safely retry. No second charge is ever created here.
+ */
+export const reconcilePayment = action({
+  args: { actor: v.string(), purchaseId: v.id("purchases") },
+  handler: async (ctx, { actor, purchaseId }): Promise<{ status: "settled" | "not_settled_retry_allowed" | "still_pending" | "already_done"; txHash?: string }> => {
+    const purchase = await ctx.runQuery(internal.x402State.purchaseForBuyer, { actor, purchaseId });
+    if (purchase.paymentStatus !== "pending") return { status: "already_done" };
+    const { payer, nonce, settlingAt } = purchase.x402;
+    if (!payer || !nonce) return { status: "not_settled_retry_allowed" };
+    const client = createPublicClient({ chain: baseSepolia, transport: http() });
+    const used = await client.readContract({ address: USDC_BASE_SEPOLIA, abi: AUTH_STATE_ABI, functionName: "authorizationState", args: [payer as `0x${string}`, nonce as `0x${string}`] });
+    if (used) {
+      let txHash: string | undefined;
+      try {
+        // Public RPCs cap eth_getLogs at 200 blocks: walk back in chunks (~2.7 h of Base Sepolia blocks).
+        let to = await client.getBlockNumber();
+        for (let i = 0; i < 25 && !txHash && to > 0n; i++) {
+          const from = to > 199n ? to - 199n : 0n;
+          const logs = await client.getLogs({ address: USDC_BASE_SEPOLIA, event: AUTH_USED_EVENT, args: { authorizer: payer as `0x${string}`, nonce: nonce as `0x${string}` }, fromBlock: from, toBlock: to });
+          txHash = logs[0]?.transactionHash ?? undefined;
+          to = from - 1n;
+        }
+      } catch {
+        txHash = undefined; // RPC log range limits: purchase is still recorded as settled.
+      }
+      await ctx.runMutation(internal.x402State.recordSuccess, { purchaseId, payer, txHash, network: X402_NETWORK });
+      return { status: "settled", txHash };
+    }
+    // Unused: once the signed authorization has expired (5 min window + margin) it can never settle.
+    if (!settlingAt || Date.now() - settlingAt > 6 * 60 * 1000) {
+      await ctx.runMutation(internal.x402State.clearSettling, { purchaseId });
+      return { status: "not_settled_retry_allowed" };
+    }
+    return { status: "still_pending" };
   },
 });

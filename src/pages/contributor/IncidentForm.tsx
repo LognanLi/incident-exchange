@@ -335,7 +335,7 @@ function IncidentFormBody({
                 if (await save.run()) navigate(`/contribute/drafts/${draftId}/playbook`);
               }}
             >
-              Save & continue to playbook →
+              Save & continue to the guide →
             </button>
           )}
         </div>

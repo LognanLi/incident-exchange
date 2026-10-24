@@ -28,7 +28,7 @@ function Purchases() {
           <table className="table">
             <thead>
               <tr>
-                <th>Playbook</th>
+                <th>Guide</th>
                 <th>Amount</th>
                 <th>Status</th>
                 <th>Date</th>

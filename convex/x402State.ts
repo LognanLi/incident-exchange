@@ -44,8 +44,7 @@ export const purchaseForBuyer = internalQuery({
     const p = await ctx.db.get(purchaseId);
     if (!p || p.buyerOrgId !== buyer._id) throw new ConvexError("Purchase not found.");
     if (p.provider !== "x402_test" || !p.x402) throw new ConvexError("This checkout does not use x402.");
-    if (p.paymentStatus !== "pending") throw new ConvexError("This checkout is no longer pending.");
-    return { _id: p._id, x402: p.x402 };
+    return { _id: p._id, x402: p.x402, paymentStatus: p.paymentStatus };
   },
 });
 
@@ -66,6 +65,31 @@ export const recordSuccess = internalMutation({
     const pb = await ctx.db.get(p.playbookId);
     await audit(ctx, buyer, "purchase.settled", pb?.publicTitle ?? "guide", `x402 Base Sepolia ${txHash ? txHash.slice(0, 12) + "…" : ""}`);
     await recordIntegrationEvent(ctx, "x402", "success", `x402 test payment settled on Base Sepolia${txHash ? ` (${txHash.slice(0, 10)}…)` : ""}.`);
+  },
+});
+
+/**
+ * Record the signed authorization before settling. If a different authorization is already
+ * pending for this purchase, refuse: the earlier one must be reconciled first (no double charge).
+ */
+export const markSettling = internalMutation({
+  args: { purchaseId: v.id("purchases"), payer: v.string(), nonce: v.string() },
+  handler: async (ctx, { purchaseId, payer, nonce }) => {
+    const p = await ctx.db.get(purchaseId);
+    if (!p || !p.x402 || p.paymentStatus !== "pending") return { ok: false, reason: "not_pending" as const };
+    if (p.x402.nonce && p.x402.nonce !== nonce) return { ok: false, reason: "other_authorization_pending" as const };
+    await ctx.db.patch(purchaseId, { x402: { ...p.x402, payer, nonce, settlingAt: Date.now(), error: undefined } });
+    return { ok: true as const };
+  },
+});
+
+/** The earlier authorization expired unused on-chain: clear it so the buyer may retry. */
+export const clearSettling = internalMutation({
+  args: { purchaseId: v.id("purchases") },
+  handler: async (ctx, { purchaseId }) => {
+    const p = await ctx.db.get(purchaseId);
+    if (!p?.x402 || p.paymentStatus !== "pending") return;
+    await ctx.db.patch(purchaseId, { x402: { ...p.x402, nonce: undefined, settlingAt: undefined } });
   },
 });
 

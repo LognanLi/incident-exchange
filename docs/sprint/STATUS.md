@@ -44,3 +44,8 @@ Cut to conserve time/tokens (user asked for ~90 min): sidebar navigation redesig
 - Fidelity check vs. original brief: `docs/BRIEF_COMPARISON.md`.
 - Checks: typecheck, build, 43 Vitest + 14 toy tests, e2e 23 steps with live Moss/Apify/Factory/x402.
 - Remote: https://github.com/LognanLi/incident-exchange (private).
+
+## Round 3 (04:40–05:10 PDT)
+- Settlement reconciliation via on-chain `authorizationState` (live-tested), double-pay guard + UI.
+- axe-core audit: 13 → 0 violations across 17 screens; readability pass; “guide” wording standardized; plain-words validation explainer.
+- CI workflow (typecheck, tests, build), `docs/DEPLOY.md` shipping checklist, `docs/demo/USABILITY.md`.

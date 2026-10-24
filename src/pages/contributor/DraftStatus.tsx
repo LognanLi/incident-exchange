@@ -51,7 +51,7 @@ function DraftStatus() {
                   <Link to={`/contribute/drafts/${id}/report`}>Fix “What we tried that did not work” →</Link>
                 ) : (
                   <Link to={`/contribute/drafts/${id}/playbook${data.reviews[0]?.sectionKey ? `#sec-${data.reviews[0].sectionKey}` : ""}`}>
-                    Fix {data.reviews[0]?.sectionKey ? `the ${data.reviews[0].sectionKey} section` : "the playbook"} →
+                    Fix {data.reviews[0]?.sectionKey ? `the ${data.reviews[0].sectionKey} section` : "the guide"} →
                   </Link>
                 )}
                 <div className="small muted">Editing creates revision {d.revision + 1}; you will approve it again before resubmitting.</div>

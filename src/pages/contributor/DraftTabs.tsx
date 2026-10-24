@@ -12,7 +12,7 @@ export function DraftTabs({ draft, scanIsCurrent }: Props) {
   const submitted = draft.status !== "draft" && draft.status !== "changes_requested";
   const steps = [
     { to: "report", label: "1 · Incident report", done: true },
-    { to: "playbook", label: "2 · Six-part playbook", done: sectionsDone },
+    { to: "playbook", label: "2 · Shareable guide", done: sectionsDone },
     { to: "privacy", label: "3 · Privacy & approval", done: privacyDone && (submitted || !!draft.contributorApproval) },
     { to: "status", label: "4 · Review & publication", done: draft.status === "published" },
   ];

@@ -41,7 +41,7 @@ function PlaybookEditor() {
 
       <div className="card toolbar">
         <div>
-          <h2>Six-part playbook</h2>
+          <h2>Your shareable guide (six parts)</h2>
           <p className="muted small">
             Structure your notes into Recognize · Check · Contain · Recover · Verify · Limitations. Review each section
             against your source notes, edit, and accept it individually.
@@ -82,7 +82,7 @@ function PlaybookEditor() {
 
       {!d.sections ? (
         <div className="card state-empty">
-          <strong>No playbook draft yet.</strong>
+          <strong>No guide draft yet.</strong>
           <span className="muted">Use “Draft with Moss” to structure your incident report into six sections.</span>
         </div>
       ) : (

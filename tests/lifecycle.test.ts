@@ -276,3 +276,25 @@ describe("access control", () => {
     await expect(t.mutation(api.drafts.generateSections, { actor: "northstar", draftId })).rejects.toThrow(/locked/);
   });
 });
+
+describe("settlement recovery guard", () => {
+  it("refuses a second authorization while an earlier one is pending, and allows retry after it is cleared", async () => {
+    const { t } = await seeded();
+    const list = await t.query(api.playbooks.search, { actor: "harbor", query: "" });
+    const playbookId = list.find((p) => p.tlp === "green")!._id;
+    const xid = await t.run(async (ctx) => {
+      const buyer = (await ctx.db.query("organizations").withIndex("by_slug", (q) => q.eq("slug", "harbor")).unique())!;
+      const p = (await ctx.db.get(playbookId))!;
+      return await ctx.db.insert("purchases", {
+        buyerOrgId: buyer._id, playbookId, revision: p.revision, amountAtomic: p.priceAtomic, currency: "USDC", provider: "x402_test",
+        paymentStatus: "pending", contributorShareAtomic: "0", platformShareAtomic: "0", transactionReference: "X402-T",
+        x402: { network: "eip155:84532", asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", atomicAmount: p.priceAtomic, payTo: "0x000000000000000000000000000000000000dEaD" },
+        isDemo: true, createdAt: Date.now(),
+      });
+    });
+    expect((await t.mutation(internal.x402State.markSettling, { purchaseId: xid, payer: "0xabc", nonce: "0x01" })).ok).toBe(true);
+    expect(await t.mutation(internal.x402State.markSettling, { purchaseId: xid, payer: "0xabc", nonce: "0x02" })).toEqual({ ok: false, reason: "other_authorization_pending" });
+    await t.mutation(internal.x402State.clearSettling, { purchaseId: xid });
+    expect((await t.mutation(internal.x402State.markSettling, { purchaseId: xid, payer: "0xabc", nonce: "0x02" })).ok).toBe(true);
+  });
+});

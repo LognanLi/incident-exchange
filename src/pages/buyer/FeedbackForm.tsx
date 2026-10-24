@@ -30,7 +30,7 @@ function FeedbackForm() {
   const [saved, setSaved] = useState(false);
 
   if (pb === undefined) return <Loading />;
-  if (pb === null) return <Empty title="Playbook not found" />;
+  if (pb === null) return <Empty title="Guide not found" />;
 
   if (saved) {
     return (

@@ -80,6 +80,10 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
             <div className="small muted">{t.authorizationNote}</div>
             <code className="small">current implementation: {t.variant === "fixed" ? "patched (reference fix)" : "original (vulnerable)"}</code>
           </div>
+          <div className="state state-info small">
+            <strong>In plain words:</strong> we run automatic tests on a tiny copy of an app with fake data. Step 1 should
+            show the problem. Step 2 applies the fix. Step 3 proves the problem is gone and normal use still works.
+          </div>
           <p className="small muted">
             Check: <strong>{data.checkName}</strong>. Protected assertions run against the sample app with synthetic data,
             including checks that legitimate behavior still works. No network or real system is touched.

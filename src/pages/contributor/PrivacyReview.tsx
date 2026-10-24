@@ -63,7 +63,7 @@ function PrivacyReview() {
                 </button>
               )}
             </div>
-            {!d.sections && <div className="state state-info">Draft the six-part playbook before scanning.</div>}
+            {!d.sections && <div className="state state-info">Create the guide (step 2) before scanning.</div>}
             <ErrorBox message={scan.error ?? generalize.error ?? undo.error} />
 
             {d.privacyScannedAt === undefined ? (

@@ -45,7 +45,7 @@ export function submissionBlockers(draft: Doc<"incidentDrafts">): ReadinessIssue
   if (!draft.publicTitle.trim()) issues.push("Add a public title.");
   if (!draft.sanitizedSummary.trim()) issues.push("Add a public summary.");
   if (!draft.sections) {
-    issues.push("Draft the six-part playbook.");
+    issues.push("Create the six-part guide (step 2).");
   } else {
     for (const key of SECTION_KEYS) {
       if (!draft.sections[key].body.trim()) issues.push(`Section “${key}” is empty.`);

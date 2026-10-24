@@ -151,7 +151,7 @@ try {
   if (await x402Start.isVisible()) {
     await x402Start.click();
     await page.getByRole("button", { name: /Pay .* test USDC with x402/ }).click();
-    await page.getByRole("heading", { name: "Playbook unlocked" }).waitFor({ timeout: 180000 });
+    await page.getByRole("heading", { name: "Guide unlocked" }).waitFor({ timeout: 180000 });
     await page.getByText("x402 test payment settled on Base Sepolia").waitFor();
     const tx = await page.locator('a[href*="sepolia.basescan.org/tx/"]').getAttribute("href");
     await shot("receipt-x402");
@@ -162,13 +162,13 @@ try {
     await page.getByLabel(/I understand this is a simulated payment/).check();
     await shot("checkout");
     await page.getByRole("button", { name: "Complete simulated payment" }).click();
-    await page.getByRole("heading", { name: "Playbook unlocked" }).waitFor();
+    await page.getByRole("heading", { name: "Guide unlocked" }).waitFor();
     await page.getByText("0.40 USDC").first().waitFor();
     await page.getByText("0.10 USDC").first().waitFor();
     await shot("receipt");
     step("Simulated purchase recorded: 0.50 USDC → 0.40 contributor accrual / 0.10 platform");
   }
-  await page.getByRole("link", { name: "Read the playbook" }).click();
+  await page.getByRole("link", { name: "Read the guide" }).click();
   await page.locator(".tag-unlocked").waitFor();
   await page.getByText("What they tried that did not work").waitFor();
   await page.locator(".verify-list input[type=checkbox]").first().check();
