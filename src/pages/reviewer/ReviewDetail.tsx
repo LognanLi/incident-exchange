@@ -21,6 +21,7 @@ import {
   useAction,
 } from "../../components/ui";
 import { ValidationPanel } from "./ValidationPanel";
+import { Icon } from "../../components/icons";
 
 export default function ReviewDetailPage() {
   return (
@@ -55,17 +56,17 @@ function ReviewDetail() {
 
   return (
     <div>
-      <PageHeader eyebrow="Reviewer console · sanitized submission" title={d.publicTitle}>
+      <Link className="back-link" to="/review">
+        <Icon name="arrow" size={14} /> Queue
+      </Link>
+      <PageHeader eyebrow="Review" title={d.publicTitle}>
         <StatusBadge status={d.status} />
       </PageHeader>
-      <p>
-        <Link to="/review">← Back to queue</Link>
-      </p>
 
       <div className="grid-2 align-start">
         <div>
           <section className="card">
-            <Boundary kind="public">Buyer-facing content as approved by the contributor</Boundary>
+            <Boundary kind="public">Approved by the contributor</Boundary>
             <p>{d.sanitizedSummary}</p>
             <div className="row gap wrap">
               {d.systemCategories.map((c) => (
@@ -76,7 +77,7 @@ function ReviewDetail() {
               <span className="badge price">
                 <Money atomic={d.priceAtomic} />
               </span>
-              {d.draftEngine === "fallback" && <span className="badge muted-badge">Drafted by fallback (not Moss)</span>}
+              {d.draftEngine === "fallback" && <span className="badge muted-badge">Fallback draft</span>}
             </div>
             {d.sections ? (
               SECTION_KEYS.map((k) => (
@@ -91,8 +92,8 @@ function ReviewDetail() {
           </section>
 
           <section className="card private-card">
-            <Boundary kind="private">Visible to reviewers only — not published</Boundary>
-            <h3>Contributor’s evidence</h3>
+            <Boundary kind="private">Reviewers only</Boundary>
+            <h3>Evidence</h3>
             <p>{d.evidenceSummary || <span className="muted">No evidence described.</span>}</p>
             <h3>Privacy scan</h3>
             <p className="small">
@@ -115,9 +116,9 @@ function ReviewDetail() {
                 <>
                   Approved {formatDate(d.contributorApproval.at)} ·{" "}
                   {data.approvalIsCurrent ? (
-                    <span className="badge ok">Matches current content</span>
+                    <span className="badge ok">Current</span>
                   ) : (
-                    <span className="badge sev-high">Content changed since approval</span>
+                    <span className="badge sev-high">Changed since approval</span>
                   )}
                 </>
               ) : (
@@ -182,13 +183,13 @@ function References({ draftId }: { draftId: Id<"incidentDrafts"> }) {
           </button>
         </div>
       </div>
-      <p className="small muted">Only an allowlist of public sources (Stripe, GitHub, OWASP, Auth0, IETF) is ever retrieved — never incident text.</p>
+      <p className="small muted">Allowlisted public sources only. Incident text is never sent.</p>
       <ErrorBox message={fetchRefs.error} />
       {message && <div className="state state-info small">{message}</div>}
       {!refs ? (
         <Loading />
       ) : refs.length === 0 ? (
-        <p className="muted">No references yet.</p>
+        <p className="muted small">None yet.</p>
       ) : (
         <ul className="ref-list">
           {refs.map((r) => (
@@ -200,7 +201,7 @@ function References({ draftId }: { draftId: Id<"incidentDrafts"> }) {
                 {r.sourceName} · {r.publishedAt ? `published ${r.publishedAt} · ` : ""}retrieved {formatDate(r.retrievedAt)}
               </div>
               <div className="small">{r.relevanceNote}</div>
-              <span className={`badge ${r.seeded ? "muted-badge" : "ok"}`}>{r.seeded ? "Seeded reference — not live-retrieved" : "Retrieved via Apify"}</span>
+              <span className={`badge ${r.seeded ? "muted-badge" : "ok"}`}>{r.seeded ? "Curated" : "Retrieved via Apify"}</span>
             </li>
           ))}
         </ul>
@@ -221,7 +222,7 @@ function EvidenceSelect({ value, onChange, reproduced }: { value: EvidenceLevel 
             <span>
               <strong>{EVIDENCE_INFO[lvl].label}</strong>
               <span className="small muted"> — {EVIDENCE_INFO[lvl].explanation}</span>
-              {disabled && <span className="small warn-text"> Requires a failing check, a fix, and a passing re-check below.</span>}
+              {disabled && <span className="small warn-text"> Needs a failing check, a fix, and a passing re-check.</span>}
             </span>
           </label>
         );
@@ -266,29 +267,29 @@ function DecisionPanel({
     <section className="card decision">
       <h3>Decision</h3>
       <fieldset>
-        <legend className="label">Completeness checklist</legend>
+        <legend className="label">Checklist</legend>
         {CHECKLIST.map((c) => (
           <label key={c.key} className="check">
             <input type="checkbox" checked={checklist[c.key]} onChange={(e) => setChecklist({ ...checklist, [c.key]: e.target.checked })} />
             {c.label}
             {hints[c.key] !== undefined && (
-              <span className={`small ${hints[c.key] ? "ok-text" : "warn-text"}`}>{hints[c.key] ? " · auto-check passed" : " · auto-check failed"}</span>
+              <span className={`small ${hints[c.key] ? "ok-text" : "warn-text"}`}>{hints[c.key] ? " · auto ✓" : " · auto ✗"}</span>
             )}
           </label>
         ))}
-        {!autoChecks.hasReferences && <p className="small warn-text">No public references attached yet.</p>}
+        {!autoChecks.hasReferences && <p className="small warn-text">No public sources attached.</p>}
       </fieldset>
       <EvidenceSelect value={evidence} onChange={setEvidence} reproduced={reproduced} />
       <div className="field">
         <label className="label" htmlFor="note">
           Note to contributor
         </label>
-        <span className="hint">Required when requesting changes or rejecting. Say exactly what to fix.</span>
+        <span className="hint">Required to request changes or reject.</span>
         <textarea id="note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
       <div className="field">
         <label className="label" htmlFor="section">
-          Section to fix (for “Request changes”)
+          Section to fix
         </label>
         <select id="section" value={sectionKey} onChange={(e) => setSectionKey(e.target.value)}>
           <option value="">Whole guide</option>
@@ -312,7 +313,7 @@ function DecisionPanel({
           Reject
         </button>
       </div>
-      {(!allChecked || !evidence) && <p className="small muted">Approval needs every checklist item and an evidence label.</p>}
+      {(!allChecked || !evidence) && <p className="small muted">To approve: tick every item and pick a label.</p>}
     </section>
   );
 }

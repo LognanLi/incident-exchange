@@ -44,19 +44,21 @@ export default function PlaybookPage() {
 
   return (
     <div className="playbook-page">
-      <p>
-        <Link to={pb.viewerRole === "buyer" ? "/playbooks" : "/"}>← Back</Link>
-      </p>
+      <Link className="back-link" to={pb.viewerRole === "buyer" ? "/playbooks" : "/"}>
+        <Icon name="arrow" size={14} /> Back
+      </Link>
       <header className="playbook-header">
+        <span className="hero-rule" aria-hidden />
         <div className="eyebrow">
-          {pb.contributorAlias} · contributed incident · revision {pb.revision} · published {formatDate(pb.publishedAt)}
+          {pb.contributorAlias} · revision {pb.revision} · {formatDate(pb.publishedAt)}
         </div>
         <h1>{pb.publicTitle}</h1>
-        <p className="lede">{pb.publicSummary}</p>
+        {pb.publicSummary.trim() !== pb.publicTitle.trim() && <p className="lede">{pb.publicSummary}</p>}
         <div className="row gap wrap">
           <span className={`tlp tlp-${pb.tlp}`} title={TLP_INFO[pb.tlp].explanation}>
             {TLP_INFO[pb.tlp].label}
           </span>
+          <EvidenceBadge level={pb.evidenceLevel} />
           {pb.environment.map((c) => (
             <span key={c} className="badge cat">
               {c}
@@ -71,13 +73,14 @@ export default function PlaybookPage() {
             <h2 id="fit-h">Does this fit your incident?</h2>
             <div className="grid-2 fit-grid">
               <div>
-                <h3 className="small-h">Confirm before relying on it</h3>
+                <h3 className="small-h">Confirm first</h3>
                 <ul className="check-list">
                   {pb.checksBeforeUse.map((c) => (
                     <li key={c}>{c}</li>
                   ))}
                 </ul>
               </div>
+              {pb.mismatchSignals.length > 0 && (
               <div>
                 <h3 className="small-h">It may not apply if…</h3>
                 <ul className="clue-list warn-list">
@@ -88,11 +91,14 @@ export default function PlaybookPage() {
                   ))}
                 </ul>
               </div>
+              )}
             </div>
           </section>
 
           <section className="card">
-            <div className="tag-free">Free preview</div>
+            <div className="tag-free">
+              <Icon name="eye" size={13} /> Free preview
+            </div>
             <h3>{SECTION_INFO.recognize.title}</h3>
             <BulletText text={pb.recognize} />
             <h3>{SECTION_INFO.limitations.title}</h3>
@@ -101,9 +107,11 @@ export default function PlaybookPage() {
 
           {pb.lockedSteps ? (
             <section className="card unlocked" aria-label="Purchased guide">
-              <div className="tag-unlocked">Unlocked · revision {pb.entitledRevision}</div>
+              <div className="tag-unlocked">
+                <Icon name="check" size={13} /> Unlocked · revision {pb.entitledRevision}
+              </div>
               {pb.newerRevisionAvailable && (
-                <div className="state state-info small">A newer revision ({pb.revision}) exists. Your purchase covers revision {pb.entitledRevision}.</div>
+                <div className="state state-info small">Revision {pb.revision} is newer. You own revision {pb.entitledRevision}.</div>
               )}
               {pb.failedAttempts && (
                 <div className="step-block failed-block">
@@ -119,7 +127,7 @@ export default function PlaybookPage() {
                 </div>
               ))}
               <div className="export-row">
-                <span className="small muted">Take it into your workflow:</span>
+                <span className="small muted">Export</span>
                 <button
                   className="btn sm"
                   onClick={() => {
@@ -128,10 +136,10 @@ export default function PlaybookPage() {
                     setCopied(true);
                   }}
                 >
-                  <Icon name="copy" size={16} /> {copied ? "Copied runbook" : "Copy as runbook (Markdown)"}
+                  <Icon name="copy" size={14} /> {copied ? "Copied runbook" : "Copy as runbook (Markdown)"}
                 </button>
                 <button className="btn sm" onClick={() => download(`${pb._id}-stix.json`, toStixBundle({ ...pb, lockedSteps: pb.lockedSteps! }), "application/json")}>
-                  Download STIX 2.1
+                  STIX 2.1
                 </button>
               </div>
               {pb.viewerRole === "buyer" && (
@@ -145,12 +153,16 @@ export default function PlaybookPage() {
             </section>
           ) : (
             <section className="card locked">
-              <div className="tag-locked">🔒 Locked — not sent to your browser until purchased</div>
-              <h3>What they tried that did not work · Check · Contain · Recover · Verify</h3>
-              <p className="muted">
-                The detailed recovery sequence, unsuccessful attempts, implementation considerations, and a verification
-                checklist unlock after purchase. The server only sends this text to entitled accounts.
-              </p>
+              <div className="tag-locked">
+                <Icon name="lock" size={13} /> Locked
+              </div>
+              <h3>The full fix</h3>
+              <div className="locked-sections">
+                {["What failed", "Check", "Contain", "Recover", "Verify"].map((t) => (
+                  <span key={t}>{t}</span>
+                ))}
+              </div>
+              <p className="small muted">Sent to your browser only after purchase.</p>
             </section>
           )}
 
@@ -163,9 +175,9 @@ export default function PlaybookPage() {
               <div className="price-big">
                 <Money atomic={pb.priceAtomic} />
               </div>
-              <p className="small">Unlocks revision {pb.revision}: failed attempts, Check, Contain, Recover, Verify, and Q&A over them.</p>
+              <p className="small">Full fix, what failed, and a verify checklist.</p>
               <details className="small">
-                <summary>Network and revenue split</summary>
+                <summary>Where the money goes</summary>
                 <table className="split-table">
                   <tbody>
                     <tr>
@@ -182,7 +194,7 @@ export default function PlaybookPage() {
                     </tr>
                   </tbody>
                 </table>
-                <p className="muted">Test USDC on Base Sepolia (or a labeled simulator). Prototype split; accrual is not a payout.</p>
+                <p className="muted">Test USDC on Base Sepolia. Not real money.</p>
               </details>
               <Link className="btn primary block" to={`/playbooks/${id}/checkout`}>
                 Unlock guide
@@ -191,17 +203,16 @@ export default function PlaybookPage() {
           )}
 
           <section className="card" aria-labelledby="ev-h">
-            <h3 id="ev-h">Test evidence</h3>
+            <h3 id="ev-h">Evidence</h3>
             <EvidenceBadge level={pb.evidenceLevel} explain />
             <p className="small">{pb.evidenceScope}</p>
-            {reproduced ? <EvidenceDetails before={before!} fix={fix} after={after!} /> : <p className="small muted">No reproduced test is recorded for this guide.</p>}
+            {reproduced ? <EvidenceDetails before={before!} fix={fix} after={after!} /> : <p className="small muted">No reproduced test yet.</p>}
           </section>
 
           <section className="card">
-            <h3>Free public context</h3>
-            <p className="small muted">Public sources are free and are not the contributor's private lesson.</p>
+            <h3>Public sources</h3>
             {pb.references.length === 0 ? (
-              <p className="muted small">No public references attached.</p>
+              <p className="muted small">None attached.</p>
             ) : (
               <ul className="ref-list">
                 {pb.references.map((r) => (
@@ -213,7 +224,7 @@ export default function PlaybookPage() {
                       {r.sourceName} · retrieved {formatDate(r.retrievedAt)}
                     </div>
                     <div className="small">{r.relevanceNote}</div>
-                    <span className={`badge ${r.seeded ? "muted-badge" : "ok"}`}>{r.seeded ? "Curated reference (not live-retrieved)" : "Retrieved via Apify"}</span>
+                    <span className={`badge ${r.seeded ? "muted-badge" : "ok"}`}>{r.seeded ? "Curated" : "Retrieved via Apify"}</span>
                   </li>
                 ))}
               </ul>
@@ -221,18 +232,18 @@ export default function PlaybookPage() {
           </section>
 
           <section className="card">
-            <h3>Buyer outcomes</h3>
+            <h3>Outcomes</h3>
             {pb.feedback.count === 0 ? (
-              <p className="muted small">No outcomes reported yet.</p>
+              <p className="muted small">None reported yet.</p>
             ) : (
               <p className="small">
-                {pb.feedback.count} report(s): {pb.feedback.resolved} resolved, {pb.feedback.partiallyResolved} partially resolved.
+                {pb.feedback.resolved} of {pb.feedback.count} resolved · {pb.feedback.partiallyResolved} partly
               </p>
             )}
           </section>
 
           <section className="card urgent">
-            <h3>Urgent basics (always free)</h3>
+            <h3>Active incident?</h3>
             <ul className="bullets small">
               {URGENT_SAFETY_ADVICE.map((a) => (
                 <li key={a}>{a}</li>
@@ -292,7 +303,7 @@ function EvidenceDetails({ before, fix, after }: { before: Run; fix?: Run; after
         <strong>When:</strong> {formatDate(after.runAt)}
       </p>
       <pre className="run-pre">{after.outputLines.join("\n")}</pre>
-      <p className="small muted">Reproduced in a toy environment with synthetic data. It does not show the fix works on your production system.</p>
+      <p className="small muted">Sample app with fake data — not proof it works on your systems.</p>
     </details>
   );
 }
@@ -347,10 +358,7 @@ function QaBox({ playbookId, unlocked }: { playbookId: Id<"playbooks">; unlocked
         <h3>Ask this guide</h3>
         {moss && <IntegrationBadge state={moss.state} name="Moss" />}
       </div>
-      <p className="small muted">
-        Answers come only from this guide’s {unlocked ? "sections" : "free preview (unlock for the rest)"}, with section
-        citations. Private contributor notes are never used.
-      </p>
+      <p className="small muted">Answers cite this guide’s {unlocked ? "sections" : "free preview"} only.</p>
       <form
         className="row gap"
         onSubmit={async (e) => {

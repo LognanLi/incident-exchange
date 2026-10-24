@@ -7,6 +7,7 @@ import { STATUS_LABELS } from "../../../convex/lib/domain";
 import { useSession } from "../../session";
 import { ErrorBox, EvidenceBadge, Loading, RoleGate, SuccessBox, formatDate, useAction } from "../../components/ui";
 import { DraftTabs } from "./DraftTabs";
+import { Icon } from "../../components/icons";
 
 export default function DraftStatusPage() {
   return (
@@ -34,27 +35,29 @@ function DraftStatus() {
       <DraftTabs draft={d} scanIsCurrent={data.scanIsCurrent} />
       <div className="grid-2 align-start">
         <section className="card">
-          <h2>Status</h2>
+          <div className="eyebrow">Status</div>
           <p className="lead-status">{STATUS_LABELS[d.status]}</p>
           {d.status === "draft" && (
             <p className="muted">
-              Finish the playbook and privacy steps, then approve and submit for human review.{" "}
-              <Link to={`/contribute/drafts/${id}/privacy`}>Go to privacy & approval →</Link>
+              Finish the guide and privacy steps, then submit.{" "}
+              <Link className="arrow-link" to={`/contribute/drafts/${id}/privacy`}>
+                Go to privacy <Icon name="arrow" size={14} />
+              </Link>
             </p>
           )}
-          {d.status === "submitted" && <p className="muted">A reviewer is checking the content, evidence, and privacy scan.</p>}
+          {d.status === "submitted" && <p className="muted">A reviewer is checking it.</p>}
           {d.status === "changes_requested" && (
             <div className="state state-warn">
               <strong>The reviewer asked for changes.</strong> {d.reviewerNote}
               <div>
                 {data.reviews[0]?.sectionKey === "failedAttempts" ? (
-                  <Link to={`/contribute/drafts/${id}/report`}>Fix “What we tried that did not work” →</Link>
+                  <Link to={`/contribute/drafts/${id}/report`}>Fix “What we tried that did not work”</Link>
                 ) : (
                   <Link to={`/contribute/drafts/${id}/playbook${data.reviews[0]?.sectionKey ? `#sec-${data.reviews[0].sectionKey}` : ""}`}>
-                    Fix {data.reviews[0]?.sectionKey ? `the ${data.reviews[0].sectionKey} section` : "the guide"} →
+                    Fix {data.reviews[0]?.sectionKey ? `the ${data.reviews[0].sectionKey} section` : "the guide"}
                   </Link>
                 )}
-                <div className="small muted">Editing creates revision {d.revision + 1}; you will approve it again before resubmitting.</div>
+                <div className="small muted">Edits create revision {d.revision + 1}.</div>
               </div>
             </div>
           )}
@@ -74,11 +77,11 @@ function DraftStatus() {
             <div className="publish-box">
               <h3>Final approval</h3>
               <p className="muted">
-                The reviewer approved this guide. It becomes searchable only after you approve this final version.{" "}
-                <Link to={`/contribute/drafts/${id}/privacy`}>Review the exact buyer preview</Link> before publishing.
+                Approved by the reviewer. It goes live once you say yes.{" "}
+                <Link to={`/contribute/drafts/${id}/privacy`}>Preview</Link>
               </p>
               {!data.approvalIsCurrent && (
-                <div className="state state-error">The content no longer matches your earlier approval and cannot be published.</div>
+                <div className="state state-error">Content changed since your approval. It can’t be published.</div>
               )}
               <label className="check">
                 <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />I approve
@@ -97,15 +100,15 @@ function DraftStatus() {
 
           {d.status === "published" && d.playbookId && (
             <SuccessBox>
-              Published and searchable. <Link to={`/playbooks/${d.playbookId}`}>View the public listing →</Link>
+              Published and searchable. <Link to={`/playbooks/${d.playbookId}`}>View listing</Link>
             </SuccessBox>
           )}
         </section>
 
         <section className="card">
-          <h2>Reviewer history</h2>
+          <h2>Review history</h2>
           {data.reviews.length === 0 ? (
-            <p className="muted">No reviewer decisions yet.</p>
+            <p className="muted small">No decisions yet.</p>
           ) : (
             <ol className="timeline">
               {data.reviews.map((r, i) => (
@@ -119,9 +122,9 @@ function DraftStatus() {
               ))}
             </ol>
           )}
-          <h3>Public references</h3>
+          <h3 className="refs-h">Public sources</h3>
           {data.references.length === 0 ? (
-            <p className="muted small">None yet. Reviewers can fetch references from allowlisted public sources.</p>
+            <p className="muted small">None yet.</p>
           ) : (
             <ul className="plain-list">
               {data.references.map((r) => (
@@ -130,7 +133,7 @@ function DraftStatus() {
                     {r.title}
                   </a>{" "}
                   <span className="small muted">
-                    · {r.sourceName} · {r.seeded ? "Seeded reference (not live-retrieved)" : "Retrieved via Apify"}
+                    · {r.sourceName} · {r.seeded ? "Curated" : "Retrieved via Apify"}
                   </span>
                 </li>
               ))}

@@ -7,6 +7,7 @@ import { EDITABLE_STATUSES, FREE_SECTIONS, LOCKED_SECTIONS, SECTION_INFO } from 
 import { useSession } from "../../session";
 import { Boundary, BulletText, ErrorBox, Loading, Money, RoleGate, SuccessBox, formatDate, useAction } from "../../components/ui";
 import { DraftTabs } from "./DraftTabs";
+import { Icon } from "../../components/icons";
 
 export default function PrivacyReviewPage() {
   return (
@@ -51,11 +52,7 @@ function PrivacyReview() {
             <div className="toolbar">
               <div>
                 <h2>Privacy scan</h2>
-                <p className="muted small">
-                  Checks buyer-visible text for credentials, emails, IP addresses, hostnames, account and ticket IDs,
-                  exact timestamps, your organization name, and names you listed as private. This reduces
-                  identification risk; it cannot guarantee anonymity.
-                </p>
+                <p className="muted small">Finds emails, hosts, IDs, dates, and names in what buyers will see.</p>
               </div>
               {editable && (
                 <button className="btn primary" disabled={scan.pending || !d.sections} onClick={() => void scan.run({ actor, draftId: id })}>
@@ -63,28 +60,29 @@ function PrivacyReview() {
                 </button>
               )}
             </div>
-            {!d.sections && <div className="state state-info">Create the guide (step 2) before scanning.</div>}
+            {!d.sections && <div className="state state-info">Draft the guide first.</div>}
             <ErrorBox message={scan.error ?? generalize.error ?? undo.error} />
 
             {d.privacyScannedAt === undefined ? (
-              <p className="muted">Not scanned yet.</p>
+              <p className="muted small">Not scanned yet.</p>
             ) : (
               <>
                 <div className={`scan-summary ${data.scanIsCurrent ? "" : "stale"}`}>
-                  {data.scanIsCurrent ? "Scan is current" : "Content changed since the last scan — run it again"} · last run{" "}
-                  {formatDate(d.privacyScannedAt)} · <strong>{high.length}</strong> high · <strong>{medium.length}</strong> medium
+                  {data.scanIsCurrent ? "Up to date" : "Text changed — scan again"} · {formatDate(d.privacyScannedAt)} · {high.length} high ·{" "}
+                  {medium.length} medium
                 </div>
                 {d.privacyFindings.length === 0 ? (
                   <SuccessBox>No identifiers found in the buyer-visible version.</SuccessBox>
                 ) : (
+                  <div className="table-wrap">
                   <table className="table findings">
                     <thead>
                       <tr>
                         <th>Severity</th>
                         <th>Finding</th>
                         <th>Where</th>
-                        <th>Excerpt (masked)</th>
-                        <th>Recommended generalization</th>
+                        <th>Excerpt</th>
+                        <th>Suggested fix</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -103,13 +101,14 @@ function PrivacyReview() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
                 {editable && d.privacyFindings.length > 0 && (
                   <div className="row gap">
                     <button className="btn" disabled={generalize.pending} onClick={() => void generalize.run({ actor, draftId: id })}>
                       {generalize.pending ? "Applying…" : "Apply all recommended generalizations"}
                     </button>
-                    <span className="muted small">Or edit the text yourself on the playbook step, then re-scan.</span>
+                    <span className="muted small">or edit the guide and re-scan.</span>
                   </div>
                 )}
                 {editable && d.undoSnapshot && (
@@ -117,7 +116,7 @@ function PrivacyReview() {
                     <button className="btn sm ghost" disabled={undo.pending} onClick={() => void undo.run({ actor, draftId: id })}>
                       Undo last generalization
                     </button>
-                    <span className="muted small">Restores the previous text; you will need to re-scan.</span>
+
                   </div>
                 )}
               </>
@@ -136,7 +135,7 @@ function PrivacyReview() {
               <>
                 {data.blockers.length > 0 ? (
                   <div className="blockers">
-                    <strong>Before you can submit:</strong>
+                    <strong>Before you submit</strong>
                     <ul className="bullets">
                       {data.blockers.map((b) => (
                         <li key={b}>{b}</li>
@@ -148,12 +147,12 @@ function PrivacyReview() {
                 )}
                 {medium.length > 0 && data.blockers.length === 0 && (
                   <p className="small muted">
-                    {medium.length} medium finding(s) remain. You may submit, but consider generalizing them.
+                    {medium.length} medium finding{medium.length === 1 ? "" : "s"} left. Optional to fix.
                   </p>
                 )}
                 <label className="check approve-check">
                   <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />I approve
-                  exactly the buyer-facing version shown in the preview for human review and, if approved, publication.
+                  exactly the buyer-facing version shown for review and publication.
                 </label>
                 <ErrorBox message={submit.error} />
                 <button
@@ -179,7 +178,7 @@ function PrivacyReview() {
 function BuyerPreview({ draft, alias }: { draft: Doc<"incidentDrafts">; alias: string }) {
   return (
     <section className="card buyer-preview" aria-label="Buyer preview">
-      <Boundary kind="public">Exact buyer-facing version</Boundary>
+      <Boundary kind="public">Exactly what buyers see</Boundary>
       <div className="eyebrow">{alias}</div>
       <h2>{draft.publicTitle || "(no public title)"}</h2>
       <p>{draft.sanitizedSummary}</p>
@@ -192,7 +191,7 @@ function BuyerPreview({ draft, alias }: { draft: Doc<"incidentDrafts">; alias: s
         <span className="badge price">
           <Money atomic={draft.priceAtomic} />
         </span>
-        <span className="badge muted-badge">Evidence label set by reviewer</span>
+
       </div>
       {draft.sections ? (
         <>
@@ -203,16 +202,20 @@ function BuyerPreview({ draft, alias }: { draft: Doc<"incidentDrafts">; alias: s
               <BulletText text={draft.sections![k].body} />
             </div>
           ))}
-          <h4 className="preview-part">Unlocked after purchase</h4>
+          <h4 className="preview-part">After purchase</h4>
           {draft.failedAttempts.trim() && (
             <div className="preview-section locked-preview">
-              <h5>🔒 What we tried that did not work</h5>
+              <h5>
+                <Icon name="lock" size={12} /> What we tried that did not work
+              </h5>
               <BulletText text={draft.failedAttempts} />
             </div>
           )}
           {LOCKED_SECTIONS.map((k) => (
             <div key={k} className="preview-section locked-preview">
-              <h5>🔒 {SECTION_INFO[k].title}</h5>
+              <h5>
+                <Icon name="lock" size={12} /> {SECTION_INFO[k].title}
+              </h5>
               <BulletText text={draft.sections![k].body} />
             </div>
           ))}

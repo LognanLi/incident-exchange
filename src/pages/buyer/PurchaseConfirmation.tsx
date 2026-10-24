@@ -6,11 +6,12 @@ import { CONTRIBUTOR_SHARE_PERCENT, PLATFORM_SHARE_PERCENT } from "../../../conv
 import { useSession } from "../../session";
 import { explorerAddressUrl, explorerTxUrl } from "../../../convex/lib/x402";
 import { Empty, Loading, Money, PageHeader, RoleGate, formatDate } from "../../components/ui";
+import { Icon } from "../../components/icons";
 
 const STATUS_TEXT = {
-  pending: "Pending — simulator step not completed",
-  simulated_success: "Simulated payment completed — no funds moved",
-  test_success: "x402 test payment settled on Base Sepolia (test USDC, no real value)",
+  pending: "Pending",
+  simulated_success: "Simulated — no money moved",
+  test_success: "x402 test payment settled on Base Sepolia",
   cancelled: "Cancelled",
 } as const;
 
@@ -32,10 +33,14 @@ function PurchaseConfirmation() {
 
   return (
     <div className="confirmation">
-      <PageHeader eyebrow="Purchase confirmation" title={ok ? "Guide unlocked" : "Purchase not completed"} />
+      <PageHeader eyebrow="Receipt" title={ok ? "Guide unlocked" : "Purchase not completed"}>
+        <Link className="btn primary" to={`/playbooks/${p.playbookId}`}>
+          {ok ? "Read the guide" : "Back to the guide"} <Icon name="arrow" size={16} className="icon-arrow" />
+        </Link>
+      </PageHeader>
       <section className="card receipt">
-        {p.provider === "demo_simulator" && <div className="sim-banner">DEMO PAYMENT — SIMULATED · NOT SETTLED</div>}
-        {p.provider === "x402_test" && <div className="x402-banner">COINBASE x402 · BASE SEPOLIA TESTNET · TEST USDC</div>}
+        {p.provider === "demo_simulator" && <div className="sim-banner">Demo payment — simulated</div>}
+        {p.provider === "x402_test" && <div className="x402-banner">Coinbase x402 · Base Sepolia testnet</div>}
         <h2>{p.playbookTitle}</h2>
         <table className="split-table">
           <tbody>
@@ -47,7 +52,7 @@ function PurchaseConfirmation() {
             </tr>
             <tr>
               <td>Provider</td>
-              <td>{p.provider === "demo_simulator" ? "Demo payment simulator" : "Coinbase x402 · CDP server wallet · Base Sepolia"}</td>
+              <td>{p.provider === "demo_simulator" ? "Simulator" : "Coinbase x402 · Base Sepolia"}</td>
             </tr>
             <tr>
               <td>Amount</td>
@@ -56,7 +61,7 @@ function PurchaseConfirmation() {
               </td>
             </tr>
             <tr>
-              <td>Contributor accrual ({CONTRIBUTOR_SHARE_PERCENT}%, not paid out)</td>
+              <td>Contributor ({CONTRIBUTOR_SHARE_PERCENT}%, accrued)</td>
               <td>
                 <Money atomic={p.contributorShareAtomic} /> to {p.contributorAlias}
               </td>
@@ -119,22 +124,12 @@ function PurchaseConfirmation() {
             )}
           </tbody>
         </table>
-        {p.x402 && (
-          <p className="small muted">
-            On-chain, the full test charge goes to the platform receiver wallet. The 80/20 split above is the app's internal
-            accrual ledger (exact integer split); contributor payouts are not sent on-chain in this prototype.
-          </p>
-        )}
-        <div className="row gap">
-          <Link className="btn primary" to={`/playbooks/${p.playbookId}`}>
-            {ok ? "Read the guide" : "Back to the guide"}
+        {p.x402 && <p className="small muted">The full test charge settles to the platform; the 80/20 split is tracked internally.</p>}
+        {ok && (
+          <Link className="arrow-link" to={`/playbooks/${p.playbookId}/feedback`}>
+            Report your outcome <Icon name="arrow" size={14} />
           </Link>
-          {ok && (
-            <Link className="btn" to={`/playbooks/${p.playbookId}/feedback`}>
-              Report your outcome
-            </Link>
-          )}
-        </div>
+        )}
       </section>
     </div>
   );

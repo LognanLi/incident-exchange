@@ -10,6 +10,7 @@ import {
 } from "../../convex/lib/domain";
 import { useSession } from "../session";
 import { formatPrice } from "../../convex/lib/money";
+import { Icon } from "./icons";
 
 export function errorMessage(err: unknown): string {
   if (err instanceof ConvexError) return typeof err.data === "string" ? err.data : JSON.stringify(err.data);
@@ -84,7 +85,6 @@ export function EvidenceBadge({ level, explain = false }: { level: EvidenceLevel
   return (
     <span className="evidence-wrap">
       <span className={`badge evidence evidence-${level}`} title={info.explanation}>
-        {level === "test_reproduced" ? "✓ " : level === "evidence_reviewed" ? "◎ " : "○ "}
         {info.label}
       </span>
       {explain && <span className="evidence-explain">{info.explanation}</span>}
@@ -116,18 +116,22 @@ export function IntegrationBadge({ state, name }: { state: IntegrationState; nam
 export function Boundary({ kind, children }: { kind: "private" | "public"; children?: ReactNode }) {
   return (
     <div className={`boundary boundary-${kind}`}>
-      <span className="boundary-tag">{kind === "private" ? "🔒 Private — only you and reviewers" : "👁 Buyer-visible"}</span>
+      <span className="boundary-tag">
+        <Icon name={kind === "private" ? "lock" : "eye"} size={13} />
+        {kind === "private" ? "Private" : "Buyer-visible"}
+      </span>
       {children && <span className="boundary-text">{children}</span>}
     </div>
   );
 }
 
-export function PageHeader({ title, eyebrow, children }: { title: string; eyebrow?: string; children?: ReactNode }) {
+export function PageHeader({ title, eyebrow, sub, children }: { title: string; eyebrow?: string; sub?: ReactNode; children?: ReactNode }) {
   return (
     <header className="page-header">
       <div>
         {eyebrow && <div className="eyebrow">{eyebrow}</div>}
         <h1>{title}</h1>
+        {sub && <p className="page-sub">{sub}</p>}
       </div>
       {children && <div className="page-actions">{children}</div>}
     </header>
@@ -144,16 +148,16 @@ export function RoleGate({ role, children }: { role: Role; children: ReactNode }
   const slug = session.slugForRole(role);
   const target = session.orgs.find((o) => o.slug === slug);
   return (
-    <div className="card gate">
+    <div className="gate">
+      <div className="eyebrow">Wrong role</div>
       <h2>This screen is for the {ROLE_NAMES[role]} role</h2>
       <p className="muted">
-        You are acting as <strong>{session.org?.displayName ?? "no one"}</strong>
-        {session.role ? ` (${session.role})` : ""}. Access is enforced on the server too — switching here only
-        changes which fictional demo organization you act as.
+        You’re acting as {session.org?.displayName ?? "no one"}
+        {session.role ? ` (${session.role})` : ""}.
       </p>
       {target && (
         <button className="btn primary" onClick={() => session.setActor(target.slug)}>
-          Switch to {target.displayName}
+          Switch to {target.displayName} <Icon name="arrow" size={16} className="icon-arrow" />
         </button>
       )}
     </div>
@@ -172,10 +176,17 @@ export class ErrorBoundary extends Component<{ children: ReactNode; resetKey: st
   render() {
     if (this.state.error) {
       return (
-        <div className="card">
+        <div className="gate">
+          <div className="eyebrow">Error</div>
+          <h2>Something went wrong</h2>
           <ErrorBox message={errorMessage(this.state.error)} />
-          <p>
-            <Link to="/">Back to home</Link> · <Link to="/demo">Open the demo menu</Link>
+          <p className="row gap wrap">
+            <Link className="btn" to="/">
+              Home
+            </Link>
+            <Link className="btn ghost" to="/demo">
+              Demo controls
+            </Link>
           </p>
         </div>
       );

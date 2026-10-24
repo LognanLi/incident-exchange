@@ -1,37 +1,18 @@
-import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import { useSession } from "../session";
 import { URGENT_SAFETY_ADVICE } from "../../convex/lib/domain";
-import { Icon, type IconName } from "../components/icons";
+import { Icon } from "../components/icons";
 import { Term } from "../components/PageGuide";
+import { CountUp } from "../components/motion";
 
-/** Count up to a number once (respects reduced motion). */
-function CountUp({ to }: { to: number }) {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setN(to);
-      return;
-    }
-    let raf = 0;
-    const start = performance.now();
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / 900);
-      setN(Math.round(to * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [to]);
-  return <span className="stat-num">{n}</span>;
-}
+type Role = "buyer" | "contributor" | "reviewer";
 
-const PATHS: { role: "buyer" | "contributor" | "reviewer"; icon: IconName; title: string; body: string; to: string; cta: string }[] = [
-  { role: "buyer", icon: "search", title: "I have a problem right now", body: "Describe what you see. Get guides from teams who already fixed it — with reasons each may or may not fit.", to: "/playbooks", cta: "Find guidance" },
-  { role: "contributor", icon: "folder", title: "We solved something hard", body: "Turn your incident notes into a privacy-safe guide in minutes. You approve every word and earn 80% of each sale.", to: "/contribute", cta: "Share an incident" },
-  { role: "reviewer", icon: "shield", title: "I check quality", body: "Review evidence, test the fix on a sample app, and decide what gets published.", to: "/review", cta: "Open review queue" },
+const PATHS: { role: Role; title: string; body: string; to: string; cta: string }[] = [
+  { role: "buyer", title: "Something is broken", body: "Describe what you see. Get fixes from teams who solved it.", to: "/playbooks", cta: "Find a fix" },
+  { role: "contributor", title: "We fixed something hard", body: "Turn your notes into a private, sellable guide. Keep 80%.", to: "/contribute", cta: "Share an incident" },
+  { role: "reviewer", title: "I check quality", body: "Test each fix on a sample app before it’s sold.", to: "/review", cta: "Review queue" },
 ];
 
 export default function Home() {
@@ -39,7 +20,7 @@ export default function Home() {
   const session = useSession();
   const stats = useQuery(api.business.marketStats);
 
-  const go = (role: "contributor" | "buyer" | "reviewer", path: string) => {
+  const go = (role: Role, path: string) => {
     if (session.role !== role) {
       const slug = session.slugForRole(role);
       if (slug) session.setActor(slug);
@@ -50,49 +31,25 @@ export default function Home() {
   return (
     <div className="home">
       <section className="hero3">
-        <div>
+        <div className="stagger">
           <span className="pill">
-            <span className="dot good" /> Private marketplace for incident response know-how
+            <span className="dot good" /> Incident response marketplace
           </span>
-          <h1>When something breaks, learn from the team that already fixed it.</h1>
-          <p className="lede">
-            Companies share a privacy-safe write-up of an incident they solved. Other teams describe their symptoms, see
-            honestly whether it fits, and unlock the step-by-step fix — with proof it was tested. Contributors earn 80%.
-          </p>
+          <h1>
+            When something breaks, <span className="dim">learn from the team that already fixed it.</span>
+          </h1>
+          <p className="lede">Private write-ups of real incidents. Tested fixes. Pay only for what fits.</p>
           <div className="hero-actions">
             <button className="btn primary lg" onClick={() => go("buyer", "/playbooks")}>
-              Describe what you’re seeing
+              Describe your problem <Icon name="arrow" size={16} className="icon-arrow" />
             </button>
             <button className="btn lg" onClick={() => go("contributor", "/contribute")}>
               Share an incident
             </button>
           </div>
-          {stats && (
-            <dl className="hero-proof">
-              <div>
-                <dt>guides available</dt>
-                <dd>
-                  <CountUp to={stats.guides} />
-                </dd>
-              </div>
-              <div>
-                <dt>fixes tested on sample apps</dt>
-                <dd>
-                  <CountUp to={stats.reproduced} />
-                </dd>
-              </div>
-              <div>
-                <dt>test runs recorded</dt>
-                <dd>
-                  <CountUp to={stats.testRuns} />
-                </dd>
-              </div>
-            </dl>
-          )}
-          <p className="tiny muted">Demo data · all companies are fictional · counts are live</p>
         </div>
-        <div className="hero-demo" aria-label="Example of a symptom search">
-          <div className="small muted">Example search</div>
+        <div className="hero-demo" aria-label="Example search">
+          <div className="small muted">Example</div>
           <div className="hero-demo-q">
             <Icon name="search" size={16} /> orders are created twice and the queue fills up after restarts
             <span className="caret" aria-hidden />
@@ -100,7 +57,7 @@ export default function Home() {
           <div className="hero-demo-result">
             <div className="small">
               <span className="dot good" />
-              <strong>Strong overlap</strong> · 2 of 2 key signs match
+              Strong overlap · 2 of 2 signs match
             </div>
             <h4>Duplicate jobs after webhook retries</h4>
             <div className="hero-demo-meta">
@@ -112,9 +69,9 @@ export default function Home() {
           <div className="hero-demo-result">
             <div className="small">
               <span className="dot warn" />
-              <strong>May not apply</strong> · no repeated event IDs
+              May not apply · no repeated event IDs
             </div>
-            <h4>Queue backlog after a deploy from a slow consumer</h4>
+            <h4>Queue backlog after a deploy</h4>
             <div className="hero-demo-meta">
               <span>Contributor reported</span>
               <span>0.10 USDC</span>
@@ -123,58 +80,83 @@ export default function Home() {
         </div>
       </section>
 
-      <section>
-        <h2 className="section-title">Where do you want to start?</h2>
-        <div className="grid-3 stagger">
-          {PATHS.map((p) => (
-            <button key={p.role} className="card lift path-card" onClick={() => go(p.role, p.to)}>
-              <span className="step-icon">
-                <Icon name={p.icon} size={20} />
-              </span>
-              <h3>{p.title}</h3>
-              <p className="muted small">{p.body}</p>
-              <span className="path-cta">
-                {p.cta} <Icon name="arrow" size={16} />
-              </span>
-            </button>
+      {stats && (
+        <dl className="hero-proof" aria-label="Live counts">
+          <div>
+            <dt>Guides</dt>
+            <dd>
+              <CountUp to={stats.guides} />
+            </dd>
+          </div>
+          <div>
+            <dt>Fixes tested</dt>
+            <dd>
+              <CountUp to={stats.reproduced} />
+            </dd>
+          </div>
+          <div>
+            <dt>Test runs</dt>
+            <dd>
+              <CountUp to={stats.testRuns} />
+            </dd>
+          </div>
+        </dl>
+      )}
+
+      <section className="home-section">
+        <h2 className="section-title">Start here</h2>
+        <ul className="path-list">
+          {PATHS.map((p, i) => (
+            <li key={p.role}>
+              <button className="path-card" onClick={() => go(p.role, p.to)}>
+                <span className="path-num">0{i + 1}</span>
+                <h3>{p.title}</h3>
+                <p>{p.body}</p>
+                <span className="path-cta">
+                  {p.cta} <Icon name="arrow" size={16} />
+                </span>
+              </button>
+            </li>
           ))}
+        </ul>
+      </section>
+
+      <section className="home-section">
+        <h2 className="section-title">What you get</h2>
+        <div className="facts">
+          <div className="fact">
+            <h3>Free to read</h3>
+            <p>
+              Symptoms, a fit checklist, warnings, and the <Term k="evidence level" />.
+            </p>
+          </div>
+          <div className="fact">
+            <h3>Paid to unlock</h3>
+            <p>What failed, the full fix, and how to confirm it worked.</p>
+          </div>
+          <div className="fact">
+            <h3>Never shared</h3>
+            <p>
+              The contributor’s raw notes and identity. Many fixes are <Term k="test reproduced">tested on a sample app</Term>.
+            </p>
+          </div>
         </div>
       </section>
 
-      <section className="grid-3 stagger">
-        <div className="card">
-          <h3>
-            <Icon name="lock" /> Free vs. paid vs. private
-          </h3>
-          <ul className="bullets small">
-            <li>
-              <strong>Free:</strong> symptoms, “does this fit?” checklist, warnings, <Term k="evidence level" />, public sources
-            </li>
-            <li>
-              <strong>Paid:</strong> what failed, the full fix, and how to confirm it worked
-            </li>
-            <li>
-              <strong>Private:</strong> the contributor’s raw notes and identity
-            </li>
-          </ul>
+      <section className="home-section">
+        <h2 className="section-title">Active incident?</h2>
+        <div className="facts">
+          {URGENT_SAFETY_ADVICE.slice(0, 3).map((a, i) => (
+            <div key={a} className={`fact ${i === 0 ? "urgent" : ""}`}>
+              <p>{a}</p>
+            </div>
+          ))}
         </div>
-        <div className="card">
-          <h3>
-            <Icon name="shield" /> Proof, not promises
-          </h3>
-          <p className="small muted">
-            Every guide is human-reviewed. Many are <Term k="test reproduced">tested on a sample app</Term>: it fails before
-            the fix and passes after, while normal use still works.
-          </p>
-        </div>
-        <div className="card urgent">
-          <h3>Facing an active incident?</h3>
-          <ul className="bullets small">
-            {URGENT_SAFETY_ADVICE.slice(0, 3).map((a) => (
-              <li key={a}>{a}</li>
-            ))}
-          </ul>
-        </div>
+        <p className="small muted" style={{ marginTop: 24 }}>
+          <Link className="arrow-link" to="/how-it-works">
+            How it works <Icon name="arrow" size={14} />
+          </Link>
+        </p>
       </section>
     </div>
   );

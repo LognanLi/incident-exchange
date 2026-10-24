@@ -18,13 +18,13 @@ function Purchases() {
   if (!list) return <Loading />;
   return (
     <div>
-      <PageHeader eyebrow="Unlocked guides and receipts" title="My guides" />
+      <PageHeader eyebrow="Purchases" title="My guides" />
       {list.length === 0 ? (
-        <Empty title="No purchases yet">
-          <Link to="/playbooks">Find a playbook</Link>
+        <Empty title="Nothing unlocked yet">
+          <Link to="/playbooks">Find a fix</Link>
         </Empty>
       ) : (
-        <section className="card">
+        <section className="table-wrap">
           <table className="table">
             <thead>
               <tr>
@@ -38,18 +38,20 @@ function Purchases() {
             <tbody>
               {list.map((p) => (
                 <tr key={p._id}>
-                  <td>{p.playbookTitle}</td>
+                  <td>
+                    <Link to={`/playbooks/${p.playbookId}`}>{p.playbookTitle}</Link>
+                  </td>
                   <td>
                     <Money atomic={p.amountAtomic} />
                   </td>
                   <td>
-                    <span className="badge">{p.paymentStatus.replace("_", " ")}</span>
-                    {p.provider === "demo_simulator" && <span className="badge muted-badge">Demo payment</span>}
-                    {p.provider === "x402_test" && <span className="badge ok">x402 · Base Sepolia</span>}
+                    <span className={`badge ${p.paymentStatus.endsWith("success") ? "ok" : p.paymentStatus === "pending" ? "warn" : ""}`}>
+                      {p.paymentStatus === "simulated_success" ? "Simulated" : p.paymentStatus === "test_success" ? "Paid · x402" : p.paymentStatus}
+                    </span>
                   </td>
                   <td className="small">{formatDate(p.createdAt)}</td>
                   <td>
-                    <Link className="btn sm" to={`/purchases/${p._id}`}>
+                    <Link className="btn sm ghost" to={`/purchases/${p._id}`}>
                       Receipt
                     </Link>
                   </td>

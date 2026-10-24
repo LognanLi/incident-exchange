@@ -6,6 +6,7 @@ import { EVIDENCE_INFO, EVIDENCE_LEVELS, SYSTEM_CATEGORIES, type EvidenceLevel }
 import { useSession } from "../../session";
 import { TLP_INFO } from "../../../convex/lib/license";
 import { Empty, EvidenceBadge, Money, PageHeader, RoleGate } from "../../components/ui";
+import { Icon } from "../../components/icons";
 
 const SCENARIOS = [
   "The queue fills again after restarting workers, and identical webhook event IDs create two jobs",
@@ -53,7 +54,7 @@ function Search() {
 
   return (
     <div>
-      <PageHeader eyebrow="Describe it in your own words" title="Find guidance" />
+      <PageHeader eyebrow="Find a fix" title="What’s going wrong?" />
       <form
         className="search-bar card"
         onSubmit={(e) => {
@@ -62,28 +63,31 @@ function Search() {
         }}
         role="search"
       >
-        <label htmlFor="q" className="label">
+        <label htmlFor="q" className="sr-only">
           Describe what you are seeing
         </label>
-        <div className="row gap">
+        <div className="search-row">
+          <Icon name="search" size={20} />
           <input
             id="q"
             className="grow"
-            placeholder="e.g. orders are being created twice and the queue keeps filling up"
+            placeholder="e.g. orders are created twice and the queue keeps filling up"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            autoComplete="off"
           />
           <button className="btn primary" type="submit">
             Search
           </button>
         </div>
         <div className="chips">
-          <span className="small muted">Try a scenario:</span>
+          <span className="small muted">Try:</span>
           {SCENARIOS.map((s) => (
             <button
               type="button"
               key={s}
               className="chip"
+              title={s}
               onClick={() => {
                 setInput(s);
                 update({ q: s });
@@ -126,27 +130,28 @@ function Search() {
         </div>
       </form>
 
-      <p className="small muted">Results are ranked by overlap with what you described — never by price. Overlap labels are discovery aids, not proof that incidents share a cause.</p>
+      <div className="results-meta" aria-live="polite">
+        <span>{results === undefined ? "Searching…" : `${results.length} result${results.length === 1 ? "" : "s"}`}</span>
+        <span>Ranked by fit, never by price</span>
+      </div>
 
       {results === undefined ? (
         <div className="results" aria-busy="true">
           {[0, 1].map((i) => (
-            <div key={i} className="card skeleton-card" />
+            <div key={i} className="skeleton-card" />
           ))}
         </div>
       ) : results.length === 0 ? (
-        <Empty title="No guide fits what you described">
-          Try describing the symptom differently, remove filters, or check related public sources. We never force a weak match.
-        </Empty>
+        <Empty title="No guide fits yet">Try different words or fewer filters.</Empty>
       ) : (
-        <div className="results">
+        <div className="results stagger">
           {results.map((r) => (
             <article key={r._id} className="card result">
               <div className="result-head">
                 <div>
                   <div className="eyebrow">
                     {r.contributorAlias} · {r.trackRecord.guides} guide{r.trackRecord.guides === 1 ? "" : "s"}
-                    {r.trackRecord.outcomes > 0 ? ` · ${r.trackRecord.resolved}/${r.trackRecord.outcomes} buyers resolved` : ""} · updated{" "}
+                    {r.trackRecord.outcomes > 0 ? ` · ${r.trackRecord.resolved}/${r.trackRecord.outcomes} resolved` : ""} ·{" "}
                     {new Date(r.publishedAt).toLocaleDateString()}
                   </div>
                   <h2>
@@ -165,7 +170,7 @@ function Search() {
                       <span style={{ width: `${Math.min(100, Math.round(((r.keyClueCount - r.match.missingChecks.length) / Math.max(1, r.keyClueCount)) * 100))}%` }} />
                     </div>
                     <span className="small muted">
-                      {r.keyClueCount - r.match.missingChecks.length}/{r.keyClueCount} key signs match
+                      {r.keyClueCount - r.match.missingChecks.length}/{r.keyClueCount} signs match
                     </span>
                   </div>
                   {r.match.matchedClues.length > 0 && (
@@ -191,26 +196,24 @@ function Search() {
                     </div>
                   )}
                   {r.match.missingChecks.length > 0 && r.match.conflictingClues.length === 0 && (
-                    <div className="small muted">What to check first: {r.match.missingChecks.slice(0, 2).join("; ")}</div>
+                    <div className="small muted">Check first: {r.match.missingChecks.slice(0, 2).join("; ")}</div>
                   )}
                 </div>
               )}
-              <p>{r.publicSummary}</p>
-              <div className="row gap wrap">
-                <span className={`tlp tlp-${r.tlp}`}>{TLP_INFO[r.tlp].label}</span>
-                <EvidenceBadge level={r.evidenceLevel} />
-                <span className="small muted">{r.evidenceScope}</span>
-              </div>
+              {r.publicSummary.trim() !== r.publicTitle.trim() && <p>{r.publicSummary}</p>}
+              {r.evidenceScope && <p className="small muted">{r.evidenceScope}</p>}
               {!r.match && r.mismatchSignals[0] && (
-                <div className="small">
-                  <strong>Key mismatch:</strong> {r.mismatchSignals[0].label}
-                </div>
+                <div className="small muted">May not apply if: {r.mismatchSignals[0].label}</div>
               )}
               <div className="result-foot">
-                <span className="small muted">
-                  {r.environment.slice(0, 4).join(" · ")}
-                  {r.feedback.count > 0 && ` · ${r.feedback.resolved} of ${r.feedback.count} buyers reported resolved`}
-                </span>
+                <div className="row gap wrap">
+                  <span className={`tlp tlp-${r.tlp}`}>{TLP_INFO[r.tlp].label}</span>
+                  <EvidenceBadge level={r.evidenceLevel} />
+                  <span className="small muted">
+                    {r.environment.slice(0, 3).join(" · ")}
+                    {r.feedback.count > 0 && ` · ${r.feedback.resolved}/${r.feedback.count} resolved`}
+                  </span>
+                </div>
                 <Link className="btn sm primary" to={`/playbooks/${r._id}`}>
                   {r.unlocked ? "Open guide" : "Open free preview"}
                 </Link>

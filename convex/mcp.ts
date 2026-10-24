@@ -9,7 +9,7 @@ import { bundleHash, bundleText, LIMITS, SCHEMA_VERSION, scanInjection, scanSecr
 import { matchGuide, RELEVANCE_INFO } from "./lib/matching";
 import { scanForPrivacyIssues } from "./lib/privacy";
 import { draftContentHash } from "./lib/draftContent";
-import { splitRevenue, sumAtomic } from "./lib/money";
+import { formatPrice, splitRevenue, sumAtomic } from "./lib/money";
 import { USDC_BASE_SEPOLIA, X402_NETWORK, cdpCredentialsPresent } from "./lib/x402";
 import { LICENSE_VERSION } from "./lib/license";
 
@@ -175,7 +175,7 @@ export const quote = mutation({
       principalId: p._id, playbookId: pb._id, revision: pb.revision, contentHash: paid.contentHash, priceAtomic: pb.priceAtomic,
       currency: "USDC", decimals: 6, network: X402_NETWORK, payTo: receiver?.address ?? "simulator", expiresAt, status: "open", isDemo: true, createdAt: Date.now(),
     });
-    await event(ctx, "consumer", p.name, "quote_resolution", `Quote for “${pb.publicTitle}” rev ${pb.revision}: ${pb.priceAtomic} atomic USDC`, "ok", [quoteId]);
+    await event(ctx, "consumer", p.name, "quote_resolution", `Quote for “${pb.publicTitle}” rev ${pb.revision}: ${formatPrice(pb.priceAtomic)}`, "ok", [quoteId]);
     return { quoteId, resolutionId: pb._id, revision: pb.revision, revisionHash: paid.contentHash, price: { amountAtomic: pb.priceAtomic, currency: "USDC", decimals: 6 }, network: X402_NETWORK, asset: USDC_BASE_SEPOLIA, payTo: receiver?.address ?? "simulator", expiresAt, buyer: p.name };
   },
 });
@@ -230,7 +230,7 @@ export const acquire = mutation({
     if (!simulate && (!cdpCredentialsPresent() || qt.payTo === "simulator")) fail("PROVIDER_UNAVAILABLE", "x402 testnet payments are unavailable on this deployment.", true);
     const committed = BigInt(sumAtomic(live.map((x) => x.amountAtomic)));
     if (BigInt(qt.priceAtomic) > BigInt(p.policy.maxPerPurchaseAtomic) || committed + BigInt(qt.priceAtomic) > BigInt(p.policy.sessionMaxAtomic) || live.length >= p.policy.maxPurchases) {
-      await event(ctx, "security", p.name, "budget_exceeded", `Purchase of ${qt.priceAtomic} atomic USDC refused by spend policy.`, "denied", [quoteId]);
+      await event(ctx, "security", p.name, "budget_exceeded", `Purchase of ${formatPrice(qt.priceAtomic)} refused by spend policy.`, "denied", [quoteId]);
       fail("BUDGET_EXCEEDED", "Purchase exceeds the agent's spend policy.");
     }
     const useX402 = !simulate;
@@ -244,7 +244,7 @@ export const acquire = mutation({
     });
     await ctx.db.patch(qt._id, { status: "used" });
     const purchase = (await ctx.db.get(purchaseId))!;
-    await event(ctx, "consumer", p.name, "acquire_resolution", `Payment reserved within policy (${qt.priceAtomic} atomic USDC, ${useX402 ? "x402 Base Sepolia" : "explicit simulator"}).`, "pending", [purchaseId], useX402 ? "testnet" : "simulated");
+    await event(ctx, "consumer", p.name, "acquire_resolution", `Payment reserved within policy (${formatPrice(qt.priceAtomic)}, ${useX402 ? "x402 test network" : "simulated, no funds"}).`, "pending", [purchaseId], useX402 ? "testnet" : "simulated");
     return paymentReference(purchase);
   },
 });

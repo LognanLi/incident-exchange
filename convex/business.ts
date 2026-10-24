@@ -5,7 +5,7 @@ import type { QueryCtx } from "./_generated/server";
 import { getActor, requireRole } from "./lib/access";
 import { audit } from "./lib/audit";
 import { matchGuide, RELEVANCE_INFO } from "./lib/matching";
-import { sumAtomic } from "./lib/money";
+import { formatPrice, sumAtomic } from "./lib/money";
 
 const PAID = new Set(["simulated_success", "test_success"]);
 const DEFAULT_BUDGET = "2000000"; // 2.00 test USDC / month
@@ -107,7 +107,7 @@ export const setBudget = mutation({
     const policy = await ctx.db.query("spendPolicies").withIndex("by_org", (q) => q.eq("orgId", buyer._id)).unique();
     if (policy) await ctx.db.patch(policy._id, { monthlyBudgetAtomic });
     else await ctx.db.insert("spendPolicies", { orgId: buyer._id, monthlyBudgetAtomic, isDemo: buyer.isDemo });
-    await audit(ctx, buyer, "budget.updated", "Monthly guide budget", `${monthlyBudgetAtomic} atomic USDC`);
+    await audit(ctx, buyer, "budget.updated", "Monthly guide budget", formatPrice(monthlyBudgetAtomic));
     return { ok: true };
   },
 });
