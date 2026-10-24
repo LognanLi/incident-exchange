@@ -24,11 +24,15 @@ export function draftContentHash(draft: Doc<"incidentDrafts">): string {
   ]);
 }
 
-export function identifyingTermsFor(draft: Doc<"incidentDrafts">, org: Doc<"organizations">): string[] {
-  const terms = [org.displayName, ...draft.identifyingTerms];
+/** Private names to flag: organization names (with the first word of the org name) and contributor-listed names. */
+export function identifyingTermsFor(
+  draft: Doc<"incidentDrafts">,
+  org: Doc<"organizations">,
+): { orgTerms: string[]; otherTerms: string[] } {
+  const orgTerms = [org.displayName];
   const firstWord = org.displayName.split(/\s+/)[0];
-  if (firstWord && firstWord.length >= 5) terms.push(firstWord);
-  return [...new Set(terms.map((t) => t.trim()).filter(Boolean))];
+  if (firstWord && firstWord.length >= 5) orgTerms.push(firstWord);
+  return { orgTerms, otherTerms: [...new Set(draft.identifyingTerms.map((t) => t.trim()).filter(Boolean))] };
 }
 
 export type ReadinessIssue = string;

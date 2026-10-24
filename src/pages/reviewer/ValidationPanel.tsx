@@ -67,6 +67,11 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
               </button>
             </StepCard>
           </div>
+          {lastFix?.patchSummary && (
+            <pre className="diff" aria-label="Applied configuration patch">
+              {lastFix.patchSummary}
+            </pre>
+          )}
           <ErrorBox message={runCheck.error ?? applyFix.error} />
           {runs.length > 0 && (
             <details className="run-log">
@@ -102,7 +107,6 @@ function StepCard({ n, title, run, children }: { n: number; title: string; run?:
         <>
           <div className="small">{run.resultSummary}</div>
           <div className="small muted">Tool: {run.toolName}</div>
-          {run.step === "fix" && <pre className="diff">{run.outputLines.join("\n")}</pre>}
         </>
       )}
       {children}

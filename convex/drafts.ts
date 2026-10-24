@@ -240,7 +240,8 @@ export const runPrivacyScan = mutation({
   handler: async (ctx, { actor, draftId }) => {
     const { draft, org } = await requireOwnDraft(ctx, actor, draftId);
     assertEditable(draft);
-    const findings = scanForPrivacyIssues(buyerFacingFields(draft), identifyingTermsFor(draft, org));
+    const { orgTerms, otherTerms } = identifyingTermsFor(draft, org);
+    const findings = scanForPrivacyIssues(buyerFacingFields(draft), otherTerms, orgTerms);
     await ctx.db.patch(draftId, {
       privacyFindings: findings,
       privacyScannedHash: draftContentHash(draft),
@@ -256,8 +257,8 @@ export const applyGeneralizationsToDraft = mutation({
   handler: async (ctx, { actor, draftId }) => {
     const { draft, org } = await requireOwnDraft(ctx, actor, draftId);
     assertEditable(draft);
-    const terms = identifyingTermsFor(draft, org);
-    const gen = (s: string) => applyGeneralizations(s, terms);
+    const { orgTerms, otherTerms } = identifyingTermsFor(draft, org);
+    const gen = (s: string) => applyGeneralizations(s, otherTerms, orgTerms);
     const sections = draft.sections
       ? (Object.fromEntries(
           SECTION_KEYS.map((k) => {
@@ -268,7 +269,7 @@ export const applyGeneralizationsToDraft = mutation({
         ) as NonNullable<Doc<"incidentDrafts">["sections"]>)
       : undefined;
     const next = { ...draft, publicTitle: gen(draft.publicTitle), sanitizedSummary: gen(draft.sanitizedSummary), sections };
-    const findings = scanForPrivacyIssues(buyerFacingFields(next), terms);
+    const findings = scanForPrivacyIssues(buyerFacingFields(next), otherTerms, orgTerms);
     await ctx.db.patch(draftId, {
       publicTitle: next.publicTitle,
       sanitizedSummary: next.sanitizedSummary,

@@ -93,6 +93,42 @@ describe("contributor → reviewer → buyer lifecycle", () => {
     expect(fb[0].outcome).toBe("resolved");
   });
 
+  it("supports request changes (back to editable) and reject, each with a required reason", async () => {
+    const { t, draftId } = await seeded();
+    await prepareAndSubmit(t, draftId);
+    await expect(
+      t.mutation(api.reviews.decide, { actor: "review-desk", draftId, decision: "request_changes", note: "  ", checklist: CHECKLIST }),
+    ).rejects.toThrow(/reason/);
+    await t.mutation(api.reviews.decide, { actor: "review-desk", draftId, decision: "request_changes", note: "Clarify the verify step.", checklist: CHECKLIST });
+    let d = await t.query(api.drafts.getMine, { actor: "northstar", draftId });
+    expect(d.draft.status).toBe("changes_requested");
+    expect(d.draft.reviewerNote).toBe("Clarify the verify step.");
+    // Editable again; resubmit, then reject.
+    await t.mutation(api.drafts.updateSection, { actor: "northstar", draftId, key: "verify", body: "- Run the lockout test.", accepted: true });
+    await t.mutation(api.drafts.runPrivacyScan, { actor: "northstar", draftId });
+    await t.mutation(api.drafts.approveAndSubmit, { actor: "northstar", draftId, confirmed: true });
+    await t.mutation(api.reviews.decide, { actor: "review-desk", draftId, decision: "reject", note: "Out of scope.", checklist: CHECKLIST });
+    d = await t.query(api.drafts.getMine, { actor: "northstar", draftId });
+    expect(d.draft.status).toBe("rejected");
+    await expect(t.mutation(api.drafts.publishFinal, { actor: "northstar", draftId, confirmed: true })).rejects.toThrow();
+  });
+
+  it("creates and saves a new draft with validated input", async () => {
+    const { t } = await seeded();
+    const fields = {
+      title: "New incident", privateNotes: "", evidenceSummary: "", symptoms: "Something broke.", detectionClues: "",
+      attemptedActions: "", containmentSteps: "", recoverySteps: "", verificationSteps: "", limitations: "",
+      identifyingTerms: [], publicTitle: "", sanitizedSummary: "", systemCategories: ["Network edge"],
+      sharingLevel: "anonymous" as const, priceMinorUnits: 2500,
+    };
+    await expect(t.mutation(api.drafts.create, { actor: "northstar", fields: { ...fields, priceMinorUnits: 10 } })).rejects.toThrow(/Price/);
+    await expect(t.mutation(api.drafts.create, { actor: "northstar", fields: { ...fields, systemCategories: ["Bogus"] } })).rejects.toThrow(/category/);
+    const id = await t.mutation(api.drafts.create, { actor: "northstar", fields });
+    const d = await t.query(api.drafts.getMine, { actor: "northstar", draftId: id });
+    expect(d.draft.status).toBe("draft");
+    expect(d.orgAlias).toBe("Anonymous contributor");
+  });
+
   it("reset restores the seeded state", async () => {
     const { t, draftId } = await seeded();
     await prepareAndSubmit(t, draftId);

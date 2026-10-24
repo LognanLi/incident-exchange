@@ -4,13 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "setup": "CONVEX_AGENT_MODE=anonymous convex dev --once",
     "dev": "npm-run-all --parallel dev:backend dev:frontend",
     "dev:frontend": "vite --open=false",
     "dev:backend": "convex dev",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b && tsc -p convex --noEmit",
     "test": "vitest run",
-    "demo:check": "node toy-app/check.mjs"
+    "e2e": "node e2e/demo-flow.mjs",
+    "demo:reset": "convex run demo:reset"
   },
   "dependencies": {
     "convex": "^1.48.0",
@@ -27,6 +29,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "convex-test": "^0.0.65",
     "npm-run-all2": "^9.0.4",
+    "playwright-core": "^1.64.1",
     "typescript": "~5.9.3",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"

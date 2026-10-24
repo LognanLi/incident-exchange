@@ -23,7 +23,8 @@ describe("revenue split", () => {
 });
 
 describe("privacy scan", () => {
-  const terms = ["Northstar Cloud", "Northstar", ...NORTHSTAR_DRAFT.identifyingTerms];
+  const orgTerms = ["Northstar Cloud", "Northstar"];
+  const terms = NORTHSTAR_DRAFT.identifyingTerms;
   const sections = draftSectionsFallback(NORTHSTAR_DRAFT);
   const fields = {
     sanitizedSummary: NORTHSTAR_DRAFT.sanitizedSummary,
@@ -31,14 +32,19 @@ describe("privacy scan", () => {
   };
 
   it("flags the identifiers planted in the seeded Northstar report", () => {
-    const kinds = new Set(scanForPrivacyIssues(fields, terms).map((f) => f.kind));
+    const kinds = new Set(scanForPrivacyIssues(fields, terms, orgTerms).map((f) => f.kind));
     for (const k of ["secret", "email", "ip_address", "hostname", "customer_id", "ticket_id", "org_or_person"]) {
       expect(kinds, k).toContain(k);
     }
   });
 
+  it("generalizes organization and person names differently", () => {
+    const out = applyGeneralizations("Priya Raman at Northstar Cloud", terms, orgTerms);
+    expect(out).toBe("[name removed] at [the organization]");
+  });
+
   it("never stores the raw match in the excerpt", () => {
-    for (const f of scanForPrivacyIssues(fields, terms)) {
+    for (const f of scanForPrivacyIssues(fields, terms, orgTerms)) {
       expect(f.excerpt).toContain("•");
       expect(f.excerpt).not.toContain("nsk_live_9fA2kQ7xLm3P");
       expect(f.excerpt).not.toContain("10.24.8.17");
@@ -46,8 +52,8 @@ describe("privacy scan", () => {
   });
 
   it("leaves no findings after applying generalizations", () => {
-    const cleaned = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, applyGeneralizations(v, terms)]));
-    expect(scanForPrivacyIssues(cleaned, terms)).toEqual([]);
+    const cleaned = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, applyGeneralizations(v, terms, orgTerms)]));
+    expect(scanForPrivacyIssues(cleaned, terms, orgTerms)).toEqual([]);
   });
 
   it("does not flag standard references like CVE or SHA-256", () => {

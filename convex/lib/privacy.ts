@@ -82,31 +82,38 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Rules that depend on the contributor (their real organization name, known person names). */
-function contextRules(identifyingTerms: string[]): Rule[] {
-  return identifyingTerms
-    .map((t) => t.trim())
-    .filter((t) => t.length >= 3)
-    .map((term) => ({
-      kind: "org_or_person",
-      label: "Organization or person name",
-      severity: "high" as const,
-      pattern: new RegExp(`\\b${escapeRegExp(term)}\\b`, "gi"),
-      replacement: "[the organization]",
-    }));
+/** Rules that depend on the contributor: their organization names and other private names they listed. */
+function contextRules(identifyingTerms: string[], orgTerms: string[]): Rule[] {
+  const build = (terms: string[], label: string, replacement: string): Rule[] =>
+    terms
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 3)
+      // Longest first, so "Northstar Cloud" is consumed before "Northstar".
+      .sort((a, b) => b.length - a.length)
+      .map((term) => ({
+        kind: "org_or_person",
+        label,
+        severity: "high" as const,
+        pattern: new RegExp(`\\b${escapeRegExp(term)}\\b`, "gi"),
+        replacement,
+      }));
+  return [
+    ...build(orgTerms, "Organization name", "[the organization]"),
+    ...build(identifyingTerms, "Person or other private name", "[name removed]"),
+  ];
 }
 
 export type ScanInput = Record<string, string>;
 
 /** Structured identifiers first (so a hostname containing the org name is reported once, as a hostname). */
-function orderedRules(identifyingTerms: string[]): Rule[] {
+function orderedRules(identifyingTerms: string[], orgTerms: string[]): Rule[] {
   const structured = RULES.filter((r) => r.severity === "high");
   const loose = RULES.filter((r) => r.severity !== "high");
-  return [...structured, ...contextRules(identifyingTerms), ...loose];
+  return [...structured, ...contextRules(identifyingTerms, orgTerms), ...loose];
 }
 
-export function scanForPrivacyIssues(fields: ScanInput, identifyingTerms: string[] = []): PrivacyFinding[] {
-  const rules = orderedRules(identifyingTerms);
+export function scanForPrivacyIssues(fields: ScanInput, identifyingTerms: string[] = [], orgTerms: string[] = []): PrivacyFinding[] {
+  const rules = orderedRules(identifyingTerms, orgTerms);
   const findings: PrivacyFinding[] = [];
   for (const [field, text] of Object.entries(fields)) {
     let remaining = text;
@@ -130,9 +137,9 @@ export function scanForPrivacyIssues(fields: ScanInput, identifyingTerms: string
 }
 
 /** Apply every recommended generalization to the text. */
-export function applyGeneralizations(text: string, identifyingTerms: string[] = []): string {
+export function applyGeneralizations(text: string, identifyingTerms: string[] = [], orgTerms: string[] = []): string {
   let out = text;
-  for (const rule of orderedRules(identifyingTerms)) {
+  for (const rule of orderedRules(identifyingTerms, orgTerms)) {
     out = out.replace(new RegExp(rule.pattern.source, rule.pattern.flags), rule.replacement);
   }
   return out;

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { EDITABLE_STATUSES, SHARING_LABELS, SHARING_LEVELS, SYSTEM_CATEGORIES, type SharingLevel } from "../../../convex/lib/domain";
@@ -85,6 +85,8 @@ export default function IncidentFormPage() {
 function IncidentFormLoader() {
   const { draftId } = useParams();
   const { actor } = useSession();
+  const location = useLocation();
+  const justCreated = (location.state as { justCreated?: boolean } | null)?.justCreated === true;
   const data = useQuery(api.drafts.getMine, draftId ? { actor, draftId: draftId as Id<"incidentDrafts"> } : "skip");
   if (!draftId) {
     return (
@@ -103,6 +105,7 @@ function IncidentFormLoader() {
         key={d._id}
         draftId={d._id}
         locked={!EDITABLE_STATUSES.includes(d.status)}
+        initiallySaved={justCreated}
         initial={{
           title: d.title,
           privateNotes: d.privateNotes,
@@ -126,14 +129,24 @@ function IncidentFormLoader() {
   );
 }
 
-function IncidentFormBody({ initial, draftId, locked = false }: { initial: FormValues; draftId?: Id<"incidentDrafts">; locked?: boolean }) {
+function IncidentFormBody({
+  initial,
+  draftId,
+  locked = false,
+  initiallySaved = false,
+}: {
+  initial: FormValues;
+  draftId?: Id<"incidentDrafts">;
+  locked?: boolean;
+  initiallySaved?: boolean;
+}) {
   const { actor } = useSession();
   const navigate = useNavigate();
   const create = useMutation(api.drafts.create);
   const update = useMutation(api.drafts.update);
   const [v, setV] = useState<FormValues>(initial);
   const [touched, setTouched] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(initiallySaved);
   const save = useAction(async () => {
     const fields = {
       title: v.title.trim(),
@@ -175,7 +188,7 @@ function IncidentFormBody({ initial, draftId, locked = false }: { initial: FormV
     const id = await save.run();
     if (!id) return;
     setSaved(true);
-    if (!draftId) navigate(`/contribute/drafts/${id}/report`, { replace: true });
+    if (!draftId) navigate(`/contribute/drafts/${id}/report`, { replace: true, state: { justCreated: true } });
   };
 
   const err = (k: keyof FormValues) => (touched && errors[k] ? <span className="field-error">{errors[k]}</span> : null);
