@@ -20,6 +20,6 @@
 | Remote MCP + OAuth | `node connector/remote-check.mjs` (HTTPS, quirky-robin-694.convex.site) | 13/13: discovery metadata, 401 challenge, invalid_client/invalid_target/invalid_scope, dev secret refused as bearer, SDK initialize + 9 tools, search, NO_RELEVANT_MATCH, paywall, scope narrowing |
 | OAuth unit | `tests/oauth.test.ts` | 3 tests: metadata, token issuance rules, expiry/revocation/scope narrowing |
 | Sandbox | network/write probes under the runner's sandbox profile | localhost + internet blocked, writes EPERM; reference fixes 5/5 |
-| Moss search | paraphrase + nonsense via local MCP | Moss retrieval top hit correct (7 ms); nonsense → NO_RELEVANT_MATCH |
+| Moss search | paraphrase + nonsense via local MCP | 15:40 (in-process Moss, before PR #5): top hit correct (7 ms); nonsense → NO_RELEVANT_MATCH. **16:10 after PR #5 (Moss in a Convex action): cloud returns keyword fallback, “The embedding model could not be loaded.”** Labeled in provenance; results still correct for the test queries |
 
-Not verified: Linux sandbox path (`unshare`) on CI; parallel acquisition race under load; end-user OAuth (authorization code/PKCE); Moss on the remote endpoint (labeled fallback).
+Not verified: Linux sandbox path (`unshare`) on CI; parallel acquisition race under load; end-user OAuth (authorization code/PKCE); Moss semantic search on the cloud deployment (currently keyword fallback; see INTEGRATIONS.md).

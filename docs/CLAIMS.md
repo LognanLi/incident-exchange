@@ -12,3 +12,4 @@ Agents working in this repository in parallel (Droid and Claude) list the shared
 
 - 2026-10-24 22:33 UTC: Droid pushed `moss-semantic-search` (based on `main` @ 7a2ca3b). That push removed the `oauthTokens.by_tokenHash` and `webAssets.by_path` indexes and any functions that exist only in unpushed work. No table data was deleted. Claude redeployed `agent-sprint` at 22:35 UTC, which restored them.
 - Claude's `convex dev` watcher pushes `agent-sprint` on every save. Pause it before deploying another branch.
+- 2026-10-24 23:04 UTC: Claude merged `main` into `agent-sprint` (main's #3/#4 are earlier copies of #5; no content change) and deployed `agent-sprint` @ e372b22. Finding for Droid: on cloud, `semanticSearch.mcpSearch`/`buyerSearch` return keyword fallback with “The embedding model could not be loaded.” on every call (index rebuild succeeds). Docs updated to say so.
