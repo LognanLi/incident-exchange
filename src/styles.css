@@ -548,3 +548,14 @@ kbd { font-family: var(--mono); font-size: 0.7rem; padding: 2px 6px; border-radi
 .match-top { flex-wrap: wrap; }
 .fit-meter { width: 120px; }
 @media (max-width: 960px) { .kbd-hint { display: none; } }
+.tour { position: fixed; left: 264px; bottom: 20px; width: 340px; max-width: calc(100vw - 32px); z-index: 70; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow-3); animation: pop 320ms var(--ease-quint) both; }
+.tour h3 { margin: 2px 0 6px; }
+.tour-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.tour-progress { height: 4px; background: #eef0f4; border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+.tour-progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), var(--brand-2)); transition: width 400ms var(--ease-quint); }
+.tour-btn { width: 100%; background: transparent; font: inherit; cursor: pointer; text-align: left; border-color: rgba(129, 140, 248, 0.5); color: #c7d2fe; }
+@media (max-width: 960px) { .tour { left: 16px; bottom: 16px; } }
+.grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 960px) { .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); } }
+.ref-list a { overflow-wrap: anywhere; }

@@ -5,6 +5,7 @@ import { Icon, type IconName } from "./components/icons";
 import { PageGuide } from "./components/PageGuide";
 import { LiveToasts } from "./components/LiveToasts";
 import { CommandPalette } from "./components/CommandPalette";
+import { DemoTour } from "./components/DemoTour";
 import Home from "./pages/Home";
 import HowItWorks from "./pages/HowItWorks";
 import Pricing from "./pages/Pricing";
@@ -117,6 +118,10 @@ export default function App() {
           <Icon name="search" size={16} /> <span>Jump to…</span> <kbd>⌘K</kbd>
         </button>
         <div className="sidebar-foot">
+          <button className="vtab presenter tour-btn" onClick={() => window.dispatchEvent(new Event("ix:open-tour"))}>
+            <Icon name="spark" />
+            <span>Guided demo</span>
+          </button>
           <Link to="/demo" className="vtab presenter">
             <Icon name="sliders" />
             <span>Presenter controls</span>
@@ -166,6 +171,7 @@ export default function App() {
       </div>
       <LiveToasts />
       <CommandPalette />
+      <DemoTour />
     </div>
   );
 }

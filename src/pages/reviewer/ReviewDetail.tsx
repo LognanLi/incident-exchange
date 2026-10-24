@@ -182,7 +182,7 @@ function References({ draftId }: { draftId: Id<"incidentDrafts"> }) {
           </button>
         </div>
       </div>
-      <p className="small muted">Only an allowlist of public advisory sources (OWASP, NIST, CISA) is ever retrieved.</p>
+      <p className="small muted">Only an allowlist of public sources (Stripe, GitHub, OWASP, Auth0, IETF) is ever retrieved — never incident text.</p>
       <ErrorBox message={fetchRefs.error} />
       {message && <div className="state state-info small">{message}</div>}
       {!refs ? (
