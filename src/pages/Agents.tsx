@@ -41,7 +41,7 @@ export default function Agents() {
       const res = await fetch(`${RUNNER_URL}/agent-demo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor, simulatePayment }) });
       if (!res.ok) setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `Runner responded ${res.status}`);
     } catch {
-      setError("The local runner is offline. Start it with `npm run dev`.");
+      setError(["localhost", "127.0.0.1"].includes(window.location.hostname) ? "The local runner is offline. Start it with `npm run dev`." : "Agent runs start from the presenter’s machine (local runner), not from the hosted site. Results appear here when they run.");
     } finally {
       setStarting(false);
     }

@@ -36,7 +36,7 @@ export const startCheckout = mutation({
     const spent = BigInt(await spendThisMonth(ctx, buyer._id));
     const budget = BigInt(await budgetFor(ctx, buyer._id));
     if (spent + BigInt(pb.priceAtomic) > budget) {
-      throw new ConvexError("This purchase would exceed your team's monthly guide budget. Raise it under Team & budget.");
+      throw new ConvexError("This purchase would exceed your team's monthly guide budget. Raise it under Budget.");
     }
 
     const receiver = await ctx.db.query("x402Wallets").withIndex("by_role", (q) => q.eq("role", "receiver")).unique();
@@ -122,7 +122,7 @@ export const completeSimulated = mutation({
     await ctx.db.patch(purchaseId, { paymentStatus: "simulated_success", completedAt: Date.now() });
     const pb = await ctx.db.get(p.playbookId);
     await audit(ctx, buyer, "purchase.simulated", pb?.publicTitle ?? "guide", "Demo payment simulator (no funds moved)");
-    await recordIntegrationEvent(ctx, "x402", "fallback", "Purchase completed with the demo payment simulator (x402 not configured).");
+    await recordIntegrationEvent(ctx, "x402", "fallback", cdpCredentialsPresent() ? "Purchase completed with the demo payment simulator (buyer chose the simulator)." : "Purchase completed with the demo payment simulator (x402 not configured).");
     return { ok: true };
   },
 });

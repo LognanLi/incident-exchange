@@ -61,7 +61,7 @@ function PurchaseConfirmation() {
               </td>
             </tr>
             <tr>
-              <td>Contributor ({CONTRIBUTOR_SHARE_PERCENT}%, accrued)</td>
+              <td>Contributor ({CONTRIBUTOR_SHARE_PERCENT}%{p.paymentStatus === "test_success" ? ", accrued" : p.paymentStatus === "simulated_success" ? ", simulated — not counted" : ""})</td>
               <td>
                 <Money atomic={p.contributorShareAtomic} /> to {p.contributorAlias}
               </td>
@@ -72,12 +72,12 @@ function PurchaseConfirmation() {
                 <Money atomic={p.platformShareAtomic} />
               </td>
             </tr>
-            {p.x402 && (
+            {p.x402 && p.paymentStatus === "test_success" && (
               <>
                 <tr>
                   <td>Settled on-chain</td>
                   <td>
-                    <Money atomic={p.x402.atomicAmount} /> test USDC on Base Sepolia
+                    <Money atomic={p.x402.atomicAmount} /> (test) on Base Sepolia
                   </td>
                 </tr>
                 {p.x402.txHash && (
@@ -124,7 +124,7 @@ function PurchaseConfirmation() {
             )}
           </tbody>
         </table>
-        {p.x402 && <p className="small muted">The full test charge settles to the platform; the 80/20 split is tracked internally.</p>}
+        {p.x402 && p.paymentStatus === "test_success" && <p className="small muted">The full test charge settles to the platform; the 80/20 split is tracked internally.</p>}
         {ok && (
           <Link className="arrow-link" to={`/playbooks/${p.playbookId}/feedback`}>
             Report your outcome <Icon name="arrow" size={14} />

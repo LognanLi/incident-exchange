@@ -142,7 +142,7 @@ function Dashboard() {
               <li key={c._id} className="row gap wrap">
                 <Link className="grow" to={`/playbooks/${c._id}`}>{c.publicTitle}</Link>
                 <span className="muted small">
-                  {c.stats.sales} sales · <Money atomic={c.stats.accruedAtomic} />
+                  {c.stats.sales} {c.stats.sales === 1 ? "sale" : "sales"}{c.stats.testnetSales < c.stats.sales ? ` (${c.stats.sales - c.stats.testnetSales} simulated)` : ""} · <Money atomic={c.stats.accruedAtomic} />
                 </span>
               </li>
             ))}
