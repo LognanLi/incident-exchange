@@ -1,0 +1,91 @@
+/* eslint-disable */
+/**
+ * Generated `api` utility.
+ *
+ * THIS CODE IS AUTOMATICALLY GENERATED.
+ *
+ * To regenerate, run `npx convex dev`.
+ * @module
+ */
+
+import type * as demo from "../demo.js";
+import type * as drafts from "../drafts.js";
+import type * as feedback from "../feedback.js";
+import type * as integrations from "../integrations.js";
+import type * as lib_access from "../lib/access.js";
+import type * as lib_apify from "../lib/apify.js";
+import type * as lib_domain from "../lib/domain.js";
+import type * as lib_draftContent from "../lib/draftContent.js";
+import type * as lib_drafting from "../lib/drafting.js";
+import type * as lib_integrations from "../lib/integrations.js";
+import type * as lib_money from "../lib/money.js";
+import type * as lib_privacy from "../lib/privacy.js";
+import type * as lib_publish from "../lib/publish.js";
+import type * as lib_qa from "../lib/qa.js";
+import type * as lib_search from "../lib/search.js";
+import type * as lib_seedData from "../lib/seedData.js";
+import type * as lib_toyAuth from "../lib/toyAuth.js";
+import type * as playbooks from "../playbooks.js";
+import type * as purchases from "../purchases.js";
+import type * as references from "../references.js";
+import type * as reviews from "../reviews.js";
+import type * as validation from "../validation.js";
+
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
+
+declare const fullApi: ApiFromModules<{
+  demo: typeof demo;
+  drafts: typeof drafts;
+  feedback: typeof feedback;
+  integrations: typeof integrations;
+  "lib/access": typeof lib_access;
+  "lib/apify": typeof lib_apify;
+  "lib/domain": typeof lib_domain;
+  "lib/draftContent": typeof lib_draftContent;
+  "lib/drafting": typeof lib_drafting;
+  "lib/integrations": typeof lib_integrations;
+  "lib/money": typeof lib_money;
+  "lib/privacy": typeof lib_privacy;
+  "lib/publish": typeof lib_publish;
+  "lib/qa": typeof lib_qa;
+  "lib/search": typeof lib_search;
+  "lib/seedData": typeof lib_seedData;
+  "lib/toyAuth": typeof lib_toyAuth;
+  playbooks: typeof playbooks;
+  purchases: typeof purchases;
+  references: typeof references;
+  reviews: typeof reviews;
+  validation: typeof validation;
+}>;
+
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
+export declare const api: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "public">
+>;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
+export declare const internal: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "internal">
+>;
+
+export declare const components: {};
