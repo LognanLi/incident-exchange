@@ -7,3 +7,5 @@ dist
 .DS_Store
 coverage
 *.tsbuildinfo
+toy-apps/artifacts/*.json
+!toy-apps/artifacts/recorded-*.json

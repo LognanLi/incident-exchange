@@ -2,54 +2,38 @@
 // User-submitted URLs are never crawled.
 import { z } from "zod";
 
-export const ALLOWED_HOSTS = new Set(["cheatsheetseries.owasp.org", "pages.nist.gov", "www.cisa.gov"]);
+export const ALLOWED_HOSTS = new Set([
+  "docs.stripe.com",
+  "docs.github.com",
+  "cheatsheetseries.owasp.org",
+  "owasp.org",
+  "auth0.com",
+  "www.rfc-editor.org",
+]);
 
-const SOURCES: { url: string; title: string; sourceName: string; note: string; categories: string[] }[] = [
-  {
-    url: "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
-    title: "Authentication Cheat Sheet",
-    sourceName: "OWASP Cheat Sheet Series",
-    note: "Covers account lockout, throttling, and logging of failed authentication attempts.",
-    categories: ["Identity & access", "Authentication service"],
-  },
-  {
-    url: "https://pages.nist.gov/800-63-3/sp800-63b.html",
-    title: "NIST SP 800-63B: Digital Identity Guidelines — Authentication and Lifecycle Management",
-    sourceName: "NIST",
-    note: "Includes guidance on rate-limiting failed authentication attempts.",
-    categories: ["Identity & access", "Authentication service"],
-  },
-  {
-    url: "https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html",
-    title: "Credential Stuffing Prevention Cheat Sheet",
-    sourceName: "OWASP Cheat Sheet Series",
-    note: "Defensive controls for detecting and slowing repeated automated login attempts.",
-    categories: ["Authentication service"],
-  },
-  {
-    url: "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html",
-    title: "Logging Cheat Sheet",
-    sourceName: "OWASP Cheat Sheet Series",
-    note: "What security events to log and how to make them useful for detection.",
-    categories: ["Logging & monitoring", "Deployment & CI/CD"],
-  },
-  {
-    url: "https://www.cisa.gov/news-events/cybersecurity-advisories",
-    title: "Cybersecurity Alerts & Advisories",
-    sourceName: "CISA",
-    note: "Index of current public advisories from the U.S. Cybersecurity and Infrastructure Security Agency.",
-    categories: [],
-  },
+export type SourceFamily = "webhook" | "tenant" | "keycache" | "general";
+export type SourceType = "provider_docs" | "security_guidance" | "advisory_index";
+
+/** Allowlisted public pages per incident family. Public context is free and never sold as a contributor's fix. */
+const SOURCES: { url: string; title: string; sourceName: string; note: string; family: SourceFamily; sourceType: SourceType }[] = [
+  { url: "https://docs.stripe.com/webhooks", title: "Receive Stripe events in your webhook endpoint", sourceName: "Stripe Docs", note: "Provider guidance on retries and handling duplicate webhook events.", family: "webhook", sourceType: "provider_docs" },
+  { url: "https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks", title: "Best practices for using webhooks", sourceName: "GitHub Docs", note: "Respond quickly, process asynchronously, and use delivery IDs to protect against replays.", family: "webhook", sourceType: "provider_docs" },
+  { url: "https://docs.stripe.com/api/idempotent_requests", title: "Idempotent requests", sourceName: "Stripe API Reference", note: "How idempotency keys make client retries safe — relevant to the related client-retry case.", family: "webhook", sourceType: "provider_docs" },
+  { url: "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html", title: "Authorization Cheat Sheet", sourceName: "OWASP Cheat Sheet Series", note: "Enforce authorization on every request, deny by default, and test it.", family: "tenant", sourceType: "security_guidance" },
+  { url: "https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/", title: "API1:2023 Broken Object Level Authorization", sourceName: "OWASP API Security Top 10", note: "Object-level checks: verify the caller may access the specific record requested.", family: "tenant", sourceType: "security_guidance" },
+  { url: "https://auth0.com/docs/get-started/tenant-settings/signing-keys/rotate-signing-keys", title: "Rotate Signing Keys", sourceName: "Auth0 Docs", note: "Provider documentation on signing-key rotation and what relying services must handle.", family: "keycache", sourceType: "provider_docs" },
+  { url: "https://www.rfc-editor.org/rfc/rfc7517", title: "RFC 7517: JSON Web Key (JWK)", sourceName: "IETF RFC Editor", note: "Defines key IDs (kid) and key sets used to select verification keys.", family: "keycache", sourceType: "security_guidance" },
+  { url: "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html", title: "Logging Cheat Sheet", sourceName: "OWASP Cheat Sheet Series", note: "What to log so incidents can be investigated.", family: "general", sourceType: "security_guidance" },
 ];
 
-export function allowlistedSourcesFor(categories: string[]) {
-  const matches = SOURCES.filter((s) => s.categories.some((c) => categories.includes(c)));
-  return (matches.length ? matches : SOURCES.filter((s) => s.categories.length === 0)).slice(0, 3);
+export function allowlistedSourcesFor(family: SourceFamily) {
+  const matches = SOURCES.filter((s) => s.family === family);
+  return (matches.length ? matches : SOURCES.filter((s) => s.family === "general")).slice(0, 3);
 }
 
 /** Curated fallback used when Apify is not configured or fails. Always stored with seeded=true. */
-export function seededReferencesFor(categories: string[]): FetchedReference[] {
-  return allowlistedSourcesFor(categories).map((s) => ({ title: s.title, url: s.url, sourceName: s.sourceName, relevanceNote: s.note }));
+export function seededReferencesFor(family: SourceFamily): FetchedReference[] {
+  return allowlistedSourcesFor(family).map((s) => ({ title: s.title, url: s.url, sourceName: s.sourceName, relevanceNote: s.note, sourceType: s.sourceType }));
 }
 
 const itemSchema = z.object({
@@ -58,10 +42,10 @@ const itemSchema = z.object({
   text: z.string().optional(),
 });
 
-export type FetchedReference = { title: string; url: string; sourceName: string; relevanceNote: string };
+export type FetchedReference = { title: string; url: string; sourceName: string; relevanceNote: string; sourceType: SourceType; excerpt?: string };
 
-export async function fetchWithApify(token: string, actorId: string, categories: string[]): Promise<FetchedReference[]> {
-  const sources = allowlistedSourcesFor(categories);
+export async function fetchWithApify(token: string, actorId: string, family: SourceFamily): Promise<FetchedReference[]> {
+  const sources = allowlistedSourcesFor(family);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 120_000);
   try {
@@ -73,6 +57,7 @@ export async function fetchWithApify(token: string, actorId: string, categories:
         body: JSON.stringify({
           startUrls: sources.map((s) => ({ url: s.url })),
           maxCrawlDepth: 0,
+          maxRequestRetries: 1,
           maxCrawlPages: sources.length,
           crawlerType: "cheerio",
         }),
@@ -93,6 +78,9 @@ export async function fetchWithApify(token: string, actorId: string, categories:
         url: item.url,
         sourceName: src?.sourceName ?? host,
         relevanceNote: src?.note ?? "Allowlisted public guidance.",
+        sourceType: src?.sourceType ?? "security_guidance",
+        // Short attributed excerpt only; full articles are never stored or resold.
+        excerpt: item.text ? item.text.replace(/\s+/g, " ").trim().slice(0, 280) : undefined,
       });
     }
     if (out.length === 0) throw new Error("Apify returned no allowlisted pages");

@@ -104,6 +104,5 @@ export const URGENT_SAFETY_ADVICE = [
   "Notify affected internal owners and follow your legal and regulatory notification obligations.",
 ];
 
-export function formatMoney(minorUnits: number, currency: string): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(minorUnits / 100);
-}
+export const SHARING_NOTE =
+  "Buyers see a pseudonymous alias. The platform privately keeps the source relationship for review and earnings.";

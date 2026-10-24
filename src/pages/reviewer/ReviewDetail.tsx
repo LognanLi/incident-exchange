@@ -74,7 +74,7 @@ function ReviewDetail() {
                 </span>
               ))}
               <span className="badge price">
-                <Money minor={d.priceMinorUnits} currency={d.currency} />
+                <Money atomic={d.priceAtomic} />
               </span>
               {d.draftEngine === "fallback" && <span className="badge muted-badge">Drafted by fallback (not Moss)</span>}
             </div>

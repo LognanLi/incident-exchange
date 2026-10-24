@@ -50,28 +50,30 @@ function PurchaseConfirmation() {
               <td>{p.provider === "demo_simulator" ? "Demo payment simulator" : "Coinbase x402 · CDP server wallet · Base Sepolia"}</td>
             </tr>
             <tr>
-              <td>{p.x402 ? "List price" : "Amount"}</td>
+              <td>Amount</td>
               <td>
-                <Money minor={p.amountMinorUnits} currency={p.currency} />
+                <Money atomic={p.amountAtomic} />
               </td>
             </tr>
             <tr>
-              <td>Contributor share ({CONTRIBUTOR_SHARE_PERCENT}%)</td>
+              <td>Contributor accrual ({CONTRIBUTOR_SHARE_PERCENT}%, not paid out)</td>
               <td>
-                <Money minor={p.contributorShareMinorUnits} currency={p.currency} /> to {p.contributorAlias}
+                <Money atomic={p.contributorShareAtomic} /> to {p.contributorAlias}
               </td>
             </tr>
             <tr>
               <td>Platform fee ({PLATFORM_SHARE_PERCENT}%)</td>
               <td>
-                <Money minor={p.platformShareMinorUnits} currency={p.currency} />
+                <Money atomic={p.platformShareAtomic} />
               </td>
             </tr>
             {p.x402 && (
               <>
                 <tr>
                   <td>Settled on-chain</td>
-                  <td>{(p.x402.chargeCents / 100).toFixed(2)} test USDC (list price scaled for the testnet faucet)</td>
+                  <td>
+                    <Money atomic={p.x402.atomicAmount} /> test USDC on Base Sepolia
+                  </td>
                 </tr>
                 {p.x402.txHash && (
                   <tr>
@@ -102,6 +104,10 @@ function PurchaseConfirmation() {
               </td>
             </tr>
             <tr>
+              <td>Revision purchased</td>
+              <td>{p.revision}</td>
+            </tr>
+            <tr>
               <td>Created</td>
               <td>{formatDate(p.createdAt)}</td>
             </tr>
@@ -115,8 +121,8 @@ function PurchaseConfirmation() {
         </table>
         {p.x402 && (
           <p className="small muted">
-            On-chain, the full test charge goes to the platform receiver wallet. The 80/20 contributor/platform split above
-            is the app's demo accounting on the list price; contributor payouts are not sent on-chain in this prototype.
+            On-chain, the full test charge goes to the platform receiver wallet. The 80/20 split above is the app's internal
+            accrual ledger (exact integer split); contributor payouts are not sent on-chain in this prototype.
           </p>
         )}
         <div className="row gap">

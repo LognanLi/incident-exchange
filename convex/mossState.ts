@@ -9,7 +9,18 @@ export const indexSource = internalQuery({
   handler: async (ctx, { playbookId, scope }) => {
     const pb = await ctx.db.get(playbookId);
     if (!pb) return null;
-    const all: Record<SectionKey, string> = { ...pb.publicSteps, limitations: pb.publicLimitations };
+    const paid = await ctx.db
+      .query("playbookRevisions")
+      .withIndex("by_playbook_revision", (q) => q.eq("playbookId", playbookId).eq("revision", pb.revision))
+      .unique();
+    const all: Record<SectionKey, string> = {
+      recognize: pb.previewRecognize,
+      limitations: pb.publicLimitations,
+      check: paid?.check ?? "",
+      contain: paid?.contain ?? "",
+      recover: paid?.recover ?? "",
+      verify: paid?.verify ?? "",
+    };
     const keys = scope === "preview" ? FREE_SECTIONS : SECTION_KEYS;
     const sections = Object.fromEntries(keys.map((k) => [k, all[k]])) as Partial<Record<SectionKey, string>>;
     return { name: playbookIndexName(playbookId, scope), sections };

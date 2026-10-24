@@ -1,26 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { splitRevenue } from "../convex/lib/money";
 import { applyGeneralizations, scanForPrivacyIssues } from "../convex/lib/privacy";
-import { DEFENSIVE_FIX, MISCONFIGURED, runThrottlingCheck } from "../convex/lib/toyAuth";
+import { CASES } from "../toy-apps/index.mjs";
 import { scorePlaybook } from "../convex/lib/search";
 import { NOT_ENOUGH_INFO, answerFromSections } from "../convex/lib/qa";
 import { draftSectionsFallback } from "../convex/lib/drafting";
-import { NORTHSTAR_DRAFT } from "../convex/lib/seedData";
-
-describe("revenue split", () => {
-  it("splits 80/20 in integer minor units that sum to the amount", () => {
-    expect(splitRevenue(4900)).toEqual({ contributorShareMinorUnits: 3920, platformShareMinorUnits: 980 });
-    for (const amt of [0, 1, 99, 501, 2999, 50000]) {
-      const s = splitRevenue(amt);
-      expect(s.contributorShareMinorUnits + s.platformShareMinorUnits).toBe(amt);
-      expect(Number.isInteger(s.contributorShareMinorUnits)).toBe(true);
-    }
-  });
-  it("rejects non-integer amounts", () => {
-    expect(() => splitRevenue(10.5)).toThrow();
-    expect(() => splitRevenue(-1)).toThrow();
-  });
-});
+import { PRIMARY_DRAFT as NORTHSTAR_DRAFT } from "../convex/lib/scenarios";
 
 describe("privacy scan", () => {
   const orgTerms = ["Northstar Cloud", "Northstar"];
@@ -33,21 +17,21 @@ describe("privacy scan", () => {
 
   it("flags the identifiers planted in the seeded Northstar report", () => {
     const kinds = new Set(scanForPrivacyIssues(fields, terms, orgTerms).map((f) => f.kind));
-    for (const k of ["secret", "email", "ip_address", "hostname", "customer_id", "ticket_id", "org_or_person"]) {
+    for (const k of ["email", "hostname", "timestamp", "org_or_person"]) {
       expect(kinds, k).toContain(k);
     }
   });
 
   it("generalizes organization and person names differently", () => {
-    const out = applyGeneralizations("Priya Raman at Northstar Cloud", terms, orgTerms);
+    const out = applyGeneralizations("Maya Okafor at Northstar Cloud", terms, orgTerms);
     expect(out).toBe("[name removed] at [the organization]");
   });
 
   it("never stores the raw match in the excerpt", () => {
     for (const f of scanForPrivacyIssues(fields, terms, orgTerms)) {
       expect(f.excerpt).toContain("•");
-      expect(f.excerpt).not.toContain("nsk_live_9fA2kQ7xLm3P");
-      expect(f.excerpt).not.toContain("10.24.8.17");
+      expect(f.excerpt).not.toContain("ops@northstar.example");
+      expect(f.excerpt).not.toContain("hooks.internal.northstar.example");
     }
   });
 
@@ -61,17 +45,16 @@ describe("privacy scan", () => {
   });
 });
 
-describe("toy validation", () => {
-  it("fails before the defensive fix", () => {
-    const r = runThrottlingCheck(MISCONFIGURED);
-    expect(r.passed).toBe(false);
-    expect(r.outputLines.some((l) => l.startsWith("FAIL"))).toBe(true);
-  });
-  it("passes after the defensive fix", () => {
-    const r = runThrottlingCheck(DEFENSIVE_FIX);
-    expect(r.passed).toBe(true);
-    expect(r.outputLines.some((l) => l.startsWith("FAIL"))).toBe(false);
-  });
+describe("toy validation (protected evaluators)", () => {
+  for (const id of ["webhook", "tenant", "keycache"] as const) {
+    it(`${id}: fails before the defensive fix and passes after, including legitimate behavior`, async () => {
+      const c = CASES[id];
+      expect((await c.evaluate(c.vulnerable)).passed).toBe(false);
+      const fixed = await c.evaluate(c.fixed);
+      expect(fixed.passed).toBe(true);
+      expect(fixed.assertions.length).toBeGreaterThanOrEqual(4);
+    });
+  }
 });
 
 describe("search", () => {

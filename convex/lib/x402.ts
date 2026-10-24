@@ -18,30 +18,14 @@ export function explorerAddressUrl(address: string): string {
   return `https://sepolia.basescan.org/address/${address}`;
 }
 
-/**
- * The CDP faucet hands out small amounts of test USDC, so test charges are the list price scaled
- * down (default 1/100: a $49.00 guide settles 0.49 test USDC). Never below 1 cent.
- */
-export function testChargeCents(listPriceMinorUnits: number, divisor = 100): number {
-  if (!Number.isInteger(listPriceMinorUnits) || listPriceMinorUnits < 0) throw new Error("Invalid price");
-  if (!Number.isInteger(divisor) || divisor < 1) throw new Error("Invalid divisor");
-  return Math.max(1, Math.round(listPriceMinorUnits / divisor));
-}
-
-/** "$0.49" — x402 Money string; the exact scheme converts it to USDC atomic units (6 decimals). */
-export function centsToMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
-export function centsToAtomicUsdc(cents: number): string {
-  return String(BigInt(cents) * 10_000n);
+/** x402 Money string for a whole-cent USDC atomic amount: "500000" → "$0.50". */
+export function atomicToMoney(amountAtomic: string): string {
+  const n = BigInt(amountAtomic);
+  if (n % 10_000n !== 0n) throw new Error("x402 demo prices must be whole cents of USDC");
+  const cents = n / 10_000n;
+  return `$${cents / 100n}.${(cents % 100n).toString().padStart(2, "0")}`;
 }
 
 export function cdpCredentialsPresent(): boolean {
   return !!(process.env.CDP_API_KEY_ID && process.env.CDP_API_KEY_SECRET && process.env.CDP_WALLET_SECRET);
-}
-
-export function testDivisor(): number {
-  const n = Number(process.env.X402_TEST_PRICE_DIVISOR ?? 100);
-  return Number.isInteger(n) && n >= 1 ? n : 100;
 }

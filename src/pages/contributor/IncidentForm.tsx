@@ -5,6 +5,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { EDITABLE_STATUSES, SHARING_LABELS, SHARING_LEVELS, SYSTEM_CATEGORIES, type SharingLevel } from "../../../convex/lib/domain";
 import { useSession } from "../../session";
+import { dollarsToAtomic, formatAtomic } from "../../../convex/lib/money";
 import { Boundary, ErrorBox, Loading, PageHeader, RoleGate, SuccessBox, useAction } from "../../components/ui";
 import { DraftTabs } from "./DraftTabs";
 
@@ -19,6 +20,8 @@ type FormValues = {
   recoverySteps: string;
   verificationSteps: string;
   limitations: string;
+  failedAttempts: string;
+  environment: string;
   identifyingTerms: string;
   publicTitle: string;
   sanitizedSummary: string;
@@ -38,18 +41,20 @@ const EMPTY: FormValues = {
   recoverySteps: "",
   verificationSteps: "",
   limitations: "",
+  failedAttempts: "",
+  environment: "",
   identifyingTerms: "",
   publicTitle: "",
   sanitizedSummary: "",
   systemCategories: [],
   sharingLevel: "industry_alias",
-  price: "49.00",
+  price: "0.50",
 };
 
 const GROUPS: { title: string; fields: (keyof FormValues)[]; required: (keyof FormValues)[] }[] = [
   { title: "Basics", fields: ["title", "systemCategories"], required: ["title"] },
   { title: "What happened", fields: ["symptoms", "detectionClues", "attemptedActions"], required: ["symptoms"] },
-  { title: "Response", fields: ["containmentSteps", "recoverySteps", "verificationSteps", "limitations"], required: ["containmentSteps", "recoverySteps", "verificationSteps"] },
+  { title: "Response", fields: ["failedAttempts", "containmentSteps", "recoverySteps", "verificationSteps", "limitations"], required: ["containmentSteps", "recoverySteps", "verificationSteps"] },
   { title: "Private context", fields: ["privateNotes", "evidenceSummary", "identifyingTerms"], required: [] },
   { title: "Listing", fields: ["publicTitle", "sanitizedSummary", "price"], required: ["publicTitle", "sanitizedSummary", "price"] },
 ];
@@ -59,9 +64,8 @@ function filled(v: FormValues, k: keyof FormValues) {
   return Array.isArray(x) ? x.length > 0 : String(x).trim().length > 0;
 }
 
-function parsePrice(p: string): number | null {
-  if (!/^\d+(\.\d{1,2})?$/.test(p.trim())) return null;
-  return Math.round(parseFloat(p) * 100);
+function parsePrice(p: string): string | null {
+  return dollarsToAtomic(p);
 }
 
 export function validate(v: FormValues): Partial<Record<keyof FormValues, string>> {
@@ -69,8 +73,8 @@ export function validate(v: FormValues): Partial<Record<keyof FormValues, string
   if (!v.title.trim()) e.title = "Give the incident an internal title.";
   if (!v.symptoms.trim()) e.symptoms = "Describe at least one observable symptom.";
   const price = parsePrice(v.price);
-  if (price === null) e.price = "Enter a price like 49.00.";
-  else if (price < 500 || price > 50000) e.price = "Price must be between $5.00 and $500.00.";
+  if (price === null) e.price = "Enter a price like 0.50.";
+  else if (BigInt(price) < 100_000n || BigInt(price) > 1_000_000n) e.price = "Demo price must be between 0.10 and 1.00 test USDC.";
   return e;
 }
 
@@ -117,12 +121,14 @@ function IncidentFormLoader() {
           recoverySteps: d.recoverySteps,
           verificationSteps: d.verificationSteps,
           limitations: d.limitations,
+          failedAttempts: d.failedAttempts,
+          environment: d.environment.join(", "),
           identifyingTerms: d.identifyingTerms.join(", "),
           publicTitle: d.publicTitle,
           sanitizedSummary: d.sanitizedSummary,
           systemCategories: d.systemCategories,
           sharingLevel: d.sharingLevel,
-          price: (d.priceMinorUnits / 100).toFixed(2),
+          price: formatAtomic(d.priceAtomic),
         }}
       />
     </>
@@ -159,12 +165,14 @@ function IncidentFormBody({
       recoverySteps: v.recoverySteps,
       verificationSteps: v.verificationSteps,
       limitations: v.limitations,
+      failedAttempts: v.failedAttempts,
+      environment: v.environment.split(",").map((t) => t.trim()).filter(Boolean),
       identifyingTerms: v.identifyingTerms.split(",").map((t) => t.trim()).filter(Boolean),
       publicTitle: v.publicTitle.trim(),
       sanitizedSummary: v.sanitizedSummary,
       systemCategories: v.systemCategories,
       sharingLevel: v.sharingLevel,
-      priceMinorUnits: parsePrice(v.price)!,
+      priceAtomic: parsePrice(v.price)!,
     };
     if (draftId) {
       await update({ actor, draftId, fields });
@@ -250,6 +258,7 @@ function IncidentFormBody({
 
       <fieldset className="card">
         <legend>Response</legend>
+        {text("failedAttempts", "What you tried that did not work", "Attempts that looked plausible but failed, and why. This is often the most valuable part for the next team.")}
         {text("containmentSteps", "Containment", "How you limited additional harm.")}
         {text("recoverySteps", "Recovery", "Corrective and restoration steps.")}
         {text("verificationSteps", "Verification", "How you confirmed it was fixed.")}
@@ -277,8 +286,11 @@ function IncidentFormBody({
           <input id="publicTitle" value={v.publicTitle} onChange={(e) => set("publicTitle", e.target.value)} disabled={locked} />
         </Field>
         {text("sanitizedSummary", "Public summary", "Two or three sentences a buyer reads first.")}
+        <Field label="Environment tags" hint="Comma-separated, e.g. Webhooks, Queue workers, Postgres. Helps buyers judge fit." id="environment">
+          <input id="environment" value={v.environment} onChange={(e) => set("environment", e.target.value)} disabled={locked} />
+        </Field>
         <div className="row">
-          <Field label="Price (USD)" hint="Between $5 and $500. Demo prices only." error={err("price")} id="price">
+          <Field label="Price (test USDC)" hint="0.10–1.00 test USDC (Base Sepolia). Demo pricing only." error={err("price")} id="price">
             <input id="price" inputMode="decimal" value={v.price} onChange={(e) => set("price", e.target.value)} disabled={locked} />
           </Field>
           <Field label="How you appear to buyers" hint="Reduces identification risk; perfect anonymity is not promised." id="sharingLevel">

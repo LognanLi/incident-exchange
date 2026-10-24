@@ -4,8 +4,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { CONTRIBUTOR_SHARE_PERCENT, PLATFORM_SHARE_PERCENT } from "../../../convex/lib/domain";
-import { splitRevenue } from "../../../convex/lib/money";
-import { explorerAddressUrl, testChargeCents } from "../../../convex/lib/x402";
+import { formatAtomic, splitRevenue } from "../../../convex/lib/money";
+import { explorerAddressUrl } from "../../../convex/lib/x402";
 import { useSession } from "../../session";
 import { Empty, ErrorBox, EvidenceBadge, Loading, Money, PageHeader, RoleGate, useAction } from "../../components/ui";
 
@@ -41,7 +41,7 @@ function Checkout() {
       </Empty>
     );
   }
-  const split = splitRevenue(pb.priceMinorUnits);
+  const split = splitRevenue(pb.priceAtomic);
 
   return (
     <div className="checkout">
@@ -63,19 +63,19 @@ function Checkout() {
               <tr>
                 <td>Price</td>
                 <td>
-                  <Money minor={pb.priceMinorUnits} currency={pb.currency} />
+                  <Money atomic={pb.priceAtomic} />
                 </td>
               </tr>
               <tr>
                 <td>Contributor share ({CONTRIBUTOR_SHARE_PERCENT}%)</td>
                 <td>
-                  <Money minor={split.contributorShareMinorUnits} currency={pb.currency} />
+                  <Money atomic={split.contributorShareAtomic} />
                 </td>
               </tr>
               <tr>
                 <td>Platform fee ({PLATFORM_SHARE_PERCENT}%)</td>
                 <td>
-                  <Money minor={split.platformShareMinorUnits} currency={pb.currency} />
+                  <Money atomic={split.platformShareAtomic} />
                 </td>
               </tr>
             </tbody>
@@ -89,9 +89,11 @@ function Checkout() {
               <>
                 <div className="x402-banner">COINBASE x402 · BASE SEPOLIA TESTNET</div>
                 <p>
-                  Pays with <strong>test USDC</strong> from a backend Coinbase-managed buyer wallet. Test tokens have no
-                  real value. Because the faucet hands out small amounts, the test charge is the list price ÷{" "}
-                  {options.divisor}: <strong>{(testChargeCents(pb.priceMinorUnits, options.divisor) / 100).toFixed(2)} USDC</strong>.
+                  Pays <strong>
+                    <Money atomic={pb.priceAtomic} />
+                  </strong>{" "}
+                  in <strong>test USDC</strong> on Base Sepolia from a backend Coinbase-managed buyer wallet, capped at 1.00
+                  USDC per payment. Test tokens have no real value.
                 </p>
               </>
             ) : (
@@ -126,7 +128,9 @@ function Checkout() {
               <tbody>
                 <tr>
                   <td>Test charge</td>
-                  <td>{(purchase.x402.chargeCents / 100).toFixed(2)} USDC (test)</td>
+                  <td>
+                    <Money atomic={purchase.x402.atomicAmount} /> (test)
+                  </td>
                 </tr>
                 <tr>
                   <td>Network</td>
@@ -168,7 +172,7 @@ function Checkout() {
                   if (await payX402.run({ actor, purchaseId })) navigate(`/purchases/${purchaseId}`);
                 }}
               >
-                {payX402.pending ? "Paying on Base Sepolia…" : `Pay ${(purchase.x402.chargeCents / 100).toFixed(2)} test USDC with x402`}
+                {payX402.pending ? "Paying on Base Sepolia…" : `Pay ${formatAtomic(purchase.x402.atomicAmount)} test USDC with x402`}
               </button>
               <button
                 className="btn ghost"
@@ -192,7 +196,7 @@ function Checkout() {
             <div className="sim-step">
               <div className="small muted">Simulator step</div>
               <p>
-                Pending demo charge of <Money minor={pb.priceMinorUnits} currency={pb.currency} />.
+                Pending demo charge of <Money atomic={pb.priceAtomic} />.
               </p>
               <label className="check">
                 <input type="checkbox" checked={understood} onChange={(e) => setUnderstood(e.target.checked)} />I understand

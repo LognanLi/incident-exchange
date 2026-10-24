@@ -180,7 +180,7 @@ function BuyerPreview({ draft, alias }: { draft: Doc<"incidentDrafts">; alias: s
           </span>
         ))}
         <span className="badge price">
-          <Money minor={draft.priceMinorUnits} currency={draft.currency} />
+          <Money atomic={draft.priceAtomic} />
         </span>
         <span className="badge muted-badge">Evidence label set by reviewer</span>
       </div>

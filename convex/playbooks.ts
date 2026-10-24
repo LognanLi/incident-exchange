@@ -1,34 +1,43 @@
 import { ConvexError, v } from "convex/values";
-import { action, internalMutation, internalQuery, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { getActor } from "./lib/access";
-import { scorePlaybook } from "./lib/search";
+import { getActor, requireRole } from "./lib/access";
 import { answerFromSections } from "./lib/qa";
 import { FREE_SECTIONS, SECTION_KEYS, type SectionKey } from "./lib/domain";
 import { askWithMossContext, askWithMossIndex, mossCredentials, playbookIndexName } from "./lib/moss";
 import type { QaAnswer } from "./lib/qa";
+import { matchGuide, RELEVANCE_INFO } from "./lib/matching";
 import { evidenceLevelV } from "./schema";
 
+const PAID = ["simulated_success", "test_success"] as const;
+const isPaid = (p: Doc<"purchases">) => (PAID as readonly string[]).includes(p.paymentStatus);
+
 /**
- * Buyer-facing projection. Built only from the playbooks table, which never contains
- * private contributor notes, evidence files, or identifying terms.
+ * Buyer-facing projection: explicit allowlist of public preview fields from the playbooks table.
+ * Paid sections live only in playbookRevisions and are read solely by entitledContent().
  */
 function listing(pb: Doc<"playbooks">) {
   return {
     _id: pb._id,
+    revision: pb.revision,
     publicTitle: pb.publicTitle,
     publicSummary: pb.publicSummary,
-    recognize: pb.publicSteps.recognize,
+    recognize: pb.previewRecognize,
     publicLimitations: pb.publicLimitations,
     systemCategories: pb.systemCategories,
+    environment: pb.environment,
+    checksBeforeUse: pb.applicability.checksBeforeUse,
+    mismatchSignals: pb.applicability.mismatchSignals.map((m) => ({ label: m.label, explanation: m.explanation })),
     evidenceLevel: pb.evidenceLevel,
-    priceMinorUnits: pb.priceMinorUnits,
+    evidenceScope: pb.evidenceScope,
+    toyCase: pb.toyCase,
+    priceAtomic: pb.priceAtomic,
     currency: pb.currency,
     contributorAlias: pb.contributorAlias,
     publishedAt: pb.publishedAt,
-    sourceCategory: pb.incidentDraftId ? "Contributor incident report" : "Contributor incident report (catalog)",
+    sourceKind: "private_contribution" as const,
   };
 }
 
@@ -41,14 +50,44 @@ async function feedbackSummary(ctx: QueryCtx, playbookId: Id<"playbooks">) {
   };
 }
 
-async function hasUnlocked(ctx: QueryCtx, org: Doc<"organizations">, pb: Doc<"playbooks">): Promise<boolean> {
-  if (org.demoRole === "reviewer") return true;
-  if (org.demoRole === "contributor") return pb.contributorOrgId === org._id;
+/** The revision this viewer may read in full, or null. Buyers: their latest paid revision. */
+async function entitledRevision(ctx: QueryCtx, org: Doc<"organizations">, pb: Doc<"playbooks">): Promise<number | null> {
+  if (org.demoRole === "reviewer") return pb.revision;
+  if (org.demoRole === "contributor") return pb.contributorOrgId === org._id ? pb.revision : null;
   const purchases = await ctx.db
     .query("purchases")
     .withIndex("by_buyer_playbook", (q) => q.eq("buyerOrgId", org._id).eq("playbookId", pb._id))
     .collect();
-  return purchases.some((p) => p.paymentStatus === "simulated_success" || p.paymentStatus === "test_success");
+  const paid = purchases.filter(isPaid);
+  return paid.length ? Math.max(...paid.map((p) => p.revision)) : null;
+}
+
+async function entitledContent(ctx: QueryCtx, playbookId: Id<"playbooks">, revision: number) {
+  return await ctx.db
+    .query("playbookRevisions")
+    .withIndex("by_playbook_revision", (q) => q.eq("playbookId", playbookId).eq("revision", revision))
+    .unique();
+}
+
+async function evidenceRuns(ctx: QueryCtx, pb: Doc<"playbooks">) {
+  const byPlaybook = await ctx.db.query("validationRuns").withIndex("by_playbook", (q) => q.eq("playbookId", pb._id)).collect();
+  const byDraft = pb.incidentDraftId
+    ? await ctx.db.query("validationRuns").withIndex("by_draft", (q) => q.eq("incidentDraftId", pb.incidentDraftId!)).collect()
+    : [];
+  return [...byPlaybook, ...byDraft]
+    .sort((a, b) => a.runAt - b.runAt)
+    .map((r) => ({
+      step: r.step,
+      toolName: r.toolName,
+      checkName: r.checkName,
+      passed: r.passed,
+      resultSummary: r.resultSummary,
+      outputLines: r.outputLines.slice(0, 20),
+      patchSummary: r.patchSummary,
+      targetName: r.targetName,
+      artifactRef: r.artifactRef,
+      runAt: r.runAt,
+    }));
 }
 
 export const search = query({
@@ -57,36 +96,48 @@ export const search = query({
     query: v.string(),
     category: v.optional(v.string()),
     evidenceLevel: v.optional(evidenceLevelV),
-    maxPriceMinorUnits: v.optional(v.number()),
+    maxPriceAtomic: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const org = await getActor(ctx, args.actor);
-    if (args.query.length > 500) throw new ConvexError("Search text is too long.");
+    if (args.query.length > 600) throw new ConvexError("Description is too long.");
     const active = await ctx.db.query("playbooks").withIndex("by_active", (q) => q.eq("active", true)).collect();
     const filtered = active.filter(
       (pb) =>
         (!args.category || pb.systemCategories.includes(args.category)) &&
         (!args.evidenceLevel || pb.evidenceLevel === args.evidenceLevel) &&
-        (args.maxPriceMinorUnits === undefined || pb.priceMinorUnits <= args.maxPriceMinorUnits),
+        (!args.maxPriceAtomic || BigInt(pb.priceAtomic) <= BigInt(args.maxPriceAtomic)),
     );
     const hasQuery = args.query.trim().length > 0;
-    const scored = filtered
-      .map((pb) => {
-        const m = hasQuery
-          ? scorePlaybook(args.query, { ...pb, recognize: pb.publicSteps.recognize })
-          : { score: 0, reason: "", matchedTerms: [] };
-        return { pb, m };
-      })
-      .filter(({ m }) => !hasQuery || m.score > 0)
-      .sort((a, b) => b.m.score - a.m.score || b.pb.publishedAt - a.pb.publishedAt);
+    const rows = filtered
+      .map((pb) => ({
+        pb,
+        m: hasQuery
+          ? matchGuide(args.query, {
+              publicTitle: pb.publicTitle,
+              publicSummary: pb.publicSummary,
+              recognize: pb.previewRecognize,
+              systemCategories: pb.systemCategories,
+              environment: pb.environment,
+              clues: pb.applicability.clues,
+              mismatchSignals: pb.applicability.mismatchSignals,
+            })
+          : null,
+      }))
+      .filter(({ m }) => !hasQuery || m !== null)
+      // Ranked by symptom overlap only (price never affects order); newest first when browsing.
+      .sort((a, b) => (b.m?.score ?? 0) - (a.m?.score ?? 0) || b.pb.publishedAt - a.pb.publishedAt);
 
     return await Promise.all(
-      scored.map(async ({ pb, m }) => ({
+      rows.map(async ({ pb, m }) => ({
         ...listing(pb),
-        matchScore: m.score,
-        matchReason: m.reason,
+        match: m && {
+          ...m,
+          relevance: RELEVANCE_INFO[m.relevanceLabel].label,
+          relevanceExplanation: RELEVANCE_INFO[m.relevanceLabel].explanation,
+        },
         feedback: await feedbackSummary(ctx, pb._id),
-        unlocked: await hasUnlocked(ctx, org, pb),
+        unlocked: (await entitledRevision(ctx, org, pb)) !== null,
       })),
     );
   },
@@ -98,36 +149,67 @@ export const get = query({
     const org = await getActor(ctx, actor);
     const pb = await ctx.db.get(playbookId);
     if (!pb || (!pb.active && org.demoRole === "buyer")) return null;
-    const unlocked = await hasUnlocked(ctx, org, pb);
+    const revision = await entitledRevision(ctx, org, pb);
+    const content = revision !== null ? await entitledContent(ctx, pb._id, revision) : null;
 
     const references = pb.incidentDraftId
-      ? (await ctx.db.query("publicReferences").withIndex("by_draft", (q) => q.eq("incidentDraftId", pb.incidentDraftId!)).collect()).map(
-          (r) => ({ _id: r._id, title: r.title, sourceName: r.sourceName, url: r.url, publishedAt: r.publishedAt, retrievedAt: r.retrievedAt, relevanceNote: r.relevanceNote, seeded: r.seeded }),
-        )
-      : [];
-    const runs = pb.incidentDraftId
-      ? (await ctx.db.query("validationRuns").withIndex("by_draft", (q) => q.eq("incidentDraftId", pb.incidentDraftId!)).collect())
-          .sort((a, b) => a.runAt - b.runAt)
-          .map((r) => ({ step: r.step, toolName: r.toolName, checkName: r.checkName, passed: r.passed, resultSummary: r.resultSummary, targetName: r.targetName, runAt: r.runAt }))
-      : [];
+      ? await ctx.db.query("publicReferences").withIndex("by_draft", (q) => q.eq("incidentDraftId", pb.incidentDraftId!)).collect()
+      : await ctx.db.query("publicReferences").withIndex("by_playbook", (q) => q.eq("playbookId", pb._id)).collect();
 
     const purchases =
       org.demoRole === "buyer"
         ? await ctx.db.query("purchases").withIndex("by_buyer_playbook", (q) => q.eq("buyerOrgId", org._id).eq("playbookId", pb._id)).collect()
         : [];
+    const checklist =
+      org.demoRole === "buyer"
+        ? await ctx.db.query("buyerChecklists").withIndex("by_buyer_playbook", (q) => q.eq("buyerOrgId", org._id).eq("playbookId", pb._id)).unique()
+        : null;
 
     return {
       ...listing(pb),
-      unlocked,
-      lockedSteps: unlocked
-        ? { check: pb.publicSteps.check, contain: pb.publicSteps.contain, recover: pb.publicSteps.recover, verify: pb.publicSteps.verify }
-        : null,
-      references,
-      validationRuns: runs,
+      unlocked: content !== null,
+      entitledRevision: revision,
+      newerRevisionAvailable: revision !== null && revision < pb.revision,
+      lockedSteps: content && { check: content.check, contain: content.contain, recover: content.recover, verify: content.verify },
+      failedAttempts: content?.failedAttempts ?? null,
+      references: references.map((r) => ({
+        _id: r._id,
+        title: r.title,
+        sourceName: r.sourceName,
+        url: r.url,
+        publishedAt: r.publishedAt,
+        retrievedAt: r.retrievedAt,
+        relevanceNote: r.relevanceNote,
+        seeded: r.seeded,
+        sourceType: r.sourceType,
+      })),
+      validationRuns: await evidenceRuns(ctx, pb),
       feedback: await feedbackSummary(ctx, pb._id),
-      successfulPurchaseId: purchases.find((p) => p.paymentStatus === "simulated_success" || p.paymentStatus === "test_success")?._id,
+      successfulPurchaseId: purchases.find(isPaid)?._id,
+      checkedItems: checklist?.revision === revision ? checklist.checked : [],
       viewerRole: org.demoRole,
     };
+  },
+});
+
+/** Buyer's own checklist progress; stored separately and never edits the guide. */
+export const setChecklistItem = mutation({
+  args: { actor: v.string(), playbookId: v.id("playbooks"), itemId: v.string(), checked: v.boolean() },
+  handler: async (ctx, { actor, playbookId, itemId, checked }) => {
+    const buyer = await requireRole(ctx, actor, "buyer");
+    const pb = await ctx.db.get(playbookId);
+    if (!pb) throw new ConvexError("Playbook not found.");
+    const revision = await entitledRevision(ctx, buyer, pb);
+    if (revision === null) throw new ConvexError("Unlock the guide to use its checklist.");
+    if (itemId.length > 40) throw new ConvexError("Invalid item.");
+    const existing = await ctx.db
+      .query("buyerChecklists")
+      .withIndex("by_buyer_playbook", (q) => q.eq("buyerOrgId", buyer._id).eq("playbookId", playbookId))
+      .unique();
+    const prev = existing?.revision === revision ? existing.checked : [];
+    const next = checked ? [...new Set([...prev, itemId])] : prev.filter((i) => i !== itemId);
+    if (existing) await ctx.db.patch(existing._id, { revision, checked: next, updatedAt: Date.now() });
+    else await ctx.db.insert("buyerChecklists", { buyerOrgId: buyer._id, playbookId, revision, checked: next, isDemo: buyer.isDemo, updatedAt: Date.now() });
   },
 });
 
@@ -138,10 +220,18 @@ export const qaContext = internalQuery({
     const org = await getActor(ctx, actor);
     const pb = await ctx.db.get(playbookId);
     if (!pb || !pb.active) throw new ConvexError("Playbook not found.");
-    const unlocked = await hasUnlocked(ctx, org, pb);
-    const scope = unlocked ? ("full" as const) : ("preview" as const);
-    const allowed: SectionKey[] = unlocked ? [...SECTION_KEYS] : [...FREE_SECTIONS];
-    const all: Record<SectionKey, string> = { ...pb.publicSteps, limitations: pb.publicLimitations };
+    const revision = await entitledRevision(ctx, org, pb);
+    const content = revision !== null ? await entitledContent(ctx, pb._id, revision) : null;
+    const scope = content ? ("full" as const) : ("preview" as const);
+    const allowed: SectionKey[] = content ? [...SECTION_KEYS] : [...FREE_SECTIONS];
+    const all: Record<SectionKey, string> = {
+      recognize: pb.previewRecognize,
+      limitations: pb.publicLimitations,
+      check: content?.check ?? "",
+      contain: content?.contain ?? "",
+      recover: content?.recover ?? "",
+      verify: content?.verify ?? "",
+    };
     const index = await ctx.db
       .query("mossIndexes")
       .withIndex("by_playbook_scope", (q) => q.eq("playbookId", playbookId).eq("scope", scope))

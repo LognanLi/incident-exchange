@@ -22,7 +22,7 @@ import {
   USDC_BASE_SEPOLIA,
   X402_NETWORK,
   cdpCredentialsPresent,
-  centsToMoney,
+  atomicToMoney,
 } from "./lib/x402";
 
 function requireCdp() {
@@ -94,7 +94,7 @@ export const sellerHandle = internalAction({
         [`POST ${path}`]: {
           accepts: {
             scheme: "exact",
-            price: centsToMoney(purchase.x402.chargeCents),
+            price: atomicToMoney(purchase.x402.atomicAmount),
             network: X402_NETWORK,
             payTo: purchase.x402.payTo,
             maxTimeoutSeconds: 300,

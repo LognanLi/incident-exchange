@@ -8,7 +8,8 @@ import { draftSectionsFallback } from "./lib/drafting";
 import { buyerFacingFields, draftContentHash, identifyingTermsFor, submissionBlockers } from "./lib/draftContent";
 import { applyGeneralizations, scanForPrivacyIssues } from "./lib/privacy";
 import { sharingLevelV } from "./schema";
-import { buildSearchText, publicAliasFor } from "./lib/publish";
+import { publicAliasFor, publishPlaybook } from "./lib/publish";
+import { ATOMIC_PER_CENT, sumAtomic } from "./lib/money";
 import { recordIntegrationEvent } from "./lib/integrations";
 import { MossError, draftWithMoss, mossCredentials } from "./lib/moss";
 
@@ -32,12 +33,14 @@ const draftFieldsV = {
   recoverySteps: v.string(),
   verificationSteps: v.string(),
   limitations: v.string(),
+  failedAttempts: v.string(),
   identifyingTerms: v.array(v.string()),
   publicTitle: v.string(),
   sanitizedSummary: v.string(),
   systemCategories: v.array(v.string()),
+  environment: v.array(v.string()),
   sharingLevel: sharingLevelV,
-  priceMinorUnits: v.number(),
+  priceAtomic: v.string(),
 };
 
 type DraftFields = {
@@ -52,9 +55,11 @@ function validateFields(f: DraftFields) {
   for (const [k, val] of Object.entries(f)) {
     if (typeof val === "string" && val.length > MAX_TEXT) throw new ConvexError(`Field “${k}” is too long.`);
   }
-  if (!Number.isInteger(f.priceMinorUnits) || f.priceMinorUnits < 500 || f.priceMinorUnits > 50000) {
-    throw new ConvexError("Price must be between $5.00 and $500.00.");
+  if (!/^\d+$/.test(f.priceAtomic) || BigInt(f.priceAtomic) % ATOMIC_PER_CENT !== 0n) throw new ConvexError("Price must be whole cents of USDC.");
+  if (BigInt(f.priceAtomic) < 100_000n || BigInt(f.priceAtomic) > 1_000_000n) {
+    throw new ConvexError("Demo price must be between 0.10 and 1.00 test USDC.");
   }
+  if (f.environment.length > 12) throw new ConvexError("Too many environment tags.");
   const allowed = new Set<string>(SYSTEM_CATEGORIES);
   if (f.systemCategories.some((c) => !allowed.has(c))) throw new ConvexError("Unknown system category.");
   if (f.identifyingTerms.length > 30) throw new ConvexError("Too many identifying terms.");
@@ -66,8 +71,13 @@ function assertEditable(draft: Doc<"incidentDrafts">) {
   }
 }
 
-/** Any content change invalidates the privacy scan and the contributor's approval. */
-const INVALIDATE = { contributorApproval: undefined } as const;
+/**
+ * Any shareable-content change clears the contributor's approval. If that approval existed (the
+ * revision was approved/submitted), the edit starts a new revision that must be approved again.
+ */
+function invalidate(draft: Doc<"incidentDrafts">) {
+  return { contributorApproval: undefined, revision: draft.contributorApproval ? draft.revision + 1 : draft.revision };
+}
 
 // ------------------------------------------------------------------ queries
 
@@ -85,26 +95,36 @@ export const listMine = query({
       .withIndex("by_contributor", (q) => q.eq("contributorOrgId", org._id))
       .collect();
 
-    let earnings = 0;
+    const allShares: string[] = [];
     let sales = 0;
-    const perPlaybook = new Map<Id<"playbooks">, { sales: number; earnings: number }>();
+    type Stats = { sales: number; accruedAtomic: string; testnetSales: number; outcomes: { count: number; resolved: number } };
+    const perPlaybook = new Map<Id<"playbooks">, Stats>();
     for (const pb of playbooks) {
       const purchases = await ctx.db
         .query("purchases")
         .withIndex("by_playbook", (q) => q.eq("playbookId", pb._id))
         .collect();
       const done = purchases.filter((p) => p.paymentStatus === "simulated_success" || p.paymentStatus === "test_success");
-      const e = done.reduce((s, p) => s + p.contributorShareMinorUnits, 0);
-      perPlaybook.set(pb._id, { sales: done.length, earnings: e });
-      earnings += e;
+      const feedback = await ctx.db.query("outcomeFeedback").withIndex("by_playbook", (q) => q.eq("playbookId", pb._id)).collect();
+      const shares = done.map((p) => p.contributorShareAtomic);
+      perPlaybook.set(pb._id, {
+        sales: done.length,
+        accruedAtomic: sumAtomic(shares),
+        testnetSales: done.filter((p) => p.paymentStatus === "test_success").length,
+        outcomes: { count: feedback.length, resolved: feedback.filter((f) => f.outcome === "resolved").length },
+      });
+      allShares.push(...shares);
       sales += done.length;
     }
+    const empty: Stats = { sales: 0, accruedAtomic: "0", testnetSales: 0, outcomes: { count: 0, resolved: 0 } };
 
     return {
       org: { displayName: org.displayName, publicAlias: org.publicAlias },
-      earningsMinorUnits: earnings,
+      accruedAtomic: sumAtomic(allShares),
+      /** No payouts are made in this prototype; accruals are an internal ledger. */
+      paidOutAtomic: "0",
       sales,
-      currency: "USD",
+      currency: "USDC",
       drafts: drafts.map((d) => ({
         _id: d._id,
         title: d.title,
@@ -114,11 +134,12 @@ export const listMine = query({
         evidenceLevel: d.evidenceLevel,
         playbookId: d.playbookId,
         updatedAt: d.updatedAt,
-        stats: d.playbookId ? perPlaybook.get(d.playbookId) ?? { sales: 0, earnings: 0 } : null,
+        revision: d.revision,
+        stats: d.playbookId ? perPlaybook.get(d.playbookId) ?? empty : null,
       })),
       catalog: playbooks
         .filter((p) => !p.incidentDraftId)
-        .map((p) => ({ _id: p._id, publicTitle: p.publicTitle, stats: perPlaybook.get(p._id) ?? { sales: 0, earnings: 0 } })),
+        .map((p) => ({ _id: p._id, publicTitle: p.publicTitle, stats: perPlaybook.get(p._id) ?? empty })),
     };
   },
 });
@@ -160,7 +181,9 @@ export const create = mutation({
     return await ctx.db.insert("incidentDrafts", {
       ...fields,
       contributorOrgId: org._id,
-      currency: "USD",
+      currency: "USDC",
+      evidenceScope: "Contributor's account only until a reviewer inspects evidence.",
+      revision: 1,
       privacyFindings: [],
       status: "draft",
       isDemo: org.isDemo,
@@ -176,7 +199,10 @@ export const update = mutation({
     const { draft } = await requireOwnDraft(ctx, actor, draftId);
     assertEditable(draft);
     validateFields(fields);
-    await ctx.db.patch(draftId, { ...fields, ...INVALIDATE, updatedAt: Date.now() });
+    const next = { ...draft, ...fields };
+    const changed = draftContentHash(next) !== draftContentHash(draft);
+    await ctx.db.patch(draftId, { ...fields, ...(changed ? invalidate(draft) : {}), updatedAt: Date.now() });
+    return { ok: true, revision: changed ? invalidate(draft).revision : draft.revision };
   },
 });
 
@@ -199,7 +225,7 @@ export const generateSections = mutation({
   handler: async (ctx, { actor, draftId }) => {
     const { draft } = await requireOwnDraft(ctx, actor, draftId);
     assertEditable(draft);
-    await ctx.db.patch(draftId, { sections: fallbackSections(draft), draftEngine: "fallback", ...INVALIDATE, updatedAt: Date.now() });
+    await ctx.db.patch(draftId, { sections: fallbackSections(draft), draftEngine: "fallback", ...invalidate(draft), updatedAt: Date.now() });
     await recordIntegrationEvent(ctx, "moss", "fallback", "Playbook drafted with the deterministic fallback.");
   },
 });
@@ -246,7 +272,7 @@ export const saveMossSections = internalMutation({
         return [k, { body: lines.map((l) => `- ${l.replace(/^\s*[-*•]\s*/, "")}`).join("\n"), accepted: false, origin: "moss" as const, sourceFields: sourceFields[k] }];
       }),
     ) as Sections;
-    await ctx.db.patch(draftId, { sections, draftEngine: "moss", ...INVALIDATE, updatedAt: Date.now() });
+    await ctx.db.patch(draftId, { sections, draftEngine: "moss", ...invalidate(draft), updatedAt: Date.now() });
     await recordIntegrationEvent(ctx, "moss", "success", "Playbook drafted by Moss Inference.");
   },
 });
@@ -305,7 +331,7 @@ export const updateSection = mutation({
       // Editing text un-accepts the section unless acceptance is set explicitly in the same call.
       accepted: accepted ?? (bodyChanged ? false : current.accepted),
     };
-    await ctx.db.patch(draftId, { sections: { ...draft.sections, [key]: next }, ...INVALIDATE, updatedAt: Date.now() });
+    await ctx.db.patch(draftId, { sections: { ...draft.sections, [key]: next }, ...invalidate(draft), updatedAt: Date.now() });
   },
 });
 
@@ -317,7 +343,7 @@ export const acceptAllSections = mutation({
     if (!draft.sections) throw new ConvexError("Draft the playbook first.");
     const sections = { ...draft.sections };
     for (const k of SECTION_KEYS) sections[k] = { ...sections[k], accepted: sections[k].body.trim().length > 0 };
-    await ctx.db.patch(draftId, { sections, ...INVALIDATE, updatedAt: Date.now() });
+    await ctx.db.patch(draftId, { sections, ...invalidate(draft), updatedAt: Date.now() });
   },
 });
 
@@ -354,16 +380,17 @@ export const applyGeneralizationsToDraft = mutation({
           }),
         ) as NonNullable<Doc<"incidentDrafts">["sections"]>)
       : undefined;
-    const next = { ...draft, publicTitle: gen(draft.publicTitle), sanitizedSummary: gen(draft.sanitizedSummary), sections };
+    const next = { ...draft, publicTitle: gen(draft.publicTitle), sanitizedSummary: gen(draft.sanitizedSummary), failedAttempts: gen(draft.failedAttempts), sections };
     const findings = scanForPrivacyIssues(buyerFacingFields(next), otherTerms, orgTerms);
     await ctx.db.patch(draftId, {
       publicTitle: next.publicTitle,
       sanitizedSummary: next.sanitizedSummary,
+      failedAttempts: next.failedAttempts,
       sections,
       privacyFindings: findings,
       privacyScannedHash: draftContentHash(next),
       privacyScannedAt: Date.now(),
-      ...INVALIDATE,
+      ...invalidate(draft),
       updatedAt: Date.now(),
     });
   },
@@ -380,7 +407,7 @@ export const approveAndSubmit = mutation({
     if (blockers.length) throw new ConvexError(blockers[0]);
     const now = Date.now();
     await ctx.db.patch(draftId, {
-      contributorApproval: { at: now, contentHash: draftContentHash(draft) },
+      contributorApproval: { at: now, contentHash: draftContentHash(draft), revision: draft.revision },
       status: "submitted",
       reviewerNote: undefined,
       updatedAt: now,
@@ -402,27 +429,30 @@ export const publishFinal = mutation({
     }
     const s = draft.sections;
     const body = (k: SectionKey) => s[k].body;
-    const doc = {
+    const playbookId = await publishPlaybook(ctx, {
+      existingPlaybookId: draft.playbookId,
       incidentDraftId: draftId,
       contributorOrgId: org._id,
       contributorAlias: publicAliasFor(draft.sharingLevel, org),
+      sharingLevel: draft.sharingLevel,
       publicTitle: draft.publicTitle,
       publicSummary: draft.sanitizedSummary,
-      publicSteps: { recognize: body("recognize"), check: body("check"), contain: body("contain"), recover: body("recover"), verify: body("verify") },
-      publicLimitations: body("limitations"),
       systemCategories: draft.systemCategories,
-      sharingLevel: draft.sharingLevel,
+      environment: draft.environment,
+      clues: draft.applicability?.clues ?? [],
+      mismatchSignals: draft.applicability?.mismatchSignals ?? [],
+      checksBeforeUse: draft.applicability?.checksBeforeUse ?? [],
+      evidenceScope: draft.evidenceScope,
       evidenceLevel: draft.evidenceLevel,
-      priceMinorUnits: draft.priceMinorUnits,
-      currency: draft.currency,
+      toyCase: draft.toyCase,
+      priceAtomic: draft.priceAtomic,
+      revision: draft.revision,
+      contentHash: draftContentHash(draft),
+      sections: { recognize: body("recognize"), check: body("check"), contain: body("contain"), recover: body("recover"), verify: body("verify"), limitations: body("limitations") },
+      failedAttempts: draft.failedAttempts,
       publishedAt: Date.now(),
-      active: true,
       isDemo: draft.isDemo,
-    };
-    const searchText = buildSearchText(doc);
-    let playbookId = draft.playbookId;
-    if (playbookId) await ctx.db.patch(playbookId, { ...doc, searchText });
-    else playbookId = await ctx.db.insert("playbooks", { ...doc, searchText });
+    });
     await ctx.db.patch(draftId, { status: "published", playbookId, updatedAt: Date.now() });
     if (mossCredentials()) await ctx.scheduler.runAfter(0, internal.mossIndex.buildAll, { playbookId });
     return playbookId;

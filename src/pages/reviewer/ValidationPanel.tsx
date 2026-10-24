@@ -24,11 +24,11 @@ function useFactoryRunner() {
   return ready;
 }
 
-async function runFactoryPatch(actor: string, draftId: string): Promise<{ summary: string }> {
+async function runFactoryPatch(actor: string, draftId: string, toyCase: string): Promise<{ summary: string }> {
   const res = await fetch(`${RUNNER_URL}/patch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ actor, draftId }),
+    body: JSON.stringify({ actor, draftId, toyCase }),
   });
   const body = (await res.json().catch(() => ({}))) as { error?: string; summary?: string };
   if (!res.ok) throw new Error(body.error ?? `Factory runner responded ${res.status}`);
@@ -63,8 +63,10 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
           {armadinState && <IntegrationBadge state={armadinState} name="Armadin" />}
         </div>
       </div>
-      {!t ? (
-        <ErrorBox message="Demo target missing. Reset demo data from the Demo menu." />
+      {!data.toyCase ? (
+        <p className="muted small">This incident has no bundled sample app, so it cannot be test-reproduced. Use “Evidence reviewed” or “Contributor reported”.</p>
+      ) : !t ? (
+        <ErrorBox message="Sample app missing. Reset demo data from the Demo menu." />
       ) : (
         <>
           <div className={`target ${t.authorized ? "authorized" : "unauthorized"}`}>
@@ -75,14 +77,11 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
               </span>
             </div>
             <div className="small muted">{t.authorizationNote}</div>
-            <code className="small">
-              config v{t.configVersion}: maxFailedAttempts={t.config.maxFailedAttempts}, lockoutWindowSeconds=
-              {t.config.lockoutWindowSeconds}, alertOnRepeatedFailures={String(t.config.alertOnRepeatedFailures)}
-            </code>
+            <code className="small">current implementation: {t.variant === "fixed" ? "patched (reference fix)" : "original (vulnerable)"}</code>
           </div>
           <p className="small muted">
-            Check: <strong>{data.checkName}</strong>. Simulates a burst of failed sign-ins for a fictional test account
-            inside the toy service and asserts they are throttled and alerted. No network or real system is touched.
+            Check: <strong>{data.checkName}</strong>. Protected assertions run against the sample app with synthetic data,
+            including checks that legitimate behavior still works. No network or real system is touched.
           </p>
           <div className="steps3">
             <StepCard n={1} title={STEP_LABEL.before} run={lastBefore}>
@@ -92,7 +91,7 @@ export function ValidationPanel({ draftId }: { draftId: Id<"incidentDrafts"> }) 
             </StepCard>
             <StepCard n={2} title={STEP_LABEL.fix} run={lastFix}>
               {runnerReady && (
-                <button className="btn sm primary" disabled={busy || !lastBefore} onClick={() => void factory.run(actor, draftId)}>
+                <button className="btn sm primary" disabled={busy || !lastBefore} onClick={() => data.toyCase && void factory.run(actor, draftId, data.toyCase)}>
                   {factory.pending ? "Factory Droid working…" : "Apply fix with Factory Droid"}
                 </button>
               )}

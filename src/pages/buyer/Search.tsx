@@ -4,13 +4,15 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { EVIDENCE_INFO, EVIDENCE_LEVELS, SYSTEM_CATEGORIES, type EvidenceLevel } from "../../../convex/lib/domain";
 import { useSession } from "../../session";
-import { Empty, EvidenceBadge, Loading, Money, PageHeader, RoleGate } from "../../components/ui";
+import { Empty, EvidenceBadge, Money, PageHeader, RoleGate } from "../../components/ui";
 
 const SCENARIOS = [
-  "Repeated authentication failures after a deployment",
-  "Employees getting MFA push prompts they didn't start",
-  "Email bounces spiked after DNS change",
+  "The queue fills again after restarting workers, and identical webhook event IDs create two jobs",
+  "A signed-in customer can see export data outside their workspace",
+  "Valid signed events are rejected right after the provider rotated keys",
 ];
+
+const LABEL_CLASS = { strong_overlap: "rel-strong", some_overlap: "rel-some", needs_evidence: "rel-weak" } as const;
 
 export default function SearchPage() {
   return (
@@ -34,7 +36,7 @@ function Search() {
     query: q,
     category: category || undefined,
     evidenceLevel: evidence || undefined,
-    maxPriceMinorUnits: maxPrice ? Number(maxPrice) * 100 : undefined,
+    maxPriceAtomic: maxPrice || undefined,
   });
 
   const update = (patch: Record<string, string>) => {
@@ -113,20 +115,26 @@ function Search() {
             <span className="label">Max price</span>
             <select value={maxPrice} onChange={(e) => update({ max: e.target.value })}>
               <option value="">Any</option>
-              <option value="30">$30</option>
-              <option value="50">$50</option>
-              <option value="100">$100</option>
+              <option value="250000">0.25 USDC</option>
+              <option value="500000">0.50 USDC</option>
+              <option value="1000000">1.00 USDC</option>
             </select>
           </label>
         </div>
       </form>
 
-      <p className="small muted">Similarity is a discovery aid, not proof that incidents share a cause.</p>
+      <p className="small muted">Results are ranked by overlap with what you described — never by price. Overlap labels are discovery aids, not proof that incidents share a cause.</p>
 
       {results === undefined ? (
-        <Loading label="Searching…" />
+        <div className="results" aria-busy="true">
+          {[0, 1].map((i) => (
+            <div key={i} className="card skeleton-card" />
+          ))}
+        </div>
       ) : results.length === 0 ? (
-        <Empty title="No matching playbooks">Try describing the symptom differently or clearing filters.</Empty>
+        <Empty title="No guide fits what you described">
+          Try describing the symptom differently, remove filters, or check related public sources. We never force a weak match.
+        </Empty>
       ) : (
         <div className="results">
           {results.map((r) => (
@@ -134,44 +142,63 @@ function Search() {
               <div className="result-head">
                 <div>
                   <div className="eyebrow">
-                    {r.contributorAlias} · {r.sourceCategory}
+                    {r.contributorAlias} · contributed incident · updated {new Date(r.publishedAt).toLocaleDateString()}
                   </div>
                   <h2>
                     <Link to={`/playbooks/${r._id}`}>{r.publicTitle}</Link>
                   </h2>
                 </div>
-                <div className="price-tag">
-                  {r.unlocked ? <span className="badge ok">Unlocked</span> : <Money minor={r.priceMinorUnits} currency={r.currency} />}
-                </div>
+                <div className="price-tag">{r.unlocked ? <span className="badge ok">Unlocked</span> : <Money atomic={r.priceAtomic} />}</div>
               </div>
-              {r.matchReason && (
-                <div className="match-reason">
-                  <strong>Why this matched:</strong> {r.matchReason}
+              {r.match && (
+                <div className={`match-panel ${LABEL_CLASS[r.match.relevanceLabel]}`}>
+                  <div className="match-label" title={r.match.relevanceExplanation}>
+                    {r.match.relevance}
+                  </div>
+                  {r.match.matchedClues.length > 0 && (
+                    <div>
+                      <strong>Why this may match:</strong>
+                      <ul className="clue-list ok-list">
+                        {r.match.matchedClues.slice(0, 3).map((c) => (
+                          <li key={c}>{c}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {r.match.conflictingClues.length > 0 && (
+                    <div>
+                      <strong>May not apply:</strong>
+                      <ul className="clue-list warn-list">
+                        {r.match.conflictingClues.map((c) => (
+                          <li key={c.label}>
+                            {c.label} — <span className="muted">{c.explanation}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {r.match.missingChecks.length > 0 && r.match.conflictingClues.length === 0 && (
+                    <div className="small muted">What to check first: {r.match.missingChecks.slice(0, 2).join("; ")}</div>
+                  )}
                 </div>
               )}
               <p>{r.publicSummary}</p>
               <div className="row gap wrap">
-                <EvidenceBadge level={r.evidenceLevel} explain />
+                <EvidenceBadge level={r.evidenceLevel} />
+                <span className="small muted">{r.evidenceScope}</span>
               </div>
-              <div className="row gap wrap">
-                {r.systemCategories.map((c) => (
-                  <span key={c} className="badge cat">
-                    {c}
-                  </span>
-                ))}
-              </div>
-              <details className="limits">
-                <summary>Limitations</summary>
-                <pre className="plain-pre">{r.publicLimitations.replace(/^- /gm, "• ")}</pre>
-              </details>
+              {!r.match && r.mismatchSignals[0] && (
+                <div className="small">
+                  <strong>Key mismatch:</strong> {r.mismatchSignals[0].label}
+                </div>
+              )}
               <div className="result-foot">
                 <span className="small muted">
-                  {r.feedback.count === 0
-                    ? "No buyer outcomes yet"
-                    : `${r.feedback.resolved} of ${r.feedback.count} buyers reported it resolved their issue`}
+                  {r.environment.slice(0, 4).join(" · ")}
+                  {r.feedback.count > 0 && ` · ${r.feedback.resolved} of ${r.feedback.count} buyers reported resolved`}
                 </span>
                 <Link className="btn sm primary" to={`/playbooks/${r._id}`}>
-                  {r.unlocked ? "Read playbook" : "Open free preview"}
+                  {r.unlocked ? "Open guide" : "Open free preview"}
                 </Link>
               </div>
             </article>

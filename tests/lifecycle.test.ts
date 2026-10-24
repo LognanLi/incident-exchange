@@ -60,14 +60,19 @@ describe("contributor → reviewer → buyer lifecycle", () => {
     await t.mutation(api.reviews.decide, { actor: "review-desk", draftId, decision: "approve", note: "Looks good.", evidenceLevel: "test_reproduced", checklist: CHECKLIST });
 
     // Not searchable until the contributor's final approval.
-    let results = await t.query(api.playbooks.search, { actor: "harbor", query: "repeated authentication failures after a deployment" });
-    expect(results.some((r) => r.publicTitle.startsWith("Investigating"))).toBe(false);
+    let results = await t.query(api.playbooks.search, { actor: "harbor", query: "The queue fills again after restarting workers, and identical webhook event IDs create two jobs" });
+    expect(results.some((r) => r._id === undefined || r.publicTitle.includes("Northstar"))).toBe(false);
+    const beforePublish = results.length;
     const playbookId = await t.mutation(api.drafts.publishFinal, { actor: "northstar", draftId, confirmed: true });
 
+    const pb0Paid = "observed recovery sequence"; // phrase never present in public projections
     // Buyer: search finds it first with a reason; detail locked until simulated payment completes.
-    results = await t.query(api.playbooks.search, { actor: "harbor", query: "repeated authentication failures after a deployment" });
+    results = await t.query(api.playbooks.search, { actor: "harbor", query: "The queue fills again after restarting workers, and identical webhook event IDs create two jobs" });
+    expect(results.length).toBe(beforePublish + 1);
     expect(results[0]._id).toBe(playbookId);
-    expect(results[0].matchReason).toMatch(/Matched/);
+    expect(results[0].match?.relevanceLabel).toBe("strong_overlap");
+    expect(results[0].match?.matchedClues.length).toBeGreaterThan(0);
+    expect(JSON.stringify(results)).not.toContain(pb0Paid);
     expect(results[0].evidenceLevel).toBe("test_reproduced");
     let pb = await t.query(api.playbooks.get, { actor: "harbor", playbookId });
     expect(pb!.lockedSteps).toBeNull();
@@ -78,13 +83,17 @@ describe("contributor → reviewer → buyer lifecycle", () => {
     expect(pb!.lockedSteps).toBeNull(); // pending is not paid
     await t.mutation(api.purchases.completeSimulated, { actor: "harbor", purchaseId, confirmed: true });
     pb = await t.query(api.playbooks.get, { actor: "harbor", playbookId });
-    expect(pb!.lockedSteps?.verify).toContain("lockout");
+    expect(pb!.lockedSteps?.verify.length).toBeGreaterThan(10);
+    expect(pb!.failedAttempts?.length).toBeGreaterThan(10);
 
     const receipt = await t.query(api.purchases.get, { actor: "harbor", purchaseId });
-    expect(receipt).toMatchObject({ amountMinorUnits: 4900, contributorShareMinorUnits: 3920, platformShareMinorUnits: 980, paymentStatus: "simulated_success", provider: "demo_simulator" });
+    expect(receipt).toMatchObject({ amountAtomic: "500000", contributorShareAtomic: "400000", platformShareAtomic: "100000", paymentStatus: "simulated_success", provider: "demo_simulator", revision: 1 });
+    // Retrying checkout after success returns the same purchase (no second charge / accrual).
+    expect(await t.mutation(api.purchases.startCheckout, { actor: "harbor", playbookId })).toBe(purchaseId);
 
     const earnings = await t.query(api.drafts.listMine, { actor: "northstar" });
-    expect(earnings.earningsMinorUnits).toBe(3920);
+    expect(earnings.accruedAtomic).toBe("400000");
+    expect(earnings.paidOutAtomic).toBe("0");
 
     // Feedback reaches the reviewer.
     await t.mutation(api.feedback.submit, { actor: "harbor", playbookId, relevance: "very_relevant", outcome: "resolved", notes: "" });
@@ -104,7 +113,7 @@ describe("contributor → reviewer → buyer lifecycle", () => {
     expect(d.draft.status).toBe("changes_requested");
     expect(d.draft.reviewerNote).toBe("Clarify the verify step.");
     // Editable again; resubmit, then reject.
-    await t.mutation(api.drafts.updateSection, { actor: "northstar", draftId, key: "verify", body: "- Run the lockout test.", accepted: true });
+    await t.mutation(api.drafts.updateSection, { actor: "northstar", draftId, key: "verify", body: "- Deliver the same synthetic event twice and confirm one job.", accepted: true });
     await t.mutation(api.drafts.runPrivacyScan, { actor: "northstar", draftId });
     await t.mutation(api.drafts.approveAndSubmit, { actor: "northstar", draftId, confirmed: true });
     await t.mutation(api.reviews.decide, { actor: "review-desk", draftId, decision: "reject", note: "Out of scope.", checklist: CHECKLIST });
@@ -118,10 +127,10 @@ describe("contributor → reviewer → buyer lifecycle", () => {
     const fields = {
       title: "New incident", privateNotes: "", evidenceSummary: "", symptoms: "Something broke.", detectionClues: "",
       attemptedActions: "", containmentSteps: "", recoverySteps: "", verificationSteps: "", limitations: "",
-      identifyingTerms: [], publicTitle: "", sanitizedSummary: "", systemCategories: ["Network edge"],
-      sharingLevel: "anonymous" as const, priceMinorUnits: 2500,
+      identifyingTerms: [], publicTitle: "", sanitizedSummary: "", systemCategories: ["Network edge"], environment: [], failedAttempts: "",
+      sharingLevel: "anonymous" as const, priceAtomic: "250000",
     };
-    await expect(t.mutation(api.drafts.create, { actor: "northstar", fields: { ...fields, priceMinorUnits: 10 } })).rejects.toThrow(/Price/);
+    await expect(t.mutation(api.drafts.create, { actor: "northstar", fields: { ...fields, priceAtomic: "10" } })).rejects.toThrow(/[Pp]rice/);
     await expect(t.mutation(api.drafts.create, { actor: "northstar", fields: { ...fields, systemCategories: ["Bogus"] } })).rejects.toThrow(/category/);
     const id = await t.mutation(api.drafts.create, { actor: "northstar", fields });
     const d = await t.query(api.drafts.getMine, { actor: "northstar", draftId: id });
@@ -136,7 +145,7 @@ describe("contributor → reviewer → buyer lifecycle", () => {
     const mine = await t.query(api.drafts.listMine, { actor: "northstar" });
     expect(mine.drafts).toHaveLength(1);
     expect(mine.drafts[0].status).toBe("draft");
-    expect(mine.earningsMinorUnits).toBe(0);
+    expect(mine.accruedAtomic).toBe("0");
   });
 });
 
@@ -151,14 +160,15 @@ describe("access control", () => {
     const results = await t.query(api.playbooks.search, { actor: "harbor", query: "" });
     const blob = JSON.stringify(results);
     expect(blob).not.toContain("privateNotes");
-    expect(blob).not.toContain("nsk_live");
+    expect(blob).not.toContain("demo-client-42");
+    expect(blob).not.toContain("ops@northstar.example");
   });
 
   it("does not give reviewers the raw private notes", async () => {
     const { t, draftId } = await seeded();
     await prepareAndSubmit(t, draftId);
     const view = await t.query(api.reviews.getForReview, { actor: "review-desk", draftId });
-    expect(JSON.stringify(view)).not.toContain("Dana Whitfield");
+    expect(JSON.stringify(view)).not.toContain("ops@northstar.example");
     expect(view.draft).not.toHaveProperty("privateNotes");
   });
 

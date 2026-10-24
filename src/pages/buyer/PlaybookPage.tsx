@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAction as useConvexAction, useQuery } from "convex/react";
+import { useAction as useConvexAction, useMutation, useQuery } from "convex/react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -9,19 +9,32 @@ import { NOT_ENOUGH_INFO } from "../../../convex/lib/qa";
 import { useSession } from "../../session";
 import { BulletText, Empty, ErrorBox, EvidenceBadge, IntegrationBadge, Loading, Money, formatDate, useAction } from "../../components/ui";
 
+type Guide = NonNullable<ReturnType<typeof useGuide>>;
+type Run = Guide["validationRuns"][number];
+function useGuide(id: Id<"playbooks">, actor: string) {
+  return useQuery(api.playbooks.get, { actor, playbookId: id });
+}
+
 export default function PlaybookPage() {
   const { playbookId } = useParams();
   const id = playbookId as Id<"playbooks">;
   const { actor } = useSession();
-  const pb = useQuery(api.playbooks.get, { actor, playbookId: id });
+  const pb = useGuide(id, actor);
 
   if (pb === undefined) return <Loading />;
-  if (pb === null) return <Empty title="Playbook not found">It may have been unpublished. <Link to="/playbooks">Back to search</Link></Empty>;
+  if (pb === null)
+    return (
+      <Empty title="Guide not found">
+        It may have been withdrawn. <Link to="/playbooks">Back to search</Link>
+      </Empty>
+    );
 
-  const split = splitRevenue(pb.priceMinorUnits);
-  const before = pb.validationRuns.filter((r) => r.step === "before").at(-1);
-  const fix = pb.validationRuns.filter((r) => r.step === "fix").at(-1);
-  const after = pb.validationRuns.filter((r) => r.step === "after").at(-1);
+  const split = splitRevenue(pb.priceAtomic);
+  const runs = pb.validationRuns;
+  const before = runs.filter((r) => r.step === "before").at(-1);
+  const fix = runs.filter((r) => r.step === "fix").at(-1);
+  const after = runs.filter((r) => r.step === "after").at(-1);
+  const reproduced = !!(before && after && before.passed === false && after.passed === true);
 
   return (
     <div className="playbook-page">
@@ -30,12 +43,12 @@ export default function PlaybookPage() {
       </p>
       <header className="playbook-header">
         <div className="eyebrow">
-          {pb.contributorAlias} · {pb.sourceCategory} · published {formatDate(pb.publishedAt)}
+          {pb.contributorAlias} · contributed incident · revision {pb.revision} · published {formatDate(pb.publishedAt)}
         </div>
         <h1>{pb.publicTitle}</h1>
         <p className="lede">{pb.publicSummary}</p>
         <div className="row gap wrap">
-          {pb.systemCategories.map((c) => (
+          {pb.environment.map((c) => (
             <span key={c} className="badge cat">
               {c}
             </span>
@@ -45,21 +58,28 @@ export default function PlaybookPage() {
 
       <div className="grid-main-side">
         <div>
-          <section className="card">
-            <h2>Evidence & provenance</h2>
-            <EvidenceBadge level={pb.evidenceLevel} explain />
-            {after?.passed && before && before.passed === false ? (
-              <p className="small">
-                Reproduced on <strong>{after.targetName}</strong>: check failed before the fix, passed after. Fix applied
-                by: {fix?.toolName}. Checks run by: {after.toolName}.
-              </p>
-            ) : (
-              <p className="small muted">No reproduced test is recorded for this guide.</p>
-            )}
-            <p className="small muted">
-              Labels are set by a human reviewer. Incident Exchange does not certify that any guidance is safe for your
-              environment.
-            </p>
+          <section className="card fit-card" aria-labelledby="fit-h">
+            <h2 id="fit-h">Does this fit your incident?</h2>
+            <div className="grid-2 fit-grid">
+              <div>
+                <h3 className="small-h">Confirm before relying on it</h3>
+                <ul className="check-list">
+                  {pb.checksBeforeUse.map((c) => (
+                    <li key={c}>{c}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h3 className="small-h">It may not apply if…</h3>
+                <ul className="clue-list warn-list">
+                  {pb.mismatchSignals.map((m) => (
+                    <li key={m.label}>
+                      <strong>{m.label}.</strong> <span className="muted">{m.explanation}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </section>
 
           <section className="card">
@@ -71,31 +91,40 @@ export default function PlaybookPage() {
           </section>
 
           {pb.lockedSteps ? (
-            <section className="card unlocked">
-              <div className="tag-unlocked">Unlocked</div>
+            <section className="card unlocked" aria-label="Purchased guide">
+              <div className="tag-unlocked">Unlocked · revision {pb.entitledRevision}</div>
+              {pb.newerRevisionAvailable && (
+                <div className="state state-info small">A newer revision ({pb.revision}) exists. Your purchase covers revision {pb.entitledRevision}.</div>
+              )}
+              {pb.failedAttempts && (
+                <div className="step-block failed-block">
+                  <h3>What they tried that did not work</h3>
+                  <BulletText text={pb.failedAttempts} />
+                </div>
+              )}
               {(["check", "contain", "recover", "verify"] as const).map((k) => (
                 <div key={k} className="step-block">
                   <h3>{SECTION_INFO[k].title}</h3>
                   <p className="hint">{SECTION_INFO[k].hint}</p>
-                  {k === "verify" ? <VerifyChecklist text={pb.lockedSteps![k]} /> : <BulletText text={pb.lockedSteps![k]} />}
+                  <ActionChecklist playbookId={pb._id} prefix={k} text={pb.lockedSteps![k]} checked={pb.checkedItems} enabled={pb.viewerRole === "buyer"} />
                 </div>
               ))}
               {pb.viewerRole === "buyer" && (
-                <div className="row gap">
+                <div className="row gap wrap">
                   <Link className="btn primary" to={`/playbooks/${id}/feedback`}>
                     Report your outcome
                   </Link>
-                  {pb.successfulPurchaseId && <Link to={`/purchases/${pb.successfulPurchaseId}`}>View purchase receipt</Link>}
+                  {pb.successfulPurchaseId && <Link to={`/purchases/${pb.successfulPurchaseId}`}>View receipt</Link>}
                 </div>
               )}
             </section>
           ) : (
             <section className="card locked">
-              <div className="tag-locked">🔒 Locked</div>
-              <h3>Check · Contain · Recover · Verify</h3>
+              <div className="tag-locked">🔒 Locked — not sent to your browser until purchased</div>
+              <h3>What they tried that did not work · Check · Contain · Recover · Verify</h3>
               <p className="muted">
-                Step-by-step defensive evidence collection, containment, recovery, and a verification checklist unlock
-                after purchase.
+                The detailed recovery sequence, unsuccessful attempts, implementation considerations, and a verification
+                checklist unlock after purchase. The server only sends this text to entitled accounts.
               </p>
             </section>
           )}
@@ -107,35 +136,45 @@ export default function PlaybookPage() {
           {pb.viewerRole === "buyer" && !pb.unlocked && (
             <section className="card buy-box">
               <div className="price-big">
-                <Money minor={pb.priceMinorUnits} currency={pb.currency} />
+                <Money atomic={pb.priceAtomic} />
               </div>
-              <p className="small">Unlocks: Check, Contain, Recover, and Verify sections, plus grounded Q&A over them.</p>
-              <table className="split-table">
-                <tbody>
-                  <tr>
-                    <td>Contributor ({CONTRIBUTOR_SHARE_PERCENT}%)</td>
-                    <td>
-                      <Money minor={split.contributorShareMinorUnits} currency={pb.currency} />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Platform ({PLATFORM_SHARE_PERCENT}%)</td>
-                    <td>
-                      <Money minor={split.platformShareMinorUnits} currency={pb.currency} />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <p className="small muted">Prototype split — a demo assumption, not final commercial policy.</p>
-              <IntegrationBadge state="demo" name="Payment" />
+              <p className="small">Unlocks revision {pb.revision}: failed attempts, Check, Contain, Recover, Verify, and Q&A over them.</p>
+              <details className="small">
+                <summary>Network and revenue split</summary>
+                <table className="split-table">
+                  <tbody>
+                    <tr>
+                      <td>Contributor accrual ({CONTRIBUTOR_SHARE_PERCENT}%)</td>
+                      <td>
+                        <Money atomic={split.contributorShareAtomic} />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Platform fee ({PLATFORM_SHARE_PERCENT}%)</td>
+                      <td>
+                        <Money atomic={split.platformShareAtomic} />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="muted">Test USDC on Base Sepolia (or a labeled simulator). Prototype split; accrual is not a payout.</p>
+              </details>
               <Link className="btn primary block" to={`/playbooks/${id}/checkout`}>
-                Continue to demo checkout
+                Unlock guide
               </Link>
             </section>
           )}
 
+          <section className="card" aria-labelledby="ev-h">
+            <h3 id="ev-h">Test evidence</h3>
+            <EvidenceBadge level={pb.evidenceLevel} explain />
+            <p className="small">{pb.evidenceScope}</p>
+            {reproduced ? <EvidenceDetails before={before!} fix={fix} after={after!} /> : <p className="small muted">No reproduced test is recorded for this guide.</p>}
+          </section>
+
           <section className="card">
-            <h3>Public references</h3>
+            <h3>Free public context</h3>
+            <p className="small muted">Public sources are free and are not the contributor's private lesson.</p>
             {pb.references.length === 0 ? (
               <p className="muted small">No public references attached.</p>
             ) : (
@@ -145,9 +184,11 @@ export default function PlaybookPage() {
                     <a href={r.url} target="_blank" rel="noreferrer noopener">
                       {r.title}
                     </a>
-                    <div className="small muted">{r.sourceName}</div>
+                    <div className="small muted">
+                      {r.sourceName} · retrieved {formatDate(r.retrievedAt)}
+                    </div>
                     <div className="small">{r.relevanceNote}</div>
-                    <span className={`badge ${r.seeded ? "muted-badge" : "ok"}`}>{r.seeded ? "Seeded reference — not live-retrieved" : "Retrieved via Apify"}</span>
+                    <span className={`badge ${r.seeded ? "muted-badge" : "ok"}`}>{r.seeded ? "Curated reference (not live-retrieved)" : "Retrieved via Apify"}</span>
                   </li>
                 ))}
               </ul>
@@ -166,7 +207,7 @@ export default function PlaybookPage() {
           </section>
 
           <section className="card urgent">
-            <h3>Urgent basic advice (always free)</h3>
+            <h3>Urgent basics (always free)</h3>
             <ul className="bullets small">
               {URGENT_SAFETY_ADVICE.map((a) => (
                 <li key={a}>{a}</li>
@@ -179,20 +220,85 @@ export default function PlaybookPage() {
   );
 }
 
-function VerifyChecklist({ text }: { text: string }) {
+function EvidenceDetails({ before, fix, after }: { before: Run; fix?: Run; after: Run }) {
+  const passed = (r: Run) => r.outputLines.filter((l) => l.startsWith("PASS")).length;
+  const total = (r: Run) => r.outputLines.filter((l) => l.startsWith("PASS") || l.startsWith("FAIL")).length;
+  return (
+    <details className="evidence-details">
+      <summary>Fix tested on the sample app — see run</summary>
+      <table className="ba-table">
+        <thead>
+          <tr>
+            <th />
+            <th>Before fix</th>
+            <th>After fix</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Result</td>
+            <td className="result-fail">FAIL</td>
+            <td className="result-pass">PASS</td>
+          </tr>
+          <tr>
+            <td>Checks passed</td>
+            <td>
+              {passed(before)}/{total(before)}
+            </td>
+            <td>
+              {passed(after)}/{total(after)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="small">
+        <strong>Target:</strong> {after.targetName}
+        <br />
+        <strong>Check:</strong> {after.checkName}
+        <br />
+        <strong>Checks run by:</strong> {after.toolName}
+        {fix && (
+          <>
+            <br />
+            <strong>Fix by:</strong> {fix.toolName}
+          </>
+        )}
+        <br />
+        <strong>When:</strong> {formatDate(after.runAt)}
+      </p>
+      <pre className="run-pre">{after.outputLines.join("\n")}</pre>
+      <p className="small muted">Reproduced in a toy environment with synthetic data. It does not show the fix works on your production system.</p>
+    </details>
+  );
+}
+
+/** Buyer's own progress; saved per account and never modifies the contributor's guide. */
+function ActionChecklist({ playbookId, prefix, text, checked, enabled }: { playbookId: Id<"playbooks">; prefix: string; text: string; checked: string[]; enabled: boolean }) {
+  const { actor } = useSession();
+  const set = useAction(useMutation(api.playbooks.setChecklistItem));
   const items = text.split("\n").map((l) => l.replace(/^\s*-\s*/, "").trim()).filter(Boolean);
-  const [done, setDone] = useState<boolean[]>(() => items.map(() => false));
+  if (!enabled) return <BulletText text={text} />;
+  const done = items.filter((_, i) => checked.includes(`${prefix}-${i}`)).length;
   return (
     <div className="verify-list">
-      {items.map((it, i) => (
-        <label key={i} className="check">
-          <input type="checkbox" checked={done[i]} onChange={(e) => setDone(done.map((d, j) => (j === i ? e.target.checked : d)))} />
-          {it}
-        </label>
-      ))}
+      {items.map((it, i) => {
+        const itemId = `${prefix}-${i}`;
+        return (
+          <label key={itemId} className="check">
+            <input
+              type="checkbox"
+              checked={checked.includes(itemId)}
+              disabled={set.pending}
+              onChange={(e) => void set.run({ actor, playbookId, itemId, checked: e.target.checked })}
+            />
+            {it}
+          </label>
+        );
+      })}
       <div className="small muted">
-        {done.filter(Boolean).length} of {items.length} verified (stored only in this browser tab)
+        {done} of {items.length} done · saved to your account
       </div>
+      <ErrorBox message={set.error} />
     </div>
   );
 }
@@ -207,12 +313,12 @@ function QaBox({ playbookId, unlocked }: { playbookId: Id<"playbooks">; unlocked
   return (
     <section className="card qa">
       <div className="toolbar">
-        <h3>Ask this playbook</h3>
+        <h3>Ask this guide</h3>
         {moss && <IntegrationBadge state={moss.state} name="Moss" />}
       </div>
       <p className="small muted">
-        Answers come only from this guide’s {unlocked ? "sections" : "free preview sections (unlock for the rest)"}, with
-        section citations. Private contributor notes are never used.
+        Answers come only from this guide’s {unlocked ? "sections" : "free preview (unlock for the rest)"}, with section
+        citations. Private contributor notes are never used.
       </p>
       <form
         className="row gap"
@@ -222,7 +328,7 @@ function QaBox({ playbookId, unlocked }: { playbookId: Id<"playbooks">; unlocked
           setAnswer(await ask.run({ actor, playbookId, question }));
         }}
       >
-        <input className="grow" aria-label="Question" placeholder="e.g. How do I confirm lockout is working?" value={question} onChange={(e) => setQuestion(e.target.value)} />
+        <input className="grow" aria-label="Question" placeholder="e.g. How do I confirm the fix worked?" value={question} onChange={(e) => setQuestion(e.target.value)} />
         <button className="btn" disabled={ask.pending}>
           {ask.pending ? "Asking…" : "Ask"}
         </button>
@@ -252,16 +358,16 @@ function QaBox({ playbookId, unlocked }: { playbookId: Id<"playbooks">; unlocked
             </div>
           )}
           {answer.engine !== "fallback" && !answer.grounded && answer.answer !== NOT_ENOUGH_INFO && (
-            <div className="small warn-text">Moss did not cite a section for this answer — check it against the guide.</div>
+            <div className="small warn-text">No section was cited for this answer — check it against the guide.</div>
           )}
           {answer.note && <div className="small warn-text">{answer.note}</div>}
           <div className="small muted">
             Engine:{" "}
             {answer.engine === "moss_index"
-              ? "Moss Inference, retrieving from this playbook’s Moss index"
+              ? "Moss Inference, retrieving from this guide’s Moss index"
               : answer.engine === "moss_context"
-                ? "Moss Inference, answering from this playbook’s sections (no index built)"
-                : "deterministic fallback"}
+                ? "Moss Inference, answering from this guide’s sections"
+                : "deterministic keyword fallback"}
           </div>
         </div>
       )}

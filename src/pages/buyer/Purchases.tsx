@@ -40,7 +40,7 @@ function Purchases() {
                 <tr key={p._id}>
                   <td>{p.playbookTitle}</td>
                   <td>
-                    <Money minor={p.amountMinorUnits} currency={p.currency} />
+                    <Money atomic={p.amountAtomic} />
                   </td>
                   <td>
                     <span className="badge">{p.paymentStatus.replace("_", " ")}</span>

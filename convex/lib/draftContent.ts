@@ -7,6 +7,7 @@ export function buyerFacingFields(draft: Doc<"incidentDrafts">): Record<string, 
   const fields: Record<string, string> = {
     publicTitle: draft.publicTitle,
     sanitizedSummary: draft.sanitizedSummary,
+    failedAttempts: draft.failedAttempts,
   };
   if (draft.sections) {
     for (const key of SECTION_KEYS) fields[key] = draft.sections[key].body;
@@ -18,7 +19,8 @@ export function draftContentHash(draft: Doc<"incidentDrafts">): string {
   return contentHash([
     ...Object.values(buyerFacingFields(draft)),
     draft.systemCategories.join(","),
-    String(draft.priceMinorUnits),
+    draft.priceAtomic,
+    draft.environment.join(","),
     draft.currency,
     draft.sharingLevel,
   ]);

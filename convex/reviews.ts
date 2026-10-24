@@ -43,7 +43,13 @@ function reviewerView(d: Doc<"incidentDrafts">) {
     sanitizedSummary: d.sanitizedSummary,
     systemCategories: d.systemCategories,
     sharingLevel: d.sharingLevel,
-    priceMinorUnits: d.priceMinorUnits,
+    priceAtomic: d.priceAtomic,
+    failedAttempts: d.failedAttempts,
+    environment: d.environment,
+    applicability: d.applicability,
+    evidenceScope: d.evidenceScope,
+    toyCase: d.toyCase,
+    revision: d.revision,
     currency: d.currency,
     sections: d.sections,
     draftEngine: d.draftEngine,
@@ -117,8 +123,9 @@ export const decide = mutation({
     note: v.string(),
     evidenceLevel: v.optional(evidenceLevelV),
     checklist: checklistV,
+    sectionKey: v.optional(v.string()),
   },
-  handler: async (ctx, { actor, draftId, decision, note, evidenceLevel, checklist }) => {
+  handler: async (ctx, { actor, draftId, decision, note, evidenceLevel, checklist, sectionKey }) => {
     const reviewer = await requireRole(ctx, actor, "reviewer");
     const draft = await ctx.db.get(draftId);
     if (!draft) throw new ConvexError("Draft not found.");
@@ -144,6 +151,9 @@ export const decide = mutation({
       decision,
       evidenceLevel: decision === "approve" ? evidenceLevel : undefined,
       note: note.trim(),
+      sectionKey: decision === "request_changes" ? sectionKey : undefined,
+      revision: draft.contributorApproval?.revision ?? draft.revision,
+      contentHash: draft.contributorApproval?.contentHash ?? draftContentHash(draft),
       isDemo: draft.isDemo,
       createdAt: Date.now(),
     });

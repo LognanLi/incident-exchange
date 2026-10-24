@@ -11,10 +11,11 @@
     "dev:factory": "node scripts/factory-runner.mjs",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b && tsc -p convex --noEmit",
-    "test": "vitest run",
+    "test": "vitest run && node --test toy-apps/toy.test.mjs",
     "e2e": "node e2e/demo-flow.mjs",
     "demo:reset": "convex run demo:reset",
-    "x402:setup": "convex run x402Node:setup"
+    "x402:setup": "convex run x402Node:setup",
+    "test:toys": "node --test toy-apps/toy.test.mjs"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.60.0",

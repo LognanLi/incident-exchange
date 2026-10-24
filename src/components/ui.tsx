@@ -4,12 +4,12 @@ import { Link } from "react-router-dom";
 import {
   EVIDENCE_INFO,
   STATUS_LABELS,
-  formatMoney,
   type DraftStatus,
   type EvidenceLevel,
   type Role,
 } from "../../convex/lib/domain";
 import { useSession } from "../session";
+import { formatPrice } from "../../convex/lib/money";
 
 export function errorMessage(err: unknown): string {
   if (err instanceof ConvexError) return typeof err.data === "string" ? err.data : JSON.stringify(err.data);
@@ -74,8 +74,9 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
-export function Money({ minor, currency = "USD" }: { minor: number; currency?: string }) {
-  return <span className="money">{formatMoney(minor, currency)}</span>;
+/** Prices are integer atomic units (USDC: 6 decimals) formatted for display only. */
+export function Money({ atomic, currency = "USDC" }: { atomic: string; currency?: string }) {
+  return <span className="money">{formatPrice(atomic, currency)}</span>;
 }
 
 export function EvidenceBadge({ level, explain = false }: { level: EvidenceLevel; explain?: boolean }) {

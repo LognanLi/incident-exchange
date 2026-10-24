@@ -4,9 +4,10 @@ import { internal } from "./_generated/api";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { seededReferencesFor } from "./lib/apify";
-import { buildSearchText } from "./lib/publish";
-import { CATALOG_PLAYBOOKS, NORTHSTAR_DRAFT, SEED_ORGS, TOY_TARGET } from "./lib/seedData";
-import { MISCONFIGURED } from "./lib/toyAuth";
+import { publishPlaybook } from "./lib/publish";
+import { SEED_ORGS, TOY_AUTHORIZATION_NOTE } from "./lib/seedData";
+import { CATALOG, PRIMARY_DRAFT } from "./lib/scenarios";
+import { recordSeedValidation, toyTargetName } from "./validation";
 
 function assertDemoEnabled() {
   if (process.env.DEMO_MODE === "off") throw new ConvexError("Demo controls are disabled on this deployment.");
@@ -20,60 +21,100 @@ export const listOrgs = query({
   },
 });
 
+const DAY = 86_400_000;
+
 async function seed(ctx: MutationCtx) {
   const now = Date.now();
   const orgIds = new Map<string, Id<"organizations">>();
-  for (const o of SEED_ORGS) {
-    orgIds.set(o.slug, await ctx.db.insert("organizations", { ...o, isDemo: true, createdAt: now }));
+  for (const o of SEED_ORGS) orgIds.set(o.slug, await ctx.db.insert("organizations", { ...o, isDemo: true, createdAt: now }));
+  const orgBySlug = new Map(SEED_ORGS.map((o) => [o.slug, o]));
+
+  for (const toyCase of ["webhook", "tenant", "keycache"] as const) {
+    await ctx.db.insert("toyTargets", {
+      slug: toyCase,
+      name: toyTargetName(toyCase),
+      kind: "local_demo",
+      authorized: true,
+      authorizationNote: TOY_AUTHORIZATION_NOTE,
+      variant: "vulnerable",
+      isDemo: true,
+    });
   }
 
-  const northstarDraftId = await ctx.db.insert("incidentDrafts", {
-    ...NORTHSTAR_DRAFT,
+  // Primary case: a contributor DRAFT so the demo walks the whole lifecycle.
+  const p = PRIMARY_DRAFT;
+  const draftId = await ctx.db.insert("incidentDrafts", {
     contributorOrgId: orgIds.get("northstar")!,
+    title: p.title,
+    privateNotes: p.privateNotes,
+    evidenceSummary: p.evidenceSummary,
+    symptoms: p.symptoms,
+    detectionClues: p.detectionClues,
+    attemptedActions: p.attemptedActions,
+    containmentSteps: p.containmentSteps,
+    recoverySteps: p.recoverySteps,
+    verificationSteps: p.verificationSteps,
+    limitations: p.limitations,
+    failedAttempts: p.failedAttempts,
+    identifyingTerms: p.identifyingTerms,
+    publicTitle: p.publicTitle,
+    sanitizedSummary: p.sanitizedSummary,
+    systemCategories: p.systemCategories,
+    environment: p.environment,
+    sharingLevel: "industry_alias",
+    priceAtomic: p.price.amountAtomic,
+    currency: "USDC",
+    applicability: { clues: p.clues, mismatchSignals: p.mismatchSignals, checksBeforeUse: p.checksBeforeUse },
+    evidenceScope: p.evidenceScope,
+    toyCase: p.toyCase,
+    revision: 1,
     privacyFindings: [],
     status: "draft",
     isDemo: true,
     createdAt: now,
     updatedAt: now,
   });
-  for (const r of seededReferencesFor(NORTHSTAR_DRAFT.systemCategories)) {
-    await ctx.db.insert("publicReferences", {
-      incidentDraftId: northstarDraftId,
-      ...r,
-      retrievedAt: now,
-      seeded: true,
-      retrievedVia: "seeded_fallback",
-      isDemo: true,
-    });
+  for (const r of seededReferencesFor("webhook")) {
+    await ctx.db.insert("publicReferences", { incidentDraftId: draftId, ...r, retrievedAt: now, seeded: true, retrievedVia: "seeded_fallback", isDemo: true });
   }
 
-  const cobalt = SEED_ORGS.find((o) => o.slug === "cobalt")!;
-  for (const [i, pb] of CATALOG_PLAYBOOKS.entries()) {
-    const { contributorSlug, ...rest } = pb;
-    await ctx.db.insert("playbooks", {
-      ...rest,
-      contributorOrgId: orgIds.get(contributorSlug)!,
-      contributorAlias: cobalt.publicAlias,
+  // Published catalog. "Test reproduced" guides get real evaluator runs right here.
+  for (const g of CATALOG) {
+    const org = orgBySlug.get(g.contributorSlug)!;
+    const publishedAt = now - g.publishedDaysAgo * DAY;
+    const playbookId = await publishPlaybook(ctx, {
+      contributorOrgId: orgIds.get(g.contributorSlug)!,
+      contributorAlias: org.publicAlias,
       sharingLevel: "industry_alias",
-      currency: "USD",
-      publishedAt: now - (i + 1) * 86_400_000 * 7,
-      active: true,
-      searchText: buildSearchText(rest),
+      publicTitle: g.publicTitle,
+      publicSummary: g.publicSummary,
+      systemCategories: g.systemCategories,
+      environment: g.environment,
+      clues: g.clues,
+      mismatchSignals: g.mismatchSignals,
+      checksBeforeUse: g.checksBeforeUse,
+      evidenceScope: g.evidenceScope,
+      evidenceLevel: g.evidenceLevel,
+      toyCase: g.toyCase,
+      priceAtomic: g.price.amountAtomic,
+      revision: 1,
+      contentHash: `seed:${g.key}`,
+      sections: g.sections,
+      failedAttempts: g.failedAttempts,
+      publishedAt,
       isDemo: true,
     });
+    const family = g.family === "webhook_idempotency" ? "webhook" : g.family === "tenant_export_authz" ? "tenant" : "keycache";
+    for (const r of seededReferencesFor(family)) {
+      await ctx.db.insert("publicReferences", { playbookId, ...r, retrievedAt: now, seeded: true, retrievedVia: "seeded_fallback", isDemo: true });
+    }
+    if (g.toyCase && g.evidenceLevel === "test_reproduced") await recordSeedValidation(ctx, playbookId, g.toyCase, now);
   }
-
-  await ctx.db.insert("toyTargets", {
-    ...TOY_TARGET,
-    kind: "local_demo",
-    authorized: true,
-    config: MISCONFIGURED,
-    configVersion: 1,
-    isDemo: true,
-  });
 }
 
 const DEMO_TABLES = [
+  "buyerChecklists",
+  "playbookRevisions",
   "mossIndexes",
   "outcomeFeedback",
   "purchases",

@@ -3,7 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { requireRole } from "./lib/access";
 import { recordIntegrationEvent } from "./lib/integrations";
 import { splitRevenue } from "./lib/money";
-import { USDC_BASE_SEPOLIA, X402_NETWORK, cdpCredentialsPresent, centsToAtomicUsdc, testChargeCents, testDivisor } from "./lib/x402";
+import { USDC_BASE_SEPOLIA, X402_NETWORK, cdpCredentialsPresent } from "./lib/x402";
 
 // Purchases use Coinbase x402 on Base Sepolia (test USDC) when CDP credentials are set and the
 // wallet setup has run; otherwise the clearly labeled demo simulator. No real funds ever move.
@@ -36,12 +36,13 @@ export const startCheckout = mutation({
       await ctx.db.patch(p._id, { paymentStatus: "cancelled" });
     }
 
-    const split = splitRevenue(pb.priceMinorUnits);
-    const chargeCents = testChargeCents(pb.priceMinorUnits, testDivisor());
+    // Bound to the exact revision, amount, network, and beneficiary at checkout time.
+    const split = splitRevenue(pb.priceAtomic);
     return await ctx.db.insert("purchases", {
       buyerOrgId: buyer._id,
       playbookId,
-      amountMinorUnits: pb.priceMinorUnits,
+      revision: pb.revision,
+      amountAtomic: pb.priceAtomic,
       currency: pb.currency,
       provider,
       paymentStatus: "pending",
@@ -51,8 +52,7 @@ export const startCheckout = mutation({
         ? {
             network: X402_NETWORK,
             asset: USDC_BASE_SEPOLIA,
-            chargeCents,
-            atomicAmount: centsToAtomicUsdc(chargeCents),
+            atomicAmount: pb.priceAtomic,
             payTo: receiver!.address,
           }
         : undefined,
@@ -74,7 +74,6 @@ export const paymentOptions = query({
       walletsReady: !!receiver && !!buyer,
       buyerAddress: buyer?.address,
       receiverAddress: receiver?.address,
-      divisor: testDivisor(),
     };
   },
 });

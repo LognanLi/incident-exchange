@@ -50,12 +50,13 @@ function Dashboard() {
           <span className="stat-value">{counts.published}</span>
         </div>
         <div className="stat earnings">
-          <span className="stat-label">Demo earnings (simulated)</span>
+          <span className="stat-label">Earnings accrued (not paid out)</span>
           <span className="stat-value">
-            <Money minor={data.earningsMinorUnits} currency={data.currency} />
+            <Money atomic={data.accruedAtomic} currency={data.currency} />
           </span>
           <span className="small muted">
-            {data.sales} simulated sale{data.sales === 1 ? "" : "s"} · 80% contributor share (prototype assumption)
+            {data.sales} sale{data.sales === 1 ? "" : "s"} · 80% contributor share (prototype assumption) · paid out:{" "}
+            <Money atomic={data.paidOutAtomic} currency={data.currency} /> — accruals are an internal ledger, not on-chain payouts
           </span>
         </div>
       </div>
@@ -93,7 +94,12 @@ function Dashboard() {
                   <td>
                     {d.stats ? (
                       <>
-                        {d.stats.sales} · <Money minor={d.stats.earnings} />
+                        {d.stats.sales} · <Money atomic={d.stats.accruedAtomic} /> accrued
+                        {d.stats.outcomes.count > 0 && (
+                          <div className="small muted">
+                            {d.stats.outcomes.resolved}/{d.stats.outcomes.count} buyers reported resolved
+                          </div>
+                        )}
                       </>
                     ) : (
                       <span className="muted">—</span>
@@ -120,7 +126,7 @@ function Dashboard() {
               <li key={c._id}>
                 <Link to={`/playbooks/${c._id}`}>{c.publicTitle}</Link>{" "}
                 <span className="muted small">
-                  · {c.stats.sales} sales · <Money minor={c.stats.earnings} />
+                  · {c.stats.sales} sales · <Money atomic={c.stats.accruedAtomic} /> accrued
                 </span>
               </li>
             ))}

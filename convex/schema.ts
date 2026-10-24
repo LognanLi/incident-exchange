@@ -37,6 +37,16 @@ export const sectionsV = v.object({
   limitations: sectionV,
 });
 
+export const toyCaseV = v.union(v.literal("webhook"), v.literal("tenant"), v.literal("keycache"));
+
+const clueV = v.object({ id: v.string(), label: v.string(), terms: v.array(v.string()), weight: v.union(v.literal("key"), v.literal("supporting")) });
+const mismatchV = v.object({ id: v.string(), label: v.string(), terms: v.array(v.string()), explanation: v.string() });
+export const applicabilityV = v.object({
+  clues: v.array(clueV),
+  mismatchSignals: v.array(mismatchV),
+  checksBeforeUse: v.array(v.string()),
+});
+
 export const privacyFindingV = v.object({
   id: v.string(),
   kind: v.string(),
@@ -74,22 +84,31 @@ export default defineSchema({
     recoverySteps: v.string(),
     verificationSteps: v.string(),
     limitations: v.string(),
+    /** What the contributor tried that did not work (becomes paid guide content after review). */
+    failedAttempts: v.string(),
     /** People, products, or customer names the privacy scan must flag. Private. */
     identifyingTerms: v.array(v.string()),
     // ---- Proposed buyer-facing content ----
     publicTitle: v.string(),
     sanitizedSummary: v.string(),
     systemCategories: v.array(v.string()),
+    environment: v.array(v.string()),
     sharingLevel: sharingLevelV,
-    priceMinorUnits: v.number(),
+    /** Integer atomic units of `currency` (USDC: 6 decimals). */
+    priceAtomic: v.string(),
     currency: v.string(),
     sections: v.optional(sectionsV),
+    applicability: v.optional(applicabilityV),
+    evidenceScope: v.string(),
+    toyCase: v.optional(toyCaseV),
+    /** Increments when shareable content changes after it was approved or submitted. */
+    revision: v.number(),
     draftEngine: v.optional(v.union(v.literal("moss"), v.literal("fallback"))),
     // ---- Privacy review ----
     privacyFindings: v.array(privacyFindingV),
     privacyScannedHash: v.optional(v.string()),
     privacyScannedAt: v.optional(v.number()),
-    contributorApproval: v.optional(v.object({ at: v.number(), contentHash: v.string() })),
+    contributorApproval: v.optional(v.object({ at: v.number(), contentHash: v.string(), revision: v.number() })),
     // ---- Lifecycle ----
     status: draftStatusV,
     reviewerNote: v.optional(v.string()),
@@ -109,19 +128,19 @@ export default defineSchema({
     contributorAlias: v.string(),
     publicTitle: v.string(),
     publicSummary: v.string(),
-    publicSteps: v.object({
-      recognize: v.string(),
-      check: v.string(),
-      contain: v.string(),
-      recover: v.string(),
-      verify: v.string(),
-    }),
+    /** Free preview sections only. Paid sections live in playbookRevisions. */
+    previewRecognize: v.string(),
     publicLimitations: v.string(),
     systemCategories: v.array(v.string()),
+    environment: v.array(v.string()),
+    applicability: applicabilityV,
+    evidenceScope: v.string(),
+    toyCase: v.optional(toyCaseV),
     sharingLevel: sharingLevelV,
     evidenceLevel: evidenceLevelV,
-    priceMinorUnits: v.number(),
+    priceAtomic: v.string(),
     currency: v.string(),
+    revision: v.number(),
     publishedAt: v.number(),
     active: v.boolean(),
     searchText: v.string(),
@@ -134,7 +153,12 @@ export default defineSchema({
     .searchIndex("search_text", { searchField: "searchText", filterFields: ["active"] }),
 
   publicReferences: defineTable({
-    incidentDraftId: v.id("incidentDrafts"),
+    incidentDraftId: v.optional(v.id("incidentDrafts")),
+    playbookId: v.optional(v.id("playbooks")),
+    sourceType: v.optional(v.union(v.literal("provider_docs"), v.literal("security_guidance"), v.literal("advisory_index"))),
+    excerpt: v.optional(v.string()),
+    checksum: v.optional(v.string()),
+    stale: v.optional(v.boolean()),
     title: v.string(),
     sourceName: v.string(),
     url: v.string(),
@@ -147,6 +171,7 @@ export default defineSchema({
     isDemo: v.boolean(),
   })
     .index("by_draft", ["incidentDraftId"])
+    .index("by_playbook", ["playbookId"])
     .index("by_isDemo", ["isDemo"]),
 
   reviews: defineTable({
@@ -162,6 +187,11 @@ export default defineSchema({
     decision: v.union(v.literal("approve"), v.literal("request_changes"), v.literal("reject")),
     evidenceLevel: v.optional(evidenceLevelV),
     note: v.string(),
+    /** For "request changes": the section the contributor should fix. */
+    sectionKey: v.optional(v.string()),
+    /** The exact contributor-approved revision this decision applies to. */
+    revision: v.number(),
+    contentHash: v.string(),
     isDemo: v.boolean(),
     createdAt: v.number(),
   })
@@ -169,24 +199,22 @@ export default defineSchema({
     .index("by_isDemo", ["isDemo"]),
 
   toyTargets: defineTable({
-    slug: v.string(),
+    slug: toyCaseV,
     name: v.string(),
     kind: v.literal("local_demo"),
     authorized: v.boolean(),
     authorizationNote: v.string(),
-    config: v.object({
-      maxFailedAttempts: v.number(),
-      lockoutWindowSeconds: v.number(),
-      alertOnRepeatedFailures: v.boolean(),
-    }),
-    configVersion: v.number(),
+    /** Which implementation the local validator evaluates. */
+    variant: v.union(v.literal("vulnerable"), v.literal("fixed")),
     isDemo: v.boolean(),
   })
     .index("by_slug", ["slug"])
     .index("by_isDemo", ["isDemo"]),
 
   validationRuns: defineTable({
-    incidentDraftId: v.id("incidentDrafts"),
+    incidentDraftId: v.optional(v.id("incidentDrafts")),
+    playbookId: v.optional(v.id("playbooks")),
+    toyCase: v.optional(toyCaseV),
     targetName: v.string(),
     authorizationStatus: v.string(),
     step: v.union(v.literal("before"), v.literal("fix"), v.literal("after")),
@@ -196,17 +224,49 @@ export default defineSchema({
     resultSummary: v.string(),
     outputLines: v.array(v.string()),
     patchSummary: v.optional(v.string()),
-    runByOrgId: v.id("organizations"),
+    artifactRef: v.optional(v.string()),
+    runByOrgId: v.optional(v.id("organizations")),
     isDemo: v.boolean(),
     runAt: v.number(),
   })
     .index("by_draft", ["incidentDraftId"])
+    .index("by_playbook", ["playbookId"])
+    .index("by_isDemo", ["isDemo"]),
+
+  /** Paid guide content per published revision. Never read by public/preview queries. */
+  playbookRevisions: defineTable({
+    playbookId: v.id("playbooks"),
+    revision: v.number(),
+    contentHash: v.string(),
+    check: v.string(),
+    contain: v.string(),
+    recover: v.string(),
+    verify: v.string(),
+    failedAttempts: v.string(),
+    publishedAt: v.number(),
+    isDemo: v.boolean(),
+  })
+    .index("by_playbook_revision", ["playbookId", "revision"])
+    .index("by_isDemo", ["isDemo"]),
+
+  /** A buyer's own progress through a guide's verify checklist (never edits the guide). */
+  buyerChecklists: defineTable({
+    buyerOrgId: v.id("organizations"),
+    playbookId: v.id("playbooks"),
+    revision: v.number(),
+    checked: v.array(v.string()),
+    isDemo: v.boolean(),
+    updatedAt: v.number(),
+  })
+    .index("by_buyer_playbook", ["buyerOrgId", "playbookId"])
     .index("by_isDemo", ["isDemo"]),
 
   purchases: defineTable({
     buyerOrgId: v.id("organizations"),
     playbookId: v.id("playbooks"),
-    amountMinorUnits: v.number(),
+    /** The guide revision this purchase grants. */
+    revision: v.number(),
+    amountAtomic: v.string(),
     currency: v.string(),
     provider: v.union(v.literal("demo_simulator"), v.literal("x402_test")),
     paymentStatus: v.union(
@@ -215,15 +275,15 @@ export default defineSchema({
       v.literal("test_success"),
       v.literal("cancelled"),
     ),
-    contributorShareMinorUnits: v.number(),
-    platformShareMinorUnits: v.number(),
+    /** Internal accrual ledger (exact integer split of amountAtomic). Not an on-chain payout. */
+    contributorShareAtomic: v.string(),
+    platformShareAtomic: v.string(),
     transactionReference: v.string(),
     /** Present for x402 test purchases: what actually settled on Base Sepolia. */
     x402: v.optional(
       v.object({
         network: v.string(),
         asset: v.string(),
-        chargeCents: v.number(),
         atomicAmount: v.string(),
         payTo: v.string(),
         payer: v.optional(v.string()),
