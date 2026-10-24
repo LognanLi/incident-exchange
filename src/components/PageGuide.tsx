@@ -4,7 +4,7 @@ import { Icon } from "./icons";
 
 /** Plain-language explanations for non-technical viewers. */
 export const GLOSSARY: Record<string, string> = {
-  playbook: "A step-by-step guide written by a team that already fixed this kind of problem.",
+  guide: "A step-by-step write-up by a team that already fixed this kind of problem.",
   "privacy scan": "An automatic check that finds names, emails, and other details that could show who shared a guide. You remove them before anyone sees it.",
   "evidence level": "How much proof backs a guide: the contributor's word, a reviewer checked their evidence, or the fix was tested on a sample app.",
   "test reproduced": "The fix was run against a small sample app with fake data: it failed before the fix and passed after. It does not prove it works on your systems.",
@@ -16,8 +16,11 @@ export const GLOSSARY: Record<string, string> = {
   revision: "A specific approved version of a guide. Editing creates a new version that must be approved again.",
 };
 
+const LABELS: Record<string, string> = { tlp: "TLP", "test usdc": "test USDC", x402: "x402" };
+
 export function Term({ k, children }: { k: keyof typeof GLOSSARY | string; children?: ReactNode }) {
   const text = GLOSSARY[k];
+  children = children ?? LABELS[k];
   return (
     <span className="term" tabIndex={0} aria-label={`${children ?? k}: ${text}`}>
       {children ?? k}
@@ -31,7 +34,7 @@ export function Term({ k, children }: { k: keyof typeof GLOSSARY | string; child
 type Guide = { title: string; body: string; terms?: string[] };
 
 const GUIDES: [string, Guide][] = [
-  ["/", { title: "Welcome", body: "Learn how another company fixed a problem like yours. It is private, checked by a person, and costs a small fee.", terms: ["playbook"] }],
+  ["/", { title: "Welcome", body: "Learn how another company fixed a problem like yours. It is private, checked by a person, and costs a small fee.", terms: ["guide"] }],
   ["/how-it-works", { title: "How it works", body: "A 60-second walkthrough of the whole loop, from a private incident to a paid, tested guide.", terms: [] }],
   ["/pricing", { title: "Pricing", body: "What buyers pay, what contributors earn, and what teams get.", terms: ["accrual"] }],
   ["/trust", { title: "Trust & safety", body: "How we hide who shared a guide, keep payments safe, and stop misuse.", terms: ["tlp", "privacy scan"] }],
@@ -39,7 +42,7 @@ const GUIDES: [string, Guide][] = [
   ["/contribute", { title: "Your incidents", body: "Everything your team has shared, where it is in review, and what you have earned.", terms: ["accrual"] }],
   ["/contribute/new", { title: "Share an incident", body: "Describe what happened and what fixed it in plain words. Nothing is shared until you approve it.", terms: [] }],
   ["/contribute/drafts/:id/report", { title: "Step 1 · Your report", body: "Your private notes. Only you and reviewers can see this page.", terms: [] }],
-  ["/contribute/drafts/:id/playbook", { title: "Step 2 · The shareable guide", body: "We turn your notes into six clear sections. Check each one against your notes on the right, then accept it.", terms: ["playbook"] }],
+  ["/contribute/drafts/:id/playbook", { title: "Step 2 · The shareable guide", body: "We turn your notes into six clear sections. Check each one against your notes on the right, then accept it.", terms: ["guide"] }],
   ["/contribute/drafts/:id/privacy", { title: "Step 3 · Privacy check", body: "We look for anything that could identify your company. Fix or remove it, preview exactly what buyers see, then approve.", terms: ["privacy scan", "revision"] }],
   ["/contribute/drafts/:id/status", { title: "Step 4 · Review & publish", body: "A human reviewer checks your guide. Once approved, you give a final yes and it goes live.", terms: [] }],
   ["/review", { title: "Review queue", body: "Guides waiting for a human check before anyone can buy them.", terms: ["evidence level"] }],

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import { useSession } from "../session";
 import { URGENT_SAFETY_ADVICE } from "../../convex/lib/domain";
@@ -49,54 +49,78 @@ export default function Home() {
 
   return (
     <div className="home">
-      <section className="hero2">
-        <div className="hero2-glow" aria-hidden />
-        <span className="pill">Private marketplace for incident response know-how</span>
-        <h1>When something breaks, learn from the team that already fixed it.</h1>
-        <p className="lede">
-          Companies share a privacy-safe write-up of an incident they solved. Other teams describe their symptoms, see
-          honestly whether it fits, and unlock the step-by-step fix — with proof it was tested. Contributors earn 80%.
-        </p>
-        <div className="hero-actions">
-          <button className="btn primary lg" onClick={() => go("buyer", "/playbooks")}>
-            <Icon name="search" /> Describe what you’re seeing
-          </button>
-          <button className="btn lg" onClick={() => go("contributor", "/contribute")}>
-            Share an incident
-          </button>
-          <Link className="btn ghost lg" to="/how-it-works">
-            How it works <Icon name="arrow" />
-          </Link>
+      <section className="hero3">
+        <div>
+          <span className="pill">
+            <span className="dot good" /> Private marketplace for incident response know-how
+          </span>
+          <h1>When something breaks, learn from the team that already fixed it.</h1>
+          <p className="lede">
+            Companies share a privacy-safe write-up of an incident they solved. Other teams describe their symptoms, see
+            honestly whether it fits, and unlock the step-by-step fix — with proof it was tested. Contributors earn 80%.
+          </p>
+          <div className="hero-actions">
+            <button className="btn primary lg" onClick={() => go("buyer", "/playbooks")}>
+              Describe what you’re seeing
+            </button>
+            <button className="btn lg" onClick={() => go("contributor", "/contribute")}>
+              Share an incident
+            </button>
+          </div>
+          {stats && (
+            <dl className="hero-proof">
+              <div>
+                <dt>guides available</dt>
+                <dd>
+                  <CountUp to={stats.guides} />
+                </dd>
+              </div>
+              <div>
+                <dt>fixes tested on sample apps</dt>
+                <dd>
+                  <CountUp to={stats.reproduced} />
+                </dd>
+              </div>
+              <div>
+                <dt>test runs recorded</dt>
+                <dd>
+                  <CountUp to={stats.testRuns} />
+                </dd>
+              </div>
+            </dl>
+          )}
+          <p className="tiny muted">Demo data · all companies are fictional · counts are live</p>
         </div>
-        {stats && (
-          <dl className="hero-stats">
-            <div>
-              <dt>Guides available</dt>
-              <dd>
-                <CountUp to={stats.guides} />
-              </dd>
+        <div className="hero-demo" aria-label="Example of a symptom search">
+          <div className="small muted">Example search</div>
+          <div className="hero-demo-q">
+            <Icon name="search" size={16} /> orders are created twice and the queue fills up after restarts
+            <span className="caret" aria-hidden />
+          </div>
+          <div className="hero-demo-result">
+            <div className="small">
+              <span className="dot good" />
+              <strong>Strong overlap</strong> · 2 of 2 key signs match
             </div>
-            <div>
-              <dt>Fixes tested on sample apps</dt>
-              <dd>
-                <CountUp to={stats.reproduced} />
-              </dd>
+            <h4>Duplicate jobs after webhook retries</h4>
+            <div className="hero-demo-meta">
+              <span>Test reproduced</span>
+              <span>TLP:GREEN</span>
+              <span>0.50 USDC</span>
             </div>
-            <div>
-              <dt>Test runs recorded</dt>
-              <dd>
-                <CountUp to={stats.testRuns} />
-              </dd>
+          </div>
+          <div className="hero-demo-result">
+            <div className="small">
+              <span className="dot warn" />
+              <strong>May not apply</strong> · no repeated event IDs
             </div>
-            <div>
-              <dt>Buyer outcomes reported</dt>
-              <dd>
-                <CountUp to={stats.outcomes} />
-              </dd>
+            <h4>Queue backlog after a deploy from a slow consumer</h4>
+            <div className="hero-demo-meta">
+              <span>Contributor reported</span>
+              <span>0.10 USDC</span>
             </div>
-          </dl>
-        )}
-        <p className="tiny muted">Demo data · all companies are fictional · counts are live from the database</p>
+          </div>
+        </div>
       </section>
 
       <section>

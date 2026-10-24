@@ -223,3 +223,28 @@ HTML of 24 sites was fetched with curl and scanned for theme colors, font famili
 Most frequent easing curves across linear/attio/supabase/cloudflare/clerk/ramp/mercury/posthog/vercel: `cubic-bezier(0.33,1,0.68,1)` (ease-out-cubic, 61×), `cubic-bezier(0.4,0.36,0,1)` (40×), `cubic-bezier(0.25,0.46,0.45,0.94)` (35×), `cubic-bezier(.4,0,.2,1)` (28×), `cubic-bezier(0.22,1,0.36,1)` (ease-out-quint, 16×).
 
 **Applied to Incident Exchange:** near-neutral canvas + near-black sidebar (Linear/Vercel/Resend), one saturated accent (Arc/Cloudflare pattern, we use indigo), sans + mono pairing for data (Geist/Plaid/Raycast), product-app vertical sidebar (Linear/Supabase/Attio/Figma/PostHog), motion with ease-out-cubic/quint at 150–400 ms, all disabled under `prefers-reduced-motion`.
+
+## Visual research round (rendered screenshots, 2026-10-24)
+
+12 homepages were rendered in Chrome at 1280×800 and compared on one contact sheet: attio.com, basecamp.com, cal.com, culturedcode.com/things, linear.app, mercury.com, notion.com, posthog.com, raycast.com, resend.com, stripe.com, vercel.com.
+
+What the least "generated-looking" sites share (Attio, Cal.com, Things, Vercel, Notion, Basecamp, Resend):
+- **Warm white / near-white canvas, near-black text, black primary buttons**; secondary buttons are white with a hairline border.
+- **No decorative gradients or glows**; color is functional (status, one brand mark), not atmospheric. (Stripe/Raycast use gradients, but as a signature brand asset — copying that look is what reads as “AI”.)
+- **The product is the hero image** (Cal.com's booking widget, Attio's app window, Basecamp's project) rather than abstract art.
+- **Confident, tightly tracked headlines**; Resend and Basecamp add an editorial serif.
+- **Hairline 1px borders, near-zero shadows**, generous whitespace, small grey navigation.
+
+### Applied in design v3 (`src/styles.css`, last section)
+| Decision | Source pattern |
+| --- | --- |
+| Canvas #fafaf9, surface #fff, ink #111, secondary text #3f3f46/#6b6b73, hairlines #ebebea | Cal.com, Things, Vercel |
+| Ink-black primary buttons, white hairline secondary | Attio, Cal.com, Vercel |
+| Light app-chrome sidebar (#f4f4f2) with the active tab as a white raised row | Attio, Notion |
+| One functional green (#1f7a4d) for “good/verified”, amber only for “may not apply”; status shown as neutral chips with a colored dot | Linear, Attio |
+| Serif display headline on the home hero | Resend, Basecamp |
+| Hero shows a real product moment (symptom search with Strong overlap / May not apply) | Cal.com, Attio |
+| Motion: 8 px fade-up (ease-out-cubic 420 ms), staggered list reveal (60 ms steps), border/shadow hover (no bounce), sliding tab indicator, toast/palette pop (ease-out-quint), count-up, caret blink — all off under reduced motion | Linear, Vercel, Attio |
+| Removed: indigo→cyan gradients, glowing hero, gradient borders/meters | (avoiding the generic “AI” look) |
+
+TLP labels keep their official FIRST colors (black with green/amber text) because they are a security standard, not decoration.
