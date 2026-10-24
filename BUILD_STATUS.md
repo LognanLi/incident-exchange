@@ -18,7 +18,7 @@ Checks run: `npm run typecheck` ✅ · `npm test` (30 tests) ✅ · `npm run bui
 | 8 | Apify references or clearly identified seeded fallback | ✅ (live Apify) | “Retrieved via Apify”; seeded fallback labeled |
 | 9 | Symptom search returns playbook with plain-language reason | ✅ | e2e, unit tests |
 | 10 | Free preview, evidence, limitations, price before purchase | ✅ | e2e |
-| 11 | x402 if configured, else visible simulator unlocks | ✅ (simulator) · x402 pending secrets | Simulator labeled; x402 402-challenge verified; settled payment pending CDP secrets |
+| 11 | x402 if configured, else visible simulator unlocks | ✅ (live x402) | 0.49 test USDC settled on Base Sepolia, verified on-chain; simulator remains the labeled fallback |
 | 12 | Purchase shows amount + correct split | ✅ | $49.00 → $39.20 / $9.80 |
 | 13 | Toy validation fails before, passes after, truthful attribution | ✅ | Fix by Factory Droid (or local adapter); checks by local validator |
 | 14 | Buyer feedback visible to reviewer | ✅ | e2e |
@@ -31,5 +31,5 @@ Checks run: `npm run typecheck` ✅ · `npm test` (30 tests) ✅ · `npm run bui
 - [x] Moss: connected (index quota caps the plan at three indexes)
 - [x] Apify: connected
 - [x] Factory Droid: connected through the local runner
-- [ ] Coinbase x402: code complete; needs CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET on Convex, then `npm run x402:setup` and a test purchase
+- [x] Coinbase x402: connected (Base Sepolia, CDP Server Wallets)
 - [ ] Armadin (optional): waiting on event documentation

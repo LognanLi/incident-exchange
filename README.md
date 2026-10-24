@@ -2,7 +2,7 @@
 
 A private marketplace where companies turn security incidents into reviewed **defensive** playbooks. Other companies find them by symptoms and pay to unlock them, and contributors earn a share when their experience helps.
 
-> **Demo build.** Every organization, person, host, and incident in the seed data is fictional. Payments are simulated and no real funds move. The product spec is in [`docs/BRIEF.md`](docs/BRIEF.md).
+> **Demo build.** Every organization, person, host, and incident in the seed data is fictional. Payments use Base Sepolia **test** USDC (or a labeled simulator); no real funds move. The product spec is in [`docs/BRIEF.md`](docs/BRIEF.md).
 
 ## Stack
 
@@ -64,7 +64,7 @@ Integrations live behind server-side adapters with labeled local fallbacks, so a
 | **Apify** | ✅ Connected | `apify~website-content-crawler` (cheerio, 1 GB memory) crawls an allowlist of OWASP, NIST, and CISA pages. Anything off-allowlist is dropped. | Seeded references, marked “Seeded reference — not live-retrieved” |
 | **Factory Droid** | ✅ Connected (requires the local runner from `npm run dev`) | `scripts/factory-runner.mjs` (bound to 127.0.0.1) runs `droid exec --auto low --only-tools Read,LS,ApplyPatch` in a temp folder that holds **only** a copy of the toy config, with a fixed prompt. It rejects any other file change or malformed config. Convex re-checks a shared secret, the reviewer role, and value ranges. | “Local demo adapter (deterministic patch)” |
 | **Armadin** | ❌ Unavailable: no interface provided | — | “Local validator (toy-auth check)”. Checks are never attributed to Armadin. |
-| **Coinbase x402** | 🟡 Code complete and checked against the public x402 facilitator (valid 402 challenge for 0.49 test USDC on Base Sepolia). **Needs the three CDP secrets** before a settled payment can be run. | The buyer pays from a backend CDP Server Wallet (`ix-demo-buyer-harbor`) to a CDP receiver wallet (`ix-demo-platform-receiver`) over the real x402 HTTP flow: Convex endpoint `POST /x402/purchases/<id>` → 402 → signed EIP-3009 payment → Coinbase facilitator verifies and settles → unlock. Spend controls cap each payment at 1 test USDC, Base Sepolia USDC only, to our receiver only. The test charge is the list price ÷ 100 because of faucet limits. | “Demo payment” simulator. Purchases are stored as `simulated_success`, never as “settled”. |
+| **Coinbase x402** | ✅ Connected. A test purchase settled on Base Sepolia: tx `0xc8e96062…3c0991c`, 0.49 USDC from buyer to receiver, confirmed on-chain. | The buyer pays from a backend CDP Server Wallet (`ix-demo-buyer-harbor`) to a CDP receiver wallet (`ix-demo-platform-receiver`) over the real x402 HTTP flow: Convex endpoint `POST /x402/purchases/<id>` → 402 → signed EIP-3009 payment → Coinbase facilitator verifies and settles → unlock. Spend controls cap each payment at 1 test USDC, Base Sepolia USDC only, to our receiver only. The test charge is the list price ÷ 100 because of faucet limits. | “Demo payment” simulator. Purchases are stored as `simulated_success`, never as “settled”. |
 
 ### Coinbase x402 setup (Base Sepolia)
 

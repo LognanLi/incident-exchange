@@ -40,7 +40,7 @@ export default function App() {
   return (
     <div className="app">
       <div className="demo-strip" role="note">
-        Demo build — all organizations, people, and incidents are fictional. Payments are simulated; no real funds move.
+        Demo build — all organizations, people, and incidents are fictional. Payments use Base Sepolia test USDC or a simulator; no real funds move.
       </div>
       <header className="topbar">
         <Link to="/" className="brand">

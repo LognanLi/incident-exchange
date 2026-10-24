@@ -39,7 +39,7 @@ https://api.apify.com/v2/actors?token=$APIFY_TOKEN
 
 
 ## Coinbase x402: paid access
-- 🟡 **Code complete; waiting on CDP secrets.** Base Sepolia, with a backend Coinbase-managed (CDP Server Wallet) buyer.
+- ✅ **Connected and verified.** A test purchase settled on Base Sepolia (tx `0xc8e960624a59d41c13bae5f372607bc0b62e26a3f1d4feb65bae793633c0991c`). Buyer: `0x2d6C…5d4F`, receiver: `0x2220…5527`.
 - Secrets go on the **Convex deployment environment**, the only backend that runs payment code: `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`. Set them with `npx convex env set` in your own terminal.
 - Then run `npm run x402:setup` to create and fund the wallets, and buy a guide as Harbor Analytics.
 - Code: `convex/x402Node.ts` (setup, seller endpoint logic, buyer payment), `convex/http.ts` (`POST /x402/purchases/<id>`), `convex/x402State.ts`.
