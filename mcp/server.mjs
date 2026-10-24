@@ -10,7 +10,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ConvexHttpClient } from "convex/browser";
 import { anyApi } from "convex/server";
-import { initMoss, refresh, semanticCandidates, mossStatus } from "./mossSearch.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const PORT = Number(process.env.MCP_PORT ?? 8787);
@@ -31,10 +30,8 @@ if (!SVC || !CONVEX_URL) {
   process.exit(1);
 }
 const convex = new ConvexHttpClient(CONVEX_URL);
-initMoss(secrets.MOSS_PROJECT_ID, secrets.MOSS_PROJECT_KEY);
-const refreshIndex = () => convex.query(anyApi.mcp.publicPreviews, { svc: SVC }).then(refresh).catch(() => undefined);
-void refreshIndex();
-setInterval(refreshIndex, 60_000).unref();
+// Retrieval state from the most recent search (the shared Moss index lives in Convex).
+let lastRetrieval = { engine: "unknown" };
 const hits = new Map(); // per authenticated token hash → recent request times
 let authFailures = []; // global: bounds credential guessing and Convex load from unauthenticated callers
 setInterval(() => {
@@ -70,17 +67,25 @@ function buildServer(token) {
   server.registerTool("get_exchange_capabilities", { title: "Exchange capabilities", description: "Schema version, tools, payment network, limits, and integration health.", inputSchema: {}, annotations: ro },
     async () => {
       const r = await call("query", anyApi.mcp.capabilities, { svc: SVC }, (d) => `Schema v${d.schemaVersion}; payments ${d.payment.mode} on ${d.payment.network}.`);
-      if (r.structuredContent?.data) r.structuredContent.data.retrieval = { engine: mossStatus().ready ? "moss" : "lexical_fallback", ...mossStatus() };
+      if (r.structuredContent?.data) r.structuredContent.data.retrieval = lastRetrieval;
       return r;
     });
 
   server.registerTool("search_resolutions", { title: "Search resolutions", description: "Search approved resolution previews with sanitized symptoms and environment facts. Never send raw logs or code.", inputSchema: { symptoms: z.string().min(8).max(2000), environment: list.default([]) }, annotations: ro },
     async (a) => {
-      // Moss semantic candidates over public previews (if available); Convex enforces approval and explains matches.
-      const sem = await semanticCandidates(`${a.symptoms}\n${a.environment.join(", ")}`);
-      const r = await call("query", anyApi.mcp.search, { ...auth, symptoms: a.symptoms, environment: a.environment, ...(sem ? { semantic: sem.candidates } : {}) },
-        (d) => `${d.length} match(es) via ${sem ? `Moss retrieval (${sem.latencyMs} ms)` : "lexical fallback"}. Top: “${d[0].title}” (${d[0].relevanceLabel}, ${d[0].price.amountAtomic} atomic USDC).`);
-      if (r.structuredContent) r.structuredContent.provenance = { mode: sem ? "live" : "local", sourceIds: [sem ? "moss:ix-public-previews" : "lexical-fallback"], ...(sem ? { retrievalLatencyMs: sem.latencyMs } : { fallbackReason: mossStatus().error ?? "moss index not ready" }) };
+      // Convex queries the shared Moss public-preview index, enforces approval, and explains matches.
+      let ret = null;
+      const r = await call("action", anyApi.semanticSearch.mcpSearch, { ...auth, symptoms: a.symptoms, environment: a.environment },
+        (d) => {
+          ret = d.retrieval;
+          const via = ret.engine === "moss_semantic" ? `Moss semantic search (${ret.latencyMs} ms)` : `keyword fallback (${ret.fallbackReason})`;
+          return `${d.results.length} match(es) via ${via}. Top: “${d.results[0].title}” (${d.results[0].relevanceLabel}, ${d.results[0].price.amountAtomic} atomic USDC).`;
+        });
+      if (r.structuredContent?.data) {
+        lastRetrieval = ret;
+        r.structuredContent.data = r.structuredContent.data.results;
+        r.structuredContent.provenance = { mode: ret.engine === "moss_semantic" ? "live" : "local", sourceIds: [ret.engine === "moss_semantic" ? "moss:ix-public-previews" : "keyword-fallback"], ...(ret.engine === "moss_semantic" ? { retrievalLatencyMs: ret.latencyMs } : { fallbackReason: ret.fallbackReason }) };
+      }
       return r;
     });
 
