@@ -10,6 +10,8 @@ import { mossCredentials } from "./lib/moss";
 import { MIN_SEMANTIC_SCORE, PUBLIC_INDEX_NAME, SEMANTIC_TOP_K, sameDocs, type SemanticCandidate, type SearchEngine } from "./lib/searchIndex";
 import { evidenceLevelV } from "./schema";
 
+// Overridable so isolated test backends never touch the shared index.
+const INDEX = process.env.MOSS_SEARCH_INDEX || PUBLIC_INDEX_NAME;
 const QUERY_TIMEOUT_MS = 15_000;
 const RELOAD_AFTER_MS = 60_000;
 
@@ -39,13 +41,13 @@ async function semanticCandidates(text: string): Promise<Semantic> {
   if (!c) return { error: "Moss is not configured" };
   try {
     if (!loaded || Date.now() - loaded.at > RELOAD_AFTER_MS) {
-      const promise = c.loadIndex(PUBLIC_INDEX_NAME);
+      const promise = c.loadIndex(INDEX);
       loaded = { at: Date.now(), promise };
       promise.catch(() => (loaded = null));
     }
     await withTimeout(loaded.promise, QUERY_TIMEOUT_MS, "Loading the Moss index");
     const t0 = performance.now();
-    const res = await withTimeout(c.query(PUBLIC_INDEX_NAME, text.slice(0, 1000), { topK: SEMANTIC_TOP_K }), QUERY_TIMEOUT_MS, "Moss query");
+    const res = await withTimeout(c.query(INDEX, text.slice(0, 1000), { topK: SEMANTIC_TOP_K }), QUERY_TIMEOUT_MS, "Moss query");
     return {
       latencyMs: Math.round(performance.now() - t0),
       // Weak neighbours are dropped so an unrelated query still gets "no relevant match".
@@ -70,10 +72,10 @@ export const rebuildPublicIndex = internalAction({
     if (!c) return { ok: false, rebuilt: false, docs: 0, error: "Moss is not configured" };
     const docs = await ctx.runQuery(internal.searchIndex.publicIndexSource, {});
     try {
-      const remote = await c.getDocs(PUBLIC_INDEX_NAME).catch(() => null);
+      const remote = await c.getDocs(INDEX).catch(() => null);
       if (remote && sameDocs(remote as never, docs)) return { ok: true, rebuilt: false, docs: docs.length };
-      await c.deleteIndex(PUBLIC_INDEX_NAME).catch(() => undefined);
-      if (docs.length) await c.createIndex(PUBLIC_INDEX_NAME, docs);
+      await c.deleteIndex(INDEX).catch(() => undefined);
+      if (docs.length) await c.createIndex(INDEX, docs);
       loaded = null;
       await ctx.runMutation(internal.searchIndex.recordEvent, { outcome: "success", message: `Rebuilt the Moss public-preview index (${docs.length} guides).` });
       return { ok: true, rebuilt: true, docs: docs.length };
