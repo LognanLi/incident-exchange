@@ -10,6 +10,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ConvexHttpClient } from "convex/browser";
 import { anyApi } from "convex/server";
+import { initMoss, refresh, semanticCandidates, mossStatus } from "./mossSearch.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const PORT = Number(process.env.MCP_PORT ?? 8787);
@@ -30,6 +31,10 @@ if (!SVC || !CONVEX_URL) {
   process.exit(1);
 }
 const convex = new ConvexHttpClient(CONVEX_URL);
+initMoss(secrets.MOSS_PROJECT_ID, secrets.MOSS_PROJECT_KEY);
+const refreshIndex = () => convex.query(anyApi.mcp.publicPreviews, { svc: SVC }).then(refresh).catch(() => undefined);
+void refreshIndex();
+setInterval(refreshIndex, 60_000).unref();
 const hits = new Map();
 
 function envelope(status, data, error, mode = "local") {
@@ -58,10 +63,21 @@ function buildServer(token) {
   const ro = { readOnlyHint: true, openWorldHint: false };
 
   server.registerTool("get_exchange_capabilities", { title: "Exchange capabilities", description: "Schema version, tools, payment network, limits, and integration health.", inputSchema: {}, annotations: ro },
-    () => call("query", anyApi.mcp.capabilities, { svc: SVC }, (d) => `Schema v${d.schemaVersion}; payments ${d.payment.mode} on ${d.payment.network}.`));
+    async () => {
+      const r = await call("query", anyApi.mcp.capabilities, { svc: SVC }, (d) => `Schema v${d.schemaVersion}; payments ${d.payment.mode} on ${d.payment.network}.`);
+      if (r.structuredContent?.data) r.structuredContent.data.retrieval = { engine: mossStatus().ready ? "moss" : "lexical_fallback", ...mossStatus() };
+      return r;
+    });
 
   server.registerTool("search_resolutions", { title: "Search resolutions", description: "Search approved resolution previews with sanitized symptoms and environment facts. Never send raw logs or code.", inputSchema: { symptoms: z.string().min(8).max(2000), environment: list.default([]) }, annotations: ro },
-    (a) => call("query", anyApi.mcp.search, { ...auth, symptoms: a.symptoms, environment: a.environment }, (d) => `${d.length} match(es). Top: “${d[0].title}” (${d[0].relevanceLabel}, ${d[0].price.amountAtomic} atomic USDC).`));
+    async (a) => {
+      // Moss semantic candidates over public previews (if available); Convex enforces approval and explains matches.
+      const sem = await semanticCandidates(`${a.symptoms}\n${a.environment.join(", ")}`);
+      const r = await call("query", anyApi.mcp.search, { ...auth, symptoms: a.symptoms, environment: a.environment, ...(sem ? { semantic: sem.candidates } : {}) },
+        (d) => `${d.length} match(es) via ${sem ? `Moss retrieval (${sem.latencyMs} ms)` : "lexical fallback"}. Top: “${d[0].title}” (${d[0].relevanceLabel}, ${d[0].price.amountAtomic} atomic USDC).`);
+      if (r.structuredContent) r.structuredContent.provenance = { mode: sem ? "live" : "local", sourceIds: [sem ? "moss:ix-public-previews" : "lexical-fallback"], ...(sem ? { retrievalLatencyMs: sem.latencyMs } : { fallbackReason: mossStatus().error ?? "moss index not ready" }) };
+      return r;
+    });
 
   server.registerTool("get_resolution_preview", { title: "Resolution preview", description: "Free applicability, evidence, limitations, and price for one resolution. No paid details.", inputSchema: { resolutionId: z.string().max(64) }, annotations: ro },
     (a) => call("query", anyApi.mcp.preview, { ...auth, resolutionId: a.resolutionId }, (d) => `“${d.title}” rev ${d.revision}: ${d.evidenceLevel}; ${d.price.amountAtomic} atomic USDC.`));

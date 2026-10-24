@@ -103,29 +103,51 @@ export const capabilities = query({
   },
 });
 
+/** Public preview text for the MCP service's shared Moss index (approved + active only; never paid or private text). */
+export const publicPreviews = query({
+  args: { svc: v.string() },
+  handler: async (ctx, { svc }) => {
+    if (!process.env.MCP_SERVICE_SECRET || svc !== process.env.MCP_SERVICE_SECRET) fail("AUTH_REQUIRED", "Unrecognized MCP service.");
+    const active = await ctx.db.query("playbooks").withIndex("by_active", (x) => x.eq("active", true)).collect();
+    return active.map((pb) => ({ id: pb._id, revision: pb.revision, text: [pb.publicTitle, pb.publicSummary, pb.previewRecognize, pb.environment.join(", ")].join("\n").slice(0, 2000) }));
+  },
+});
+
+const TIER = { strong_overlap: 3, some_overlap: 2, needs_evidence: 1 } as const;
+
+/**
+ * Search approved previews. With `semantic` candidates from Moss (id + score), the server still
+ * enforces approved/active and explains each candidate with clue matching; semantic-only candidates
+ * are labeled "needs more evidence". Without candidates: explainable lexical/concept matching.
+ */
 export const search = query({
-  args: { ...authArgs, symptoms: v.string(), environment: v.array(v.string()) },
-  handler: async (ctx, { svc, token, symptoms, environment }) => {
+  args: { ...authArgs, symptoms: v.string(), environment: v.array(v.string()), semantic: v.optional(v.array(v.object({ id: v.string(), score: v.number() }))) },
+  handler: async (ctx, { svc, token, symptoms, environment, semantic }) => {
     await principal(ctx, svc, token, "search");
-    if (symptoms.length > LIMITS.field || environment.length > LIMITS.list) fail("INVALID_INPUT", "Query too long.");
+    if (symptoms.length > LIMITS.field || environment.length > LIMITS.list || (semantic?.length ?? 0) > 20) fail("INVALID_INPUT", "Query too long.");
     const q = `${symptoms} ${environment.join(" ")}`;
     const active = await ctx.db.query("playbooks").withIndex("by_active", (x) => x.eq("active", true)).collect();
+    const semScore = new Map((semantic ?? []).map((s) => [s.id, s.score]));
     const rows = active
-      .map((pb) => ({
-        pb,
-        m: matchGuide(q, { publicTitle: pb.publicTitle, publicSummary: pb.publicSummary, recognize: pb.previewRecognize, systemCategories: pb.systemCategories, environment: pb.environment, clues: pb.applicability.clues, mismatchSignals: pb.applicability.mismatchSignals }),
-      }))
-      .filter((r) => r.m)
-      .sort((a, b) => b.m!.score - a.m!.score)
+      .map((pb) => {
+        const m = matchGuide(q, { publicTitle: pb.publicTitle, publicSummary: pb.publicSummary, recognize: pb.previewRecognize, systemCategories: pb.systemCategories, environment: pb.environment, clues: pb.applicability.clues, mismatchSignals: pb.applicability.mismatchSignals });
+        const sem = semScore.get(pb._id);
+        if (!m && sem === undefined) return null;
+        const label = m?.relevanceLabel ?? "needs_evidence";
+        return { pb, m, label, sem, rank: TIER[label] * 1000 + (sem ?? 0) * 100 + (m?.score ?? 0) };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null && (semantic ? r.sem !== undefined || r.label !== "needs_evidence" : true))
+      .sort((a, b) => b.rank - a.rank)
       .slice(0, 5);
     if (rows.length === 0) fail("NO_RELEVANT_MATCH", "No approved resolution overlaps these symptoms. Do not force a fix.");
-    return rows.map(({ pb, m }) => ({
+    return rows.map(({ pb, m, label, sem }) => ({
       ...previewOf(pb),
-      relevance: m!.relevanceLabel,
-      relevanceLabel: RELEVANCE_INFO[m!.relevanceLabel].label,
-      matchedClues: m!.matchedClues,
-      conflictingClues: m!.conflictingClues,
-      missingChecks: m!.missingChecks,
+      relevance: label,
+      relevanceLabel: RELEVANCE_INFO[label].label,
+      semanticScore: sem ?? null,
+      matchedClues: m?.matchedClues ?? [],
+      conflictingClues: m?.conflictingClues ?? [],
+      missingChecks: m?.missingChecks ?? pb.applicability.clues.filter((c) => c.weight === "key").map((c) => c.label),
     }));
   },
 });
