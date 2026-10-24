@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { formatAtomic } from "../../convex/lib/money";
 import { useSession } from "../session";
 import { ErrorBox, Loading, PageHeader, formatDate } from "../components/ui";
 import { Icon } from "../components/icons";
+import recordingFile from "../recordings/two-agent-run.json";
 
 const RUNNER_URL = (import.meta.env.VITE_FACTORY_RUNNER_URL as string | undefined) ?? "http://127.0.0.1:3299";
 
@@ -13,11 +14,21 @@ function useOverview(actor: string) {
   return useQuery(api.agentsConsole.overview, { actor });
 }
 
+/** A real earlier run captured by scripts/record-run.mjs. Viewing it executes nothing. */
+const recording = recordingFile as unknown as { recordedAt: number; run: { startedAt: number; finishedAt: number; durationMs: number }; source: { deployment: string; commit: string }; overview: Overview };
+const REPLAY_SPEED = 2;
+
+/** Recorded data up to a point in the run's own timeline (for replay). */
+function recordedUntil(t: number): Overview {
+  const o = recording.overview;
+  return { ...o, events: o.events.filter((e) => e.at <= t), runs: o.runs.filter((r) => r.at <= t), outcomes: o.outcomes.filter((x) => x.at <= t), purchases: t >= recording.run.finishedAt ? o.purchases : o.purchases.filter((p) => o.events.some((e) => e.at <= t && e.refs.includes(p._id))) };
+}
+
 const STORY = [
   { key: "a_fixed", label: "A fixed a duplicate-delivery bug", test: (o: Overview) => o.runs.some((r) => r.repo === "repo-a" && r.stage === "candidate" && r.passed) },
   { key: "shared", label: "Shared an approved, sanitized lesson", test: (o: Overview) => o.submissions.some((s) => s.status === "published") },
-  { key: "found", label: "B found an applicable guide via MCP", test: (o: Overview) => o.events.some((e) => e.kind === "quote_resolution") },
-  { key: "paid", label: "Test payment authorized within budget", test: (o: Overview) => o.purchases.some((p) => p.status === "test_success" || p.status === "simulated_success") },
+  { key: "found", label: "B found an applicable guide via MCP", test: (o: Overview) => o.events.some((e) => e.kind === "quote_resolution" || e.kind === "search_resolutions") },
+  { key: "paid", label: "Paid within budget (or reused an earlier purchase)", test: (o: Overview) => o.purchases.some((p) => p.status === "test_success" || p.status === "simulated_success") || o.events.some((e) => e.kind === "entitlement_reused") },
   { key: "adapted", label: "Factory Droid adapted the fix in B", test: (o: Overview) => o.runs.some((r) => r.repo === "repo-b" && r.stage === "candidate") },
   { key: "passed", label: "B's protected tests passed", test: (o: Overview) => o.runs.some((r) => r.repo === "repo-b" && r.stage === "candidate" && r.passed) },
 ];
@@ -25,14 +36,23 @@ const STORY = [
 export default function Agents() {
   const session = useSession();
   const { actor } = session;
-  const o = useOverview(actor);
+  const live = useOverview(actor);
+  const [mode, setMode] = useState<"live" | "recorded">("live");
+  const [replayAt, setReplayAt] = useState<number | null>(null); // null = show the whole recording
+  useEffect(() => {
+    if (mode !== "recorded" || replayAt === null || replayAt >= recording.run.finishedAt) return;
+    const t = setTimeout(() => setReplayAt((x) => (x === null ? null : Math.min(recording.run.finishedAt, x + 500 * REPLAY_SPEED))), 500);
+    return () => clearTimeout(t);
+  }, [mode, replayAt]);
+  const recorded = mode === "recorded";
+  const o = recorded ? recordedUntil(replayAt ?? recording.run.finishedAt) : live;
   const reviewerSlug = session.slugForRole("reviewer");
   const reviewerOrg = session.orgs?.find((x) => x.slug === reviewerSlug);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!o) return <Loading />;
   const job = o.jobs[0];
-  const running = job && job.status === "running";
+  const running = !recorded && job && job.status === "running";
 
   const start = async (simulatePayment: boolean) => {
     setStarting(true);
@@ -41,7 +61,7 @@ export default function Agents() {
       const res = await fetch(`${RUNNER_URL}/agent-demo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor, simulatePayment }) });
       if (!res.ok) setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `Runner responded ${res.status}`);
     } catch {
-      setError("The local runner is offline. Start it with `npm run dev`.");
+      setError(["localhost", "127.0.0.1"].includes(window.location.hostname) ? "The local runner is offline. Start it with `npm run dev`." : "Agent runs start from the presenter’s machine (local runner), not from the hosted site. Results appear here when they run.");
     } finally {
       setStarting(false);
     }
@@ -55,14 +75,42 @@ export default function Agents() {
   return (
     <div className="agents">
       <PageHeader eyebrow="Agents" title="Agents sharing fixes" sub="Agent A shares a verified fix. Agent B finds it, pays, adapts it, and proves it with tests.">
-        <button className="btn primary" disabled={starting || running} onClick={() => void start(false)}>
-          {running ? "Running…" : "Run demo"}
-        </button>
-        <button className="btn" disabled={starting || running} onClick={() => void start(true)} title="Same flow, with a payment simulator instead of test USDC">
-          Simulated payment
-        </button>
+        {!recorded && session.operator && (
+          <>
+            <button className="btn primary" disabled={starting || running} onClick={() => void start(false)}>
+              {running ? "Running…" : "Run demo"}
+            </button>
+            <button className="btn" disabled={starting || running} onClick={() => void start(true)} title="Same flow, with a payment simulator instead of test USDC">
+              Simulated payment
+            </button>
+          </>
+        )}
+        {recorded && (
+          <button className="btn primary" onClick={() => setReplayAt(recording.run.startedAt)} disabled={replayAt !== null && replayAt < recording.run.finishedAt}>
+            {replayAt !== null && replayAt < recording.run.finishedAt ? "Replaying…" : "Replay"}
+          </button>
+        )}
       </PageHeader>
-      {session.role !== "reviewer" && reviewerOrg && (
+      <div className="mode-tabs" role="tablist" aria-label="Live or recorded">
+        <button role="tab" aria-selected={!recorded} className={!recorded ? "active" : ""} onClick={() => setMode("live")}>
+          Live
+        </button>
+        <button role="tab" aria-selected={recorded} className={recorded ? "active" : ""} onClick={() => { setMode("recorded"); setReplayAt(null); }}>
+          Recorded run
+        </button>
+      </div>
+      {recorded && (
+        <div className="recording-banner" role="note">
+          <strong>Recording — not live.</strong> Captured from a real run on {formatDate(recording.run.startedAt)} ({Math.round(recording.run.durationMs / 1000)} s, deployment {recording.source.deployment}, commit {recording.source.commit}).
+          Viewing or replaying it runs no code and moves no money.{replayAt !== null && replayAt < recording.run.finishedAt ? ` Replay at ${REPLAY_SPEED}× · ${Math.round((replayAt - recording.run.startedAt) / 1000)} s into the run.` : ""}
+        </div>
+      )}
+      {!recorded && !session.operator && (
+        <div className="role-note">
+          <span>Live runs are started by the presenter on their machine. Watch here, or open the recorded run.</span>
+        </div>
+      )}
+      {!recorded && session.operator && session.role !== "reviewer" && reviewerOrg && (
         <div className="role-note">
           <span>Runs are started by the reviewer.</span>
           <button className="btn sm" onClick={() => session.setActor(reviewerOrg.slug)}>
@@ -70,8 +118,8 @@ export default function Agents() {
           </button>
         </div>
       )}
-      <ErrorBox message={error} />
-      {job && (
+      {!recorded && <ErrorBox message={error} />}
+      {job && !recorded && (
         <p className="run-meta">
           Last run · {job.status}
           {job.stage ? ` · ${job.stage}` : ""} · {formatDate(job.startedAt)}

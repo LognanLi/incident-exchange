@@ -12,8 +12,11 @@ npm run dev               # web console :5173 · MCP http://127.0.0.1:8787/mcp �
 npm run agent:a           # Agent A: fix repo A, stage sanitized bundle (then --approve <hash> to submit)
 npm run agent:b           # Agent B: MCP search → quote → x402 → Factory repair → protected tests → outcome
 node connector/attack-check.mjs   # live adversarial checks through MCP
+npm run remote:check      # remote HTTPS MCP (Convex) + OAuth client_credentials checks
+npm run deploy:web        # build the console and publish it to https://<deployment>.convex.site/
 ```
-MCP client config: see `docs/agent-sprint/DEMO.md` (placeholder bearer token). Secrets: Convex env (server), `.secrets.local` and `.agent-tokens.local` (local, gitignored) — never in source.
+**Hosted console:** https://quirky-robin-694.convex.site/ (Convex dev deployment). Visitors enter the demo access code (`DEMO_ACCESS_CODE`, in `.secrets.local`; share as `https://quirky-robin-694.convex.site/#access=<code>`). The code mints signed **viewer** sessions: viewers can act as any fictional org and make test payments (capped at 1 test USDC each), but **reset and live agent runs are operator-only**. Operators open the site in presenter mode with their local runner. Remote viewers without the runner can watch live runs as they happen or open the clearly labeled **Recorded run**. How to present: [`docs/agent-sprint/PRESENTING.md`](docs/agent-sprint/PRESENTING.md).
+MCP client config: see `docs/agent-sprint/DEMO.md` (placeholder bearer token). Remote endpoint: `https://<deployment>.convex.site/mcp` with OAuth client_credentials (see `docs/agent-sprint/CONTRACTS.md`). Candidate code from repair agents runs only inside an OS network sandbox (macOS `sandbox-exec`; Linux `unshare` if available) and is otherwise refused; arbitrary third-party patches are not supported. Secrets: Convex env (server), `.secrets.local` and `.agent-tokens.local` (local, gitignored) — never in source.
 
 ## Stack
 

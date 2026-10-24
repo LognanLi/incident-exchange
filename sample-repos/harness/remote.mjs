@@ -15,6 +15,18 @@ const MAX_STDERR = 8 * 1024;
 
 const withSlash = (p) => (p.endsWith(sep) ? p : p + sep);
 
+// OS-level network sandbox, chosen by run-protected-tests.mjs (IX_SANDBOX). Node's --permission model
+// restricts fs/child-process but has no network control, so the network block must come from the OS.
+// macOS: sandbox-exec profile denies all network and all file writes (except /dev for stdio).
+export const MACOS_PROFILE = '(version 1)(allow default)(deny network*)(deny file-write* (require-not (subpath "/dev")))';
+function launcher() {
+  const mode = process.env.IX_SANDBOX;
+  if (mode === "macos-sandbox-exec") return { execPath: "/usr/bin/sandbox-exec", prefix: ["-p", MACOS_PROFILE, process.execPath] };
+  if (mode === "linux-unshare") return { execPath: "/usr/bin/unshare", prefix: ["--user", "--map-root-user", "--net", process.execPath] };
+  if (mode === "none-trusted-fixture") return { execPath: process.execPath, prefix: [] };
+  throw new Error("No network sandbox selected for candidate execution (IX_SANDBOX unset); refusing to run candidate code.");
+}
+
 /**
  * @param {{ candidateFile: string, candidateDir?: string, factory: string,
  *           argStyle: "positional"|"object", deps: Record<string, object> }} opts
@@ -32,9 +44,11 @@ export function spawnCandidate({ candidateFile, candidateDir, factory, argStyle,
     depMethods[name] = Object.keys(impl).filter((k) => typeof impl[k] === "function");
   }
 
+  const { execPath, prefix } = launcher();
   const child = fork(CHILD, [], {
-    execPath: process.execPath,
+    execPath,
     execArgv: [
+      ...prefix,
       "--permission",
       `--allow-fs-read=${withSlash(dir)}`,
       `--allow-fs-read=${withSlash(HARNESS_DIR)}`,

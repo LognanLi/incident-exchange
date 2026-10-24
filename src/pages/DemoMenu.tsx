@@ -52,9 +52,26 @@ export default function DemoMenu() {
           </button>
         </section>
 
+        {session.hosted && (
+          <section className="card">
+            <h2>{session.operator ? "Presenter mode" : "Viewer mode"}</h2>
+            <p className="small muted">
+              {session.operator
+                ? "Signed in through your local runner: live agent runs and reset are available."
+                : "Live agent runs and reset need the presenter’s local runner."}
+            </p>
+            <button className="btn" onClick={() => session.setPresenterMode(!session.operator)}>
+              {session.operator ? "Switch to viewer mode" : "I’m the presenter — use my local runner"}
+            </button>
+          </section>
+        )}
+
         <section className="card">
           <h2>Reset demo data</h2>
           <p className="small muted">Restores seeded companies and drafts. Deletes only demo records.</p>
+          {!session.operator ? (
+            <p className="small">Operator only. Run the local runner and use presenter mode to reset.</p>
+          ) : (
           <button
             className="btn danger"
             disabled={resetAction.pending}
@@ -69,6 +86,7 @@ export default function DemoMenu() {
           >
             {resetAction.pending ? "Resetting…" : "Reset demo data"}
           </button>
+          )}
           <ErrorBox message={resetAction.error} />
           {resetDone && <SuccessBox>Demo data restored. You’re now Northstar Cloud.</SuccessBox>}
         </section>

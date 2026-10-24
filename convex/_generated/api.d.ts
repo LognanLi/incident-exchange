@@ -37,8 +37,10 @@ import type * as lib_searchIndex from "../lib/searchIndex.js";
 import type * as lib_seedData from "../lib/seedData.js";
 import type * as lib_x402 from "../lib/x402.js";
 import type * as mcp from "../mcp.js";
+import type * as mcpRemote from "../mcpRemote.js";
 import type * as mossIndex from "../mossIndex.js";
 import type * as mossState from "../mossState.js";
+import type * as oauth from "../oauth.js";
 import type * as playbooks from "../playbooks.js";
 import type * as purchases from "../purchases.js";
 import type * as references from "../references.js";
@@ -46,6 +48,7 @@ import type * as reviews from "../reviews.js";
 import type * as searchIndex from "../searchIndex.js";
 import type * as semanticSearch from "../semanticSearch.js";
 import type * as validation from "../validation.js";
+import type * as webHosting from "../webHosting.js";
 import type * as x402Node from "../x402Node.js";
 import type * as x402State from "../x402State.js";
 
@@ -85,8 +88,10 @@ declare const fullApi: ApiFromModules<{
   "lib/seedData": typeof lib_seedData;
   "lib/x402": typeof lib_x402;
   mcp: typeof mcp;
+  mcpRemote: typeof mcpRemote;
   mossIndex: typeof mossIndex;
   mossState: typeof mossState;
+  oauth: typeof oauth;
   playbooks: typeof playbooks;
   purchases: typeof purchases;
   references: typeof references;
@@ -94,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   searchIndex: typeof searchIndex;
   semanticSearch: typeof semanticSearch;
   validation: typeof validation;
+  webHosting: typeof webHosting;
   x402Node: typeof x402Node;
   x402State: typeof x402State;
 }>;

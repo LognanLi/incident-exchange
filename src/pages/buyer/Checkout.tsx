@@ -142,6 +142,18 @@ function Checkout() {
             >
               {start.pending ? "Starting…" : options.x402Ready ? "Start x402 test checkout" : "Start demo checkout"}
             </button>
+            {options.x402Ready && (
+              <button
+                className="btn block"
+                onClick={async () => {
+                  const pid = await start.run({ actor, playbookId: id, preference: "demo_simulator", acceptLicense: license });
+                  if (pid) setPurchaseId(pid);
+                }}
+                disabled={start.pending || !license}
+              >
+                Use simulator instead (no funds move)
+              </button>
+            )}
           </section>
         ) : !purchase ? (
           <section className="card">

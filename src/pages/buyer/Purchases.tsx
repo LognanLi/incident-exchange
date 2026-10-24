@@ -46,7 +46,7 @@ function Purchases() {
                   </td>
                   <td>
                     <span className={`badge ${p.paymentStatus.endsWith("success") ? "ok" : p.paymentStatus === "pending" ? "warn" : ""}`}>
-                      {p.paymentStatus === "simulated_success" ? "Simulated" : p.paymentStatus === "test_success" ? "Paid · x402" : p.paymentStatus}
+                      {p.paymentStatus === "simulated_success" ? "Simulated" : p.paymentStatus === "test_success" ? "Paid · x402" : p.paymentStatus.charAt(0).toUpperCase() + p.paymentStatus.slice(1).replace(/_/g, " ")}
                     </span>
                   </td>
                   <td className="small">{formatDate(p.createdAt)}</td>

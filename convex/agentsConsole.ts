@@ -2,7 +2,7 @@
 // (never token hashes or secrets), agent submissions, outcomes, and demo jobs.
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getActor, requireRole } from "./lib/access";
+import { getActor, requireRole, requireOperator } from "./lib/access";
 
 export const overview = query({
   args: { actor: v.string() },
@@ -31,7 +31,8 @@ export const overview = query({
 export const canRunDemo = query({
   args: { actor: v.string() },
   handler: async (ctx, { actor }) => {
-    await requireRole(ctx, actor, ["reviewer"]); // operator control
+    await requireRole(ctx, actor, ["reviewer"]);
+    await requireOperator(ctx, actor); // operator control
     const running = (await ctx.db.query("jobs").withIndex("by_startedAt").order("desc").take(1))[0];
     return { ok: !(running && (running.status === "running" || running.status === "queued")) };
   },

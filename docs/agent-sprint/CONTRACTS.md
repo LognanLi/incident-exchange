@@ -1,7 +1,9 @@
 # Contracts
 
 **MCP:** `@modelcontextprotocol/sdk` 1.32.2 (v1 API), Streamable HTTP, stateless JSON responses, endpoint `POST http://127.0.0.1:8787/mcp`. Negotiated protocol observed: `2025-11-25`.
-**Auth mode:** development service tokens (bearer `ixa_…`), stored in Convex only as SHA-256 hashes on `agentPrincipals` with org, scopes, expiry (7 days), revocation. Invalid tokens → HTTP 401 at the transport. OAuth/resource-metadata discovery is **not implemented** (not advertised).
+**Auth mode:** development service tokens (bearer `ixa_…`), stored in Convex only as SHA-256 hashes on `agentPrincipals` with org, scopes, expiry (7 days), revocation. Invalid tokens → HTTP 401 at the transport. Local endpoint only (`127.0.0.1:8787`).
+
+**Remote endpoint (HTTPS):** `https://quirky-robin-694.convex.site/mcp` (Convex HTTP action, same nine tools from `mcp/tools.mjs`, stateless JSON). OAuth 2.1 **client_credentials** (agent-to-agent; no end-user authorization-code flow): discovery at `/.well-known/oauth-protected-resource` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414); token endpoint `POST /oauth/token` (`client_id` = principal name, `client_secret` = operator-issued `ixa_…` credential, `resource` must equal the MCP URL per RFC 8707, optional narrower `scope`). Access tokens `ixat_…`: 15 min, audience-bound, hash-only storage, inherit revocation. Unauthenticated → 401 with `WWW-Authenticate: Bearer resource_metadata=…`. The long-lived `ixa_` secret is not accepted as a bearer token remotely.
 **Service boundary:** only the MCP service (holding `MCP_SERVICE_SECRET`) can call `convex/mcp.ts`; agents never get Convex keys. Org authority always comes from the token; tool schemas reject unknown fields (no `orgId` input).
 
 ## Tools (all return text summary + `structuredContent` envelope `{schemaVersion:"1", requestId, status, data|error, provenance:{mode, sourceIds}}`; failures set MCP `isError`)

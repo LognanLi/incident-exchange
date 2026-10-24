@@ -83,7 +83,7 @@ describe("semantic ranking", () => {
   it("falls back to labeled keyword matching when Moss is unavailable", async () => {
     const t = await seeded();
     const res = await t.action(api.semanticSearch.buyerSearch, { actor: "harbor", query: "identical webhook event IDs create two jobs" });
-    expect(res.retrieval).toEqual({ engine: "keyword_fallback", fallbackReason: "Moss is not configured" });
+    expect(res.retrieval).toEqual({ engine: "keyword_fallback", index: "ix-public-previews", fallbackReason: "Moss is not configured" });
     expect(res.results.length).toBeGreaterThan(0);
   });
 });

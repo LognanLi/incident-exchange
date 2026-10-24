@@ -2,7 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import type { Role } from "./domain";
-import { verifySession } from "../../shared/session.mjs";
+import { verifySession, verifySessionInfo } from "../../shared/session.mjs";
 
 /**
  * Demo identity: the browser sends the slug of the organization it is acting as.
@@ -14,12 +14,24 @@ export async function getActor(ctx: QueryCtx, actor: string): Promise<Doc<"organ
   // when DEMO_OPEN_IDENTITY=on (automated tests), never on a shared deployment.
   let slug = await verifySession(process.env.DEMO_SESSION_SECRET, actor);
   if (!slug && process.env.DEMO_OPEN_IDENTITY === "on" && /^[a-z0-9-]{2,40}$/.test(actor)) slug = actor;
-  if (!slug) throw new ConvexError("Demo session required or expired. Open Presenter controls and pick a role (the local runner must be running).");
+  if (!slug) throw new ConvexError("Demo session required or expired. Reload the page to start a new one."); 
   const org = await ctx.db
     .query("organizations")
     .withIndex("by_slug", (q) => q.eq("slug", slug))
     .unique();
   if (!org) throw new ConvexError("Unknown demo identity. Open the Demo menu and pick a role, or reset demo data.");
+  return org;
+}
+
+/**
+ * Operator-only demo controls (reset, starting agent runs): the session must have been minted by the
+ * presenter's local runner. Viewer sessions from the hosted access code are refused.
+ */
+export async function requireOperator(ctx: QueryCtx, actor: string): Promise<Doc<"organizations">> {
+  const org = await getActor(ctx, actor);
+  const info = await verifySessionInfo(process.env.DEMO_SESSION_SECRET, actor);
+  const openTestIdentity = !info && process.env.DEMO_OPEN_IDENTITY === "on";
+  if (!info?.operator && !openTestIdentity) throw new ConvexError("Only the demo operator can do this (requires the presenter's local runner).");
   return org;
 }
 

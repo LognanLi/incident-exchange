@@ -9,7 +9,7 @@
       "protected-tests/handler.test.mjs"
     ],
     "referenceFix": "reference-fix",
-    "protectedSuiteSha256": "a5b06e295134ec81dab2e3b698679e39e2073363332753135f8b28eb4b58b3d2"
+    "protectedSuiteSha256": "f6512ac0567fc195b7fa2cb1f5a3dacb4799b700d23b5c8ecd3280524dfda2c4"
   },
   "repo-b": {
     "name": "order-sync",
@@ -21,6 +21,6 @@
       "protected-tests/consumer.test.mjs"
     ],
     "referenceFix": null,
-    "protectedSuiteSha256": "c64e7f9aa5c99c2bd070f5248d6b421c3f3359bb854fa954f11589f25781cbb6"
+    "protectedSuiteSha256": "eb503d0ec4173bafdfec8ea5e228684941a58479dfc0ec7156fdfb3bf60a00a7"
   }
 }

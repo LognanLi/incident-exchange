@@ -78,7 +78,8 @@ try {
 
   // ---- Reviewer
   await actAs("Incident Exchange Review Desk");
-  await page.getByRole("link", { name: "Open" }).first().click();
+  // The queue also holds seeded fixtures (e.g. the prompt-injection draft); open the one just submitted.
+  await page.getByRole("row", { name: /Duplicate jobs after webhook retries from a payment/ }).getByRole("link", { name: "Open" }).click();
   await page.getByRole("button", { name: "Fetch references" }).click();
   await page.getByText(/seeded references|Retrieved \d+ allowlisted|Apify request failed/).waitFor({ timeout: 150000 });
   const refMsg = await page.locator(".state-info.small").first().textContent();

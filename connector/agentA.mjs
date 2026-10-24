@@ -4,7 +4,6 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { connect, ROOT, policy } from "./lib/mcpClient.mjs";
 import { enforceCandidate, snapshot, stageField } from "./lib/policy.mjs";
 import { protectedRun, logEvent, generation } from "./lib/runner.mjs";
@@ -72,17 +71,20 @@ for (const f of P.sharing.allowedFields) {
   totals.generalized += r.report.generalized;
   r.report.categories.forEach((c) => totals.categories.add(c));
 }
+// Deterministic content (no run ids or timestamps) so repeated demo rehearsals stage the same bundle and the
+// exchange returns the existing submission instead of publishing a duplicate guide.
 const bundle = {
-  clientRequestId: `a-${gen}-${randomUUID().slice(0, 8)}`,
+  clientRequestId: "pending",
   schemaVersion: SCHEMA_VERSION,
   ...staged,
-  verificationEvidence: `Protected test runner: ${base.passedCount}/${base.total} before the fix, ${cand.passedCount}/${cand.total} after (same event twice → one job; distinct events → two jobs; concurrent duplicates → one job; failed first attempt can be retried). Run ${cand.runId}.`,
+  verificationEvidence: `Protected test runner: ${base.passedCount}/${base.total} before the fix, ${cand.passedCount}/${cand.total} after (same event twice → one job; distinct events → two jobs; concurrent duplicates → one job; failed first attempt can be retried).`,
   sourceKind: "agent_resolved_bug",
   sharingLicense: "IX-DUL-1.0",
   priceAtomic: "10000",
   publicationConsent: true,
 };
 bundle.contentHash = await bundleHash(bundle);
+bundle.clientRequestId = `a-${bundle.contentHash.slice(7, 31)}`; // idempotency key = content (not part of the hash)
 await logEvent("security", "agent-a connector", "local_disclosure_gate", `Local gate dropped ${totals.dropped} credential-format line(s) (${[...totals.categories].join(", ") || "none"}) and generalized ${totals.generalized} identifier(s) before any network call.`, "ok", "local", gen);
 mkdirSync(join(ROOT, "connector", ".staging"), { recursive: true });
 writeFileSync(STAGED, JSON.stringify(bundle, null, 2));

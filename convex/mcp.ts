@@ -46,9 +46,19 @@ async function principal(ctx: QueryCtx, svc: string, token: string, scope: (type
   if (!expected || svc !== expected) fail("AUTH_REQUIRED", "Unrecognized MCP service.");
   if (!token || token.length < 20) fail("AUTH_REQUIRED", "Missing agent credential.");
   const tokenHash = await sha256Hex(token);
-  const p = await ctx.db.query("agentPrincipals").withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash)).unique();
+  let p: Doc<"agentPrincipals"> | null;
+  let scopes: string[] | undefined;
+  if (token.startsWith("ixat_")) {
+    // OAuth access token (remote endpoint): short-lived, audience-bound, may narrow the principal's scopes.
+    const at = await ctx.db.query("oauthTokens").withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash)).unique();
+    if (!at || at.expiresAt < Date.now()) fail("AUTH_REQUIRED", "Invalid or expired access token.");
+    p = await ctx.db.get(at.principalId);
+    scopes = at.scopes;
+  } else {
+    p = await ctx.db.query("agentPrincipals").withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash)).unique();
+  }
   if (!p || p.revoked || p.expiresAt < Date.now()) fail("AUTH_REQUIRED", "Invalid, expired, or revoked agent credential.");
-  if (!p.scopes.includes(scope)) fail("FORBIDDEN", `This credential lacks the "${scope}" scope.`);
+  if (!p.scopes.includes(scope) || (scopes && !scopes.includes(scope))) fail("FORBIDDEN", `This credential lacks the "${scope}" scope.`);
   const org = await ctx.db.query("organizations").withIndex("by_slug", (q) => q.eq("slug", p.orgSlug)).unique();
   if (!org) fail("PROVIDER_UNAVAILABLE", "Exchange is resetting; try again.", true);
   return { p, org };
@@ -370,13 +380,24 @@ export const submit = mutation({
     const dup = (await ctx.db.query("incidentDrafts").withIndex("by_contributor", (q) => q.eq("contributorOrgId", org._id)).collect()).find(
       (d) => d.agentSubmission?.clientRequestId === bundle.clientRequestId,
     );
-    if (dup) return { submissionId: dup._id, status: dup.status, moderation: dup.agentSubmission!.moderation };
+    if (dup) {
+      await event(ctx, "contributor", p.name, "submit_resolution", `Same request already submitted (${dup.status}); returned that submission — no duplicate guide.`, "ok", [dup._id]);
+      return { submissionId: dup._id, status: dup.status, moderation: dup.agentSubmission!.moderation };
+    }
 
     // Approval must reference the exact content the server recomputes.
     const hash = await bundleHash(bundle as unknown as Record<string, unknown>);
     if (hash !== bundle.contentHash || bundle.approval.contentHash !== hash) {
       await event(ctx, "security", p.name, "submit_denied", "Approval did not cover the exact submitted content — rejected.", "denied");
       fail("APPROVAL_REQUIRED", "The approval does not cover this exact bundle. Re-stage and approve it.");
+    }
+    // Idempotent per content: the same principal resubmitting identical content gets its existing (non-rejected) submission.
+    const sameContent = (await ctx.db.query("incidentDrafts").withIndex("by_contributor", (q) => q.eq("contributorOrgId", org._id)).collect()).find(
+      (d) => d.agentSubmission?.principalId === p._id && d.agentSubmission.bundleHash === hash && d.status !== "rejected",
+    );
+    if (sameContent) {
+      await event(ctx, "contributor", p.name, "submit_resolution", `Identical content was already submitted (${sameContent.status}); returned that submission — no duplicate guide.`, "ok", [sameContent._id]);
+      return { submissionId: sameContent._id, status: sameContent.status, moderation: sameContent.agentSubmission!.moderation };
     }
     // Second defense layer: never store known secret formats. Categories only — no echo.
     const text = bundleText(bundle as unknown as Record<string, unknown>);
