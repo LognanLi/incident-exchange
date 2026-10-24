@@ -1,0 +1,28 @@
+{
+  "_note": "SYNTHETIC local findings for Agent A (repo-a). Contains a fake canary credential, private host, email and person name on purpose so the local disclosure gate can be demonstrated. Nothing here is real.",
+  "privateTerms": ["Priya Natarajan", "billing-events-prod"],
+  "summary": "Duplicate jobs when a webhook provider retries the same event",
+  "symptoms": [
+    "The same provider event id produces two job records after a retried delivery",
+    "Queue backlog clears after restarting workers, then duplicates return",
+    "Duplicates line up with slow acknowledgements followed by provider retries",
+    "Repro log: POST https://hooks.billing.internal/webhooks event=evt_123 auth=ix_canary_9fQ2kLm7Xw4Rt8Zp delivered twice"
+  ],
+  "environmentCategories": ["Webhooks", "Background job queue", "Node.js"],
+  "rootCauseEvidence": "The handler inserts a job for every delivery and keeps no record of processed event ids. Two deliveries of one event id in the protected test produce two jobs. Investigated by Priya Natarajan (oncall@billing-events.example) on billing-events-prod.",
+  "unsuccessfulApproaches": [
+    "Restarting workers cleared the backlog temporarily, but duplicates returned because the provider kept retrying",
+    "An in-memory 'seen ids' set lost its contents on restart and allowed duplicates again"
+  ],
+  "fixPattern": "Before doing work, atomically reserve the provider event id in durable storage (insert-if-absent / unique constraint). If the reservation already exists, acknowledge with a duplicate outcome and skip the work. If the work fails, release the reservation and rethrow so a legitimate retry can succeed. Acknowledge successful deliveries with 200.",
+  "applicability": [
+    "Duplicates share the same provider event id",
+    "Your store can do an atomic insert-if-absent or enforce a unique key",
+    "The provider documents at-least-once delivery with stable event ids"
+  ],
+  "limitations": [
+    "Does not help when duplicates arrive with different event ids (deduplicate upstream instead)",
+    "Local uniqueness is not a distributed exactly-once guarantee; downstream side effects need their own idempotency",
+    "Tested only on a toy in-memory store"
+  ]
+}

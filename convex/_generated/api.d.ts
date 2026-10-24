@@ -33,6 +33,7 @@ import type * as lib_scenarios from "../lib/scenarios.js";
 import type * as lib_search from "../lib/search.js";
 import type * as lib_seedData from "../lib/seedData.js";
 import type * as lib_x402 from "../lib/x402.js";
+import type * as mcp from "../mcp.js";
 import type * as mossIndex from "../mossIndex.js";
 import type * as mossState from "../mossState.js";
 import type * as playbooks from "../playbooks.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "lib/search": typeof lib_search;
   "lib/seedData": typeof lib_seedData;
   "lib/x402": typeof lib_x402;
+  mcp: typeof mcp;
   mossIndex: typeof mossIndex;
   mossState: typeof mossState;
   playbooks: typeof playbooks;

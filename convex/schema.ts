@@ -125,6 +125,17 @@ export default defineSchema({
     reviewerNote: v.optional(v.string()),
     evidenceLevel: v.optional(evidenceLevelV),
     playbookId: v.optional(v.id("playbooks")),
+    /** Agent-submitted (MCP) contributions. */
+    agentSubmission: v.optional(
+      v.object({
+        principalId: v.optional(v.id("agentPrincipals")),
+        clientRequestId: v.string(),
+        bundleHash: v.string(),
+        moderation: v.union(v.literal("clean"), v.literal("quarantined")),
+        moderationReasons: v.array(v.string()),
+        publicationConsent: v.boolean(),
+      }),
+    ),
     isDemo: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -293,6 +304,10 @@ export default defineSchema({
     transactionReference: v.string(),
     /** Data Use License acceptance (internal defensive use, no resale, no re-identification). */
     licenseVersion: v.optional(v.string()),
+    /** Agent purchases: the principal, quote, and idempotency key that created them. */
+    principalId: v.optional(v.id("agentPrincipals")),
+    quoteId: v.optional(v.id("quotes")),
+    clientRequestId: v.optional(v.string()),
     licenseAcceptedAt: v.optional(v.number()),
     /** Present for x402 test purchases: what actually settled on Base Sepolia. */
     x402: v.optional(
@@ -316,6 +331,8 @@ export default defineSchema({
     .index("by_buyer", ["buyerOrgId"])
     .index("by_buyer_playbook", ["buyerOrgId", "playbookId"])
     .index("by_playbook", ["playbookId"])
+    .index("by_principal", ["principalId"])
+    .index("by_principal_request", ["principalId", "clientRequestId"])
     .index("by_isDemo", ["isDemo"]),
 
   outcomeFeedback: defineTable({
@@ -404,6 +421,110 @@ export default defineSchema({
   })
     .index("by_org", ["orgId"])
     .index("by_isDemo", ["isDemo"]),
+
+  /** Agents acting for developers. Tokens are stored only as SHA-256 hashes. Not wiped by demo reset. */
+  agentPrincipals: defineTable({
+    name: v.string(),
+    orgSlug: v.string(),
+    scopes: v.array(v.string()),
+    tokenHash: v.string(),
+    expiresAt: v.number(),
+    revoked: v.boolean(),
+    /** Spend policy installed by an operator; retrieved content can never change it. */
+    policy: v.object({ maxPerPurchaseAtomic: v.string(), sessionMaxAtomic: v.string(), maxPurchases: v.number(), network: v.string() }),
+    createdAt: v.number(),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_name", ["name"]),
+
+  quotes: defineTable({
+    principalId: v.id("agentPrincipals"),
+    playbookId: v.id("playbooks"),
+    revision: v.number(),
+    contentHash: v.string(),
+    priceAtomic: v.string(),
+    currency: v.string(),
+    decimals: v.number(),
+    network: v.string(),
+    payTo: v.string(),
+    expiresAt: v.number(),
+    status: v.union(v.literal("open"), v.literal("used")),
+    isDemo: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_principal", ["principalId"])
+    .index("by_isDemo", ["isDemo"]),
+
+  /** Results from the separate protected test runner (baseline and candidate). */
+  repairRuns: defineTable({
+    jobId: v.optional(v.id("jobs")),
+    principalName: v.string(),
+    repo: v.string(),
+    stage: v.union(v.literal("baseline"), v.literal("candidate")),
+    toolName: v.string(),
+    passed: v.boolean(),
+    total: v.number(),
+    passedCount: v.number(),
+    tests: v.array(v.object({ name: v.string(), ok: v.boolean() })),
+    diff: v.optional(v.string()),
+    changedFiles: v.array(v.string()),
+    candidateHash: v.string(),
+    protectedSuiteHash: v.string(),
+    playbookId: v.optional(v.id("playbooks")),
+    revision: v.optional(v.number()),
+    mode: v.string(),
+    note: v.optional(v.string()),
+    at: v.number(),
+    isDemo: v.boolean(),
+  })
+    .index("by_at", ["at"])
+    .index("by_isDemo", ["isDemo"]),
+
+  agentOutcomes: defineTable({
+    principalId: v.id("agentPrincipals"),
+    playbookId: v.id("playbooks"),
+    revision: v.number(),
+    reportedPassed: v.boolean(),
+    trust: v.union(v.literal("runner_verified"), v.literal("reported_unverified")),
+    evidenceRunId: v.optional(v.id("repairRuns")),
+    summary: v.string(),
+    at: v.number(),
+    isDemo: v.boolean(),
+  })
+    .index("by_playbook", ["playbookId"])
+    .index("by_isDemo", ["isDemo"]),
+
+  /** Minimal, redacted event metadata for the oversight console. */
+  agentEvents: defineTable({
+    lane: v.union(v.literal("contributor"), v.literal("consumer"), v.literal("security"), v.literal("system")),
+    actor: v.string(),
+    kind: v.string(),
+    summary: v.string(),
+    status: v.union(v.literal("ok"), v.literal("pending"), v.literal("denied"), v.literal("error")),
+    mode: v.string(),
+    refs: v.array(v.string()),
+    jobId: v.optional(v.id("jobs")),
+    at: v.number(),
+    isDemo: v.boolean(),
+  })
+    .index("by_at", ["at"])
+    .index("by_isDemo", ["isDemo"]),
+
+  /** Bounded async work (e.g. the two-agent demo). Generation guards stale callbacks after reset. */
+  jobs: defineTable({
+    kind: v.string(),
+    generation: v.number(),
+    status: v.union(v.literal("queued"), v.literal("running"), v.literal("succeeded"), v.literal("failed"), v.literal("canceled")),
+    stage: v.optional(v.string()),
+    error: v.optional(v.string()),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    isDemo: v.boolean(),
+  })
+    .index("by_startedAt", ["startedAt"])
+    .index("by_isDemo", ["isDemo"]),
+
+  meta: defineTable({ key: v.string(), value: v.number() }).index("by_key", ["key"]),
 
   integrationEvents: defineTable({
     integration: v.string(),

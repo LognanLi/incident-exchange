@@ -7,6 +7,7 @@ import { SECTION_KEYS, type EvidenceLevel } from "./lib/domain";
 import { draftContentHash } from "./lib/draftContent";
 import { evidenceLevelV } from "./schema";
 import { audit } from "./lib/audit";
+import { publishApprovedDraft } from "./drafts";
 
 const checklistV = v.object({
   sixSectionsComplete: v.boolean(),
@@ -133,6 +134,9 @@ export const decide = mutation({
     if (draft.status !== "submitted") throw new ConvexError("Only drafts awaiting review can be decided.");
     if (note.length > 2000) throw new ConvexError("Note is too long.");
 
+    if (decision === "approve" && draft.agentSubmission?.moderation === "quarantined") {
+      throw new ConvexError("Quarantined submissions cannot be published. Reject it or ask the contributor to resubmit.");
+    }
     if (decision === "approve") {
       if (!evidenceLevel) throw new ConvexError("Choose an evidence label before approving.");
       if (!Object.values(checklist).every(Boolean)) throw new ConvexError("Complete every checklist item before approving.");
@@ -165,6 +169,10 @@ export const decide = mutation({
       reviewerNote: note.trim() || undefined,
       updatedAt: Date.now(),
     });
+    // Agent contributions: the contributor consented to publish this exact bundle, so approval publishes it.
+    if (decision === "approve" && draft.agentSubmission?.publicationConsent) {
+      await publishApprovedDraft(ctx, draftId);
+    }
   },
 });
 

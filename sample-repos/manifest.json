@@ -1,0 +1,16 @@
+{
+  "repo-a": {
+    "name": "billing-events",
+    "editable": ["src/handler.mjs"],
+    "protectedTests": "protected-tests",
+    "testFiles": ["protected-tests/handler.test.mjs"],
+    "referenceFix": "reference-fix"
+  },
+  "repo-b": {
+    "name": "order-sync",
+    "editable": ["src/consumer/messageConsumer.mjs"],
+    "protectedTests": "protected-tests",
+    "testFiles": ["protected-tests/consumer.test.mjs"],
+    "referenceFix": null
+  }
+}

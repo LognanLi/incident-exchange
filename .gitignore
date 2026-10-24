@@ -9,3 +9,6 @@ coverage
 *.tsbuildinfo
 toy-apps/artifacts/*.json
 !toy-apps/artifacts/recorded-*.json
+.agent-tokens.local
+connector/policy.local.json
+connector/.staging/

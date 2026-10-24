@@ -15,10 +15,13 @@
     "e2e": "node e2e/demo-flow.mjs",
     "demo:reset": "convex run demo:reset",
     "x402:setup": "convex run x402Node:setup",
-    "test:toys": "node --test toy-apps/toy.test.mjs"
+    "test:toys": "node --test toy-apps/toy.test.mjs",
+    "agents:setup": "node scripts/agents-setup.mjs",
+    "mcp": "node mcp/server.mjs"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.60.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@moss-js/moss": "^1.21.0",
     "@x402/core": "^2.28.0",
     "@x402/evm": "^2.28.0",
