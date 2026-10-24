@@ -26,8 +26,20 @@ import { MACOS_PROFILE } from "../sample-repos/harness/remote.mjs";
 const ROOT = resolve(import.meta.dirname, "..");
 const TOY = join(ROOT, "toy-apps");
 const PORT = Number(process.env.FACTORY_RUNNER_PORT ?? 3299);
+// Browser origins allowed to use the runner: the local dev console, plus the hosted console on this
+// project's Convex deployment (so the presenter can drive live runs from the hosted site). Override with IX_ALLOWED_ORIGINS.
+function defaultOrigins() {
+  const site = (() => {
+    try {
+      return readFileSync(join(ROOT, ".env.local"), "utf8").match(/^VITE_CONVEX_SITE_URL=(.+)$/m)?.[1].trim().replace(/\/$/, "");
+    } catch {
+      return undefined;
+    }
+  })();
+  return ["http://localhost:5173", "http://127.0.0.1:5173", ...(site ? [site] : [])].join(",");
+}
 const ALLOWED_ORIGINS = new Set(
-  (process.env.IX_ALLOWED_ORIGINS ?? "http://localhost:5173,http://127.0.0.1:5173")
+  (process.env.IX_ALLOWED_ORIGINS ?? defaultOrigins())
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean),
@@ -309,11 +321,14 @@ const server = http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    // Private Network Access preflight (Chromium): a public HTTPS page asking to reach this loopback server.
+    if (req.headers["access-control-request-private-network"] === "true") res.setHeader("Access-Control-Allow-Private-Network", "true");
   }
   const send = (status, body) => {
     res.writeHead(status, { "Content-Type": "application/json" });
     res.end(JSON.stringify(body));
   };
+  if (req.method === "OPTIONS" && origin) console.log(`[preflight] ${origin} ${req.headers["access-control-request-private-network"] === "true" ? "(private network)" : ""}`.trim());
   if (req.method === "OPTIONS") return send(204, {});
   if (origin && !ALLOWED_ORIGINS.has(origin)) return send(403, { error: "Origin not allowed" });
 
@@ -332,6 +347,7 @@ const server = http.createServer(async (req, res) => {
     const known = new Set(orgs.map((o) => o.slug));
     const tokens = {};
     for (const slug of body.slugs) if (typeof slug === "string" && known.has(slug)) tokens[slug] = await mintSession(SESSION_SECRET, slug);
+    console.log(`[session] operator session minted for ${origin} (${Object.keys(tokens).length} orgs)`);
     return send(200, { tokens });
   }
   if (req.method === "POST" && req.url === "/agent-demo") {
@@ -377,5 +393,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
+  console.log(`Runner accepts browser origins: ${[...ALLOWED_ORIGINS].join(", ")}`);
   console.log(`Factory runner on http://127.0.0.1:${PORT} — ${ready ? "ready" : "not configured (local demo adapter will be used)"}`);
 });

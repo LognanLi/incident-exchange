@@ -35,4 +35,19 @@ describe("signed demo sessions", () => {
     const forged = await mintSession("attacker-guess", "review-desk");
     await expect(t.query(api.business.auditLog, { actor: forged })).rejects.toThrow(/session/i);
   });
+  it("viewer sessions (hosted access code) cannot reset or start agent runs; operator sessions can", async () => {
+    const t = convexTest(schema, modules);
+    await t.mutation(api.demo.reset, { actor: "review-desk" });
+    process.env.DEMO_OPEN_IDENTITY = "off";
+    process.env.DEMO_SESSION_SECRET = SECRET;
+    const viewer = await mintSession(SECRET, "review-desk", undefined, "viewer");
+    const operator = await mintSession(SECRET, "review-desk", undefined, "operator");
+    expect(Array.isArray(await t.query(api.business.auditLog, { actor: viewer }))).toBe(true); // normal demo use works
+    await expect(t.mutation(api.demo.reset, { actor: viewer })).rejects.toThrow(/operator/i);
+    await expect(t.query(api.agentsConsole.canRunDemo, { actor: viewer })).rejects.toThrow(/operator/i);
+    expect((await t.query(api.agentsConsole.canRunDemo, { actor: operator })).ok).toBe(true);
+    await t.mutation(api.demo.reset, { actor: operator });
+    // The kind is signed: flipping v→o invalidates the token.
+    expect(await verifySession(SECRET, viewer.replace(".v.", ".o."))).toBeNull();
+  });
 });

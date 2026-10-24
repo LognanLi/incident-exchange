@@ -47,6 +47,7 @@ if (!pick) {
   say("no strong-overlap result within budget → abstain");
   process.exit(0);
 }
+await logEvent("consumer", "agent-b", "search_resolutions", `Found “${pick.title}” via MCP (${pick.relevanceLabel}; ${search.envelope.provenance?.sourceIds?.[0] ?? "search"}).`, "ok", search.envelope.provenance?.mode ?? "local", gen);
 stage("search", { resolutionId: pick.resolutionId, matched: pick.matchedClues, missing: pick.missingChecks, conflicts: pick.conflictingClues.length });
 
 // Already entitled (e.g. a re-run after reload)? Reuse the existing receipt — never pay twice.
@@ -55,6 +56,7 @@ let resolutionCached = null;
 if (!existing.isError) {
   resolutionCached = existing.envelope.data;
   say(`already entitled to rev ${resolutionCached.revision} (purchase ${resolutionCached.purchaseId}) — no new payment`);
+  await logEvent("consumer", "agent-b", "entitlement_reused", `Already entitled to rev ${resolutionCached.revision} — reused the earlier purchase; no new payment.`, "ok", "local", gen);
   stage("acquire", { mode: "existing_entitlement", purchaseId: resolutionCached.purchaseId });
 }
 

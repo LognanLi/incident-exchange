@@ -1,0 +1,540 @@
+{
+  "kind": "recorded_run",
+  "recordedAt": 1792884958856,
+  "run": {
+    "startedAt": 1792884902595,
+    "finishedAt": 1792884955876,
+    "durationMs": 53281
+  },
+  "source": {
+    "deployment": "quirky-robin-694",
+    "commit": "498f6fb"
+  },
+  "overview": {
+    "events": [
+      {
+        "_creationTime": 1792884954773.7507,
+        "_id": "md7b5qahx2fph1bg3290twvb2s8gxfz4",
+        "actor": "agent-b",
+        "at": 1792884954773,
+        "isDemo": true,
+        "kind": "record_outcome",
+        "lane": "consumer",
+        "mode": "local",
+        "refs": [
+          "mh75q8naswrhmtgt8prhxygq1h8gxhzg"
+        ],
+        "status": "ok",
+        "summary": "Outcome passed (verified by protected runner)."
+      },
+      {
+        "_creationTime": 1792884948405.4153,
+        "_id": "md71cgsjgaqwxjvsq5mh19t41x8gwjnv",
+        "actor": "protected-runner",
+        "at": 1792884948405,
+        "isDemo": true,
+        "kind": "candidate_tests",
+        "lane": "consumer",
+        "mode": "live",
+        "refs": [
+          "n570qqsn802d1jahh1wyrhvyhx8gxs4s"
+        ],
+        "status": "ok",
+        "summary": "repo-b candidate: 5/5 protected tests passed — Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session 509af5e7"
+      },
+      {
+        "_creationTime": 1792884915638.8262,
+        "_id": "md7f4j0veyqagj0ew1gbz4n0nx8gxa30",
+        "actor": "agent-b",
+        "at": 1792884915638,
+        "isDemo": true,
+        "kind": "factory_repair_started",
+        "lane": "consumer",
+        "mode": "live",
+        "refs": [],
+        "status": "pending",
+        "summary": "Factory Droid is adapting the purchased lesson in an isolated copy of repo B."
+      },
+      {
+        "_creationTime": 1792884914946.4407,
+        "_id": "md72nbpsdnz7qak4sfdv2nh96s8gx0an",
+        "actor": "agent-b",
+        "at": 1792884914946,
+        "isDemo": true,
+        "kind": "entitlement_reused",
+        "lane": "consumer",
+        "mode": "local",
+        "refs": [],
+        "status": "ok",
+        "summary": "Already entitled to rev 1 — reused the earlier purchase; no new payment."
+      },
+      {
+        "_creationTime": 1792884913766.8564,
+        "_id": "md7eanqkke18c1r51rrftta7q18gxm13",
+        "actor": "agent-b",
+        "at": 1792884913766,
+        "isDemo": true,
+        "kind": "search_resolutions",
+        "lane": "consumer",
+        "mode": "local",
+        "refs": [],
+        "status": "ok",
+        "summary": "Found “Duplicate jobs when a webhook provider retries the same event” via MCP (Strong overlap; keyword-fallback)."
+      },
+      {
+        "_creationTime": 1792884909873.3425,
+        "_id": "md725mkyyksfqmz1pvjahn0vm98gwan4",
+        "actor": "protected-runner",
+        "at": 1792884909873,
+        "isDemo": true,
+        "kind": "baseline_tests",
+        "lane": "consumer",
+        "mode": "local",
+        "refs": [
+          "n579rz7nnhjx0pxr20kfdnwy5n8gw98r"
+        ],
+        "status": "ok",
+        "summary": "repo-b baseline: 2/5 protected tests passed — original code"
+      },
+      {
+        "_creationTime": 1792884908389.0994,
+        "_id": "md7caxdjc512623wkzcrmdzge18gw7xk",
+        "actor": "agent-a",
+        "at": 1792884908389,
+        "isDemo": true,
+        "kind": "submit_resolution",
+        "lane": "contributor",
+        "mode": "local",
+        "refs": [
+          "jh7a2z41zkhr69jwadqrfe37rx8gxwp5"
+        ],
+        "status": "ok",
+        "summary": "Same request already submitted (published); returned that submission — no duplicate guide."
+      },
+      {
+        "_creationTime": 1792884905512.2751,
+        "_id": "md72sdaj02n633xcvd8tw2hqzn8gxr8r",
+        "actor": "agent-a",
+        "at": 1792884905512,
+        "isDemo": true,
+        "kind": "needs_approval",
+        "lane": "contributor",
+        "mode": "local",
+        "refs": [],
+        "status": "pending",
+        "summary": "Bundle sha256:bc9e311fd37f… staged; waiting for developer approval."
+      },
+      {
+        "_creationTime": 1792884905101.1763,
+        "_id": "md70amxtfq3krtcnayw8qspad18gx4h5",
+        "actor": "agent-a connector",
+        "at": 1792884905101,
+        "isDemo": true,
+        "kind": "local_disclosure_gate",
+        "lane": "security",
+        "mode": "local",
+        "refs": [],
+        "status": "ok",
+        "summary": "Local gate dropped 1 credential-format line(s) (api_token) and generalized 3 identifier(s) before any network call."
+      },
+      {
+        "_creationTime": 1792884904943.1743,
+        "_id": "md79n8fmr1jwn6n8b7ry4pgyg98gxnhw",
+        "actor": "protected-runner",
+        "at": 1792884904943,
+        "isDemo": true,
+        "kind": "candidate_tests",
+        "lane": "contributor",
+        "mode": "local",
+        "refs": [
+          "n57bs16rte3adkgpx3hv8dtwxn8gwm7p"
+        ],
+        "status": "ok",
+        "summary": "repo-a candidate: 5/5 protected tests passed — Agent A fix (reference patch, local connector)"
+      },
+      {
+        "_creationTime": 1792884904476.6382,
+        "_id": "md78kxn11g4p7jgrm3fxvffy758gw6nw",
+        "actor": "protected-runner",
+        "at": 1792884904476,
+        "isDemo": true,
+        "kind": "baseline_tests",
+        "lane": "contributor",
+        "mode": "local",
+        "refs": [
+          "n57a1cz0ns89phj8b9ebrmqgd18gxk2e"
+        ],
+        "status": "ok",
+        "summary": "repo-a baseline: 3/5 protected tests passed — original code"
+      }
+    ],
+    "runs": [
+      {
+        "_creationTime": 1792884948405.415,
+        "_id": "n570qqsn802d1jahh1wyrhvyhx8gxs4s",
+        "at": 1792884948405,
+        "candidateHash": "sha256:692d481972cac2bcc8b99c161a4f31ee",
+        "changedFiles": [
+          "src/consumer/messageConsumer.mjs"
+        ],
+        "diff": "--- a/src/consumer/messageConsumer.mjs\n+++ b/src/consumer/messageConsumer.mjs\n   return {\n     async onMessage(msg) {\n-      await queue.push({\n-        queue: QUEUE_NAME,\n-        sourceMessageId: msg.messageId,\n-        kind: msg.kind,\n-        body: msg.body,\n-      });\n+      if (!(await ledger.claim(msg.messageId))) {\n+        return { ack: true, result: \"skipped_duplicate\" };\n+      }\n+      try {\n+        await queue.push({\n+          queue: QUEUE_NAME,\n+          sourceMessageId: msg.messageId,\n+          kind: msg.kind,\n+          body: msg.body,\n+        });\n+      } catch (error) {\n+        await ledger.unclaim(msg.messageId);\n+        throw error;\n+      }\n       return { ack: true, result: \"queued\" };\n     },",
+        "isDemo": true,
+        "mode": "live",
+        "note": "Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session 509af5e7",
+        "passed": true,
+        "passedCount": 5,
+        "playbookId": "k97ey80a4ktyvjdpfeh16z9rw98gxb3w",
+        "principalName": "agent-b",
+        "protectedSuiteHash": "sha256:167c80e8a1a94599797abb61149052d0",
+        "repo": "repo-b",
+        "revision": 1,
+        "stage": "candidate",
+        "tests": [
+          {
+            "name": "same message delivered twice queues exactly one task",
+            "ok": true
+          },
+          {
+            "name": "two different message ids queue two tasks",
+            "ok": true
+          },
+          {
+            "name": "five concurrent deliveries of the same message queue one task",
+            "ok": true
+          },
+          {
+            "name": "failed first attempt does not swallow a legitimate redelivery",
+            "ok": true
+          },
+          {
+            "name": "every successful delivery is acknowledged",
+            "ok": true
+          }
+        ],
+        "toolName": "Protected test runner (node --test, separate process)",
+        "total": 5
+      },
+      {
+        "_creationTime": 1792884909873.3423,
+        "_id": "n579rz7nnhjx0pxr20kfdnwy5n8gw98r",
+        "at": 1792884909873,
+        "candidateHash": "sha256:75d6b49f84ca763cd0276dd547b44b8a",
+        "changedFiles": [],
+        "isDemo": true,
+        "mode": "local",
+        "note": "original code",
+        "passed": false,
+        "passedCount": 2,
+        "principalName": "agent-b",
+        "protectedSuiteHash": "sha256:167c80e8a1a94599797abb61149052d0",
+        "repo": "repo-b",
+        "stage": "baseline",
+        "tests": [
+          {
+            "name": "same message delivered twice queues exactly one task",
+            "ok": false
+          },
+          {
+            "name": "two different message ids queue two tasks",
+            "ok": true
+          },
+          {
+            "name": "five concurrent deliveries of the same message queue one task",
+            "ok": false
+          },
+          {
+            "name": "failed first attempt does not swallow a legitimate redelivery",
+            "ok": true
+          },
+          {
+            "name": "every successful delivery is acknowledged",
+            "ok": false
+          }
+        ],
+        "toolName": "Protected test runner (node --test, separate process)",
+        "total": 5
+      },
+      {
+        "_creationTime": 1792884904943.174,
+        "_id": "n57bs16rte3adkgpx3hv8dtwxn8gwm7p",
+        "at": 1792884904943,
+        "candidateHash": "sha256:6cd36a8066a8aa030db3ba9b861ef844",
+        "changedFiles": [
+          "src/handler.mjs"
+        ],
+        "diff": "--- a/src/handler.mjs\n+++ b/src/handler.mjs\n-// billing-events: webhook event handler.\n-// The provider may retry the same delivery (same event.id) several times.\n+// billing-events: webhook event handler (reference fix).\n+// Idempotent on event.id: reserve before work, release on failure so a\n+// legitimate provider retry can still succeed.\n \n export function createEventHandler(store) {\n   return {\n     async handle(event) {\n-      await store.insertJob({\n-        eventId: event.id,\n-        type: event.type,\n-        payload: event.payload,\n-      });\n+      const reserved = await store.reserve(event.id);\n+      if (!reserved) {\n+        return { status: 200, outcome: \"duplicate\" };\n+      }\n+      try {\n+        await store.insertJob({\n+          eventId: event.id,\n+          type: event.type,\n+          payload: event.payload,\n+        });\n+      } catch (err) {\n+        await store.release(event.id);\n+        throw err;\n+      }\n       return { status: 200, outcome: \"processed\" };\n     },",
+        "isDemo": true,
+        "mode": "local",
+        "note": "Agent A fix (reference patch, local connector)",
+        "passed": true,
+        "passedCount": 5,
+        "principalName": "agent-a",
+        "protectedSuiteHash": "sha256:ceb14207ea626605349d63541bbe5203",
+        "repo": "repo-a",
+        "stage": "candidate",
+        "tests": [
+          {
+            "name": "same event delivered twice creates exactly one job",
+            "ok": true
+          },
+          {
+            "name": "two different event ids create two jobs",
+            "ok": true
+          },
+          {
+            "name": "five concurrent deliveries of the same event create one job",
+            "ok": true
+          },
+          {
+            "name": "failed first attempt does not swallow a legitimate retry",
+            "ok": true
+          },
+          {
+            "name": "every successful delivery is acknowledged with status 200",
+            "ok": true
+          }
+        ],
+        "toolName": "Protected test runner (node --test, separate process)",
+        "total": 5
+      },
+      {
+        "_creationTime": 1792884904476.638,
+        "_id": "n57a1cz0ns89phj8b9ebrmqgd18gxk2e",
+        "at": 1792884904476,
+        "candidateHash": "sha256:19e456b5aaa0d59c277150f1e7079bae",
+        "changedFiles": [],
+        "isDemo": true,
+        "mode": "local",
+        "note": "original code",
+        "passed": false,
+        "passedCount": 3,
+        "principalName": "agent-a",
+        "protectedSuiteHash": "sha256:ceb14207ea626605349d63541bbe5203",
+        "repo": "repo-a",
+        "stage": "baseline",
+        "tests": [
+          {
+            "name": "same event delivered twice creates exactly one job",
+            "ok": false
+          },
+          {
+            "name": "two different event ids create two jobs",
+            "ok": true
+          },
+          {
+            "name": "five concurrent deliveries of the same event create one job",
+            "ok": false
+          },
+          {
+            "name": "failed first attempt does not swallow a legitimate retry",
+            "ok": true
+          },
+          {
+            "name": "every successful delivery is acknowledged with status 200",
+            "ok": true
+          }
+        ],
+        "toolName": "Protected test runner (node --test, separate process)",
+        "total": 5
+      }
+    ],
+    "principals": [
+      {
+        "expiresAt": 1793482807909,
+        "name": "agent-a",
+        "orgSlug": "northstar",
+        "policy": {
+          "maxPerPurchaseAtomic": "0",
+          "maxPurchases": 0,
+          "network": "eip155:84532",
+          "sessionMaxAtomic": "0"
+        },
+        "revoked": false,
+        "scopes": [
+          "search",
+          "preview",
+          "submit",
+          "status"
+        ]
+      },
+      {
+        "expiresAt": 1793482809758,
+        "name": "agent-b",
+        "orgSlug": "harbor",
+        "policy": {
+          "allowSimulator": true,
+          "maxPerPurchaseAtomic": "10000",
+          "maxPurchases": 2,
+          "network": "eip155:84532",
+          "sessionMaxAtomic": "50000"
+        },
+        "revoked": false,
+        "scopes": [
+          "search",
+          "preview",
+          "quote",
+          "acquire",
+          "retrieve",
+          "outcome"
+        ]
+      }
+    ],
+    "submissions": [
+      {
+        "_id": "jh74zhp14z09femdtxhsxp751n8gwzh3",
+        "bundleHash": "sha256:seeded",
+        "moderation": "quarantined",
+        "reasons": [
+          "override_instructions",
+          "reveal_secret",
+          "payment_redirect",
+          "budget_change",
+          "command_execution"
+        ],
+        "status": "submitted",
+        "title": "Fix for duplicate webhook jobs (fast!)",
+        "updatedAt": 1792877979954
+      },
+      {
+        "_id": "jh70d6rz3v4rhmkbrk716gtzxs8gxrqq",
+        "bundleHash": "sha256:315666aa4aa323cf0f8b1f37b2f0a31911ecd96488d45d3f25e610194c30bc7c",
+        "moderation": "quarantined",
+        "reasons": [
+          "override_instructions",
+          "reveal_secret",
+          "payment_redirect",
+          "command_execution"
+        ],
+        "status": "submitted",
+        "title": "Duplicate jobs after webhook retries (quick fix)",
+        "updatedAt": 1792878045409
+      },
+      {
+        "_id": "jh70pxgz5ntc9dnw0fh8dc204s8gwedv",
+        "bundleHash": "sha256:840e4dc58b6df33856da207be60e4fa0ee416e874b3b094bd9acc7bc4b1df38f",
+        "moderation": "clean",
+        "playbookId": "k97ey80a4ktyvjdpfeh16z9rw98gxb3w",
+        "reasons": [],
+        "status": "published",
+        "title": "Duplicate jobs when a webhook provider retries the same event",
+        "updatedAt": 1792878159590
+      },
+      {
+        "_id": "jh7027yc05dgwxcdk7t5br4r0h8gxxzz",
+        "bundleHash": "sha256:315666aa4aa323cf0f8b1f37b2f0a31911ecd96488d45d3f25e610194c30bc7c",
+        "moderation": "quarantined",
+        "reasons": [
+          "override_instructions",
+          "reveal_secret",
+          "payment_redirect",
+          "command_execution"
+        ],
+        "status": "submitted",
+        "title": "Duplicate jobs after webhook retries (quick fix)",
+        "updatedAt": 1792878249558
+      },
+      {
+        "_id": "jh7bqkfs96wmhe6th6s0q5jqdh8gwff0",
+        "bundleHash": "sha256:0c473ef278ab924f665750a1f02b716cbe32be76c040d3341e5854c929bfedb0",
+        "moderation": "clean",
+        "playbookId": "k97ftdkq7c9jebm4pzgesmhf298gxbmt",
+        "reasons": [],
+        "status": "published",
+        "title": "Duplicate jobs when a webhook provider retries the same event",
+        "updatedAt": 1792880939336
+      },
+      {
+        "_id": "jh7ax0pr4jg2ch8dn9pexsxrmd8gxjyn",
+        "bundleHash": "sha256:315666aa4aa323cf0f8b1f37b2f0a31911ecd96488d45d3f25e610194c30bc7c",
+        "moderation": "quarantined",
+        "reasons": [
+          "override_instructions",
+          "reveal_secret",
+          "payment_redirect",
+          "command_execution"
+        ],
+        "status": "submitted",
+        "title": "Duplicate jobs after webhook retries (quick fix)",
+        "updatedAt": 1792880960318
+      },
+      {
+        "_id": "jh79h8mbgs4scyqppjkbm9qf1x8gw4s1",
+        "bundleHash": "sha256:315666aa4aa323cf0f8b1f37b2f0a31911ecd96488d45d3f25e610194c30bc7c",
+        "moderation": "quarantined",
+        "reasons": [
+          "override_instructions",
+          "reveal_secret",
+          "payment_redirect",
+          "command_execution"
+        ],
+        "status": "submitted",
+        "title": "Duplicate jobs after webhook retries (quick fix)",
+        "updatedAt": 1792880964274
+      },
+      {
+        "_id": "jh70t9kpf4nyqbr7mvm8gv7g058gx8nj",
+        "bundleHash": "sha256:315666aa4aa323cf0f8b1f37b2f0a31911ecd96488d45d3f25e610194c30bc7c",
+        "moderation": "quarantined",
+        "reasons": [
+          "override_instructions",
+          "reveal_secret",
+          "payment_redirect",
+          "command_execution"
+        ],
+        "status": "submitted",
+        "title": "Duplicate jobs after webhook retries (quick fix)",
+        "updatedAt": 1792883121221
+      },
+      {
+        "_id": "jh7a2z41zkhr69jwadqrfe37rx8gxwp5",
+        "bundleHash": "sha256:bc9e311fd37f02f5242db49b566f4851f0144f9f9f9b1cd05a8c7c46300957d8",
+        "moderation": "clean",
+        "playbookId": "k973s6kygzsak2r682bd34xgk58gxmf0",
+        "reasons": [],
+        "status": "published",
+        "title": "Duplicate jobs when a webhook provider retries the same event",
+        "updatedAt": 1792884634977
+      }
+    ],
+    "outcomes": [
+      {
+        "_creationTime": 1792884954773.7502,
+        "_id": "mh75q8naswrhmtgt8prhxygq1h8gxhzg",
+        "at": 1792884954773,
+        "evidenceRunId": "n570qqsn802d1jahh1wyrhvyhx8gxs4s",
+        "isDemo": true,
+        "playbookId": "k97ey80a4ktyvjdpfeh16z9rw98gxb3w",
+        "principalId": "mn7absehzd0evbbpqsge0v0zr98gwgs5",
+        "reportedPassed": true,
+        "revision": 1,
+        "summary": "Adapted fix in repo B; protected tests 5/5.",
+        "trust": "runner_verified"
+      }
+    ],
+    "jobs": [
+      {
+        "_creationTime": 1792884902595.7893,
+        "_id": "ms7e3gsv9ekr71v10t0k4evvzs8gxz14",
+        "finishedAt": 1792884955876,
+        "generation": 1,
+        "isDemo": true,
+        "kind": "two_agent_demo",
+        "stage": "Done",
+        "startedAt": 1792884902595,
+        "status": "succeeded"
+      }
+    ],
+    "purchases": [
+      {
+        "_id": "kh76r5c3ean6pbhgdmk3qhbw158gwjma",
+        "amountAtomic": "10000",
+        "contributorShareAtomic": "8000",
+        "platformShareAtomic": "2000",
+        "provider": "x402_test",
+        "revision": 1,
+        "status": "test_success",
+        "txHash": "0xd7811882b060ae5a94f9f51e542957ed787437aa51b618f7dac1310d3ff01d88"
+      }
+    ]
+  }
+}

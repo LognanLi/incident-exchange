@@ -494,6 +494,13 @@ legend { padding: 0; }
    Agents
    ========================================================================== */
 .agents .run-meta { font-size: 0.8rem; color: var(--muted); margin: -20px 0 28px; font-family: var(--mono); }
+.mode-tabs { display: inline-flex; gap: 0; margin: -12px 0 24px; border: 1px solid var(--line); border-radius: 3px; }
+.mode-tabs button { background: none; border: 0; padding: 7px 14px; font: inherit; font-size: 0.85rem; color: var(--muted); cursor: pointer; transition: color 0.2s var(--ease), background 0.2s var(--ease); }
+.mode-tabs button + button { border-left: 1px solid var(--line); }
+.mode-tabs button.active { color: var(--ink); background: var(--surface, #fff); }
+.mode-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.recording-banner { padding: 12px 14px; margin: 0 0 28px; border: 1px dashed var(--ink-2); border-radius: 3px; font-size: 0.875rem; color: var(--ink-2); animation: fade-in 0.4s var(--ease) both; }
+.recording-banner strong { color: var(--ink); margin-right: 4px; }
 .role-note { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 0; margin: -16px 0 28px; border-bottom: 1px solid var(--line); font-size: 0.875rem; color: var(--ink-2); }
 .story { list-style: none; padding: 0; margin: 0 0 44px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-top: 1px solid var(--line); counter-reset: story; }
 .story li { position: relative; padding: 16px 14px 0 0; font-size: 0.82rem; color: var(--muted); line-height: 1.4; transition: color 0.4s var(--ease); counter-increment: story; }

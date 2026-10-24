@@ -380,13 +380,24 @@ export const submit = mutation({
     const dup = (await ctx.db.query("incidentDrafts").withIndex("by_contributor", (q) => q.eq("contributorOrgId", org._id)).collect()).find(
       (d) => d.agentSubmission?.clientRequestId === bundle.clientRequestId,
     );
-    if (dup) return { submissionId: dup._id, status: dup.status, moderation: dup.agentSubmission!.moderation };
+    if (dup) {
+      await event(ctx, "contributor", p.name, "submit_resolution", `Same request already submitted (${dup.status}); returned that submission — no duplicate guide.`, "ok", [dup._id]);
+      return { submissionId: dup._id, status: dup.status, moderation: dup.agentSubmission!.moderation };
+    }
 
     // Approval must reference the exact content the server recomputes.
     const hash = await bundleHash(bundle as unknown as Record<string, unknown>);
     if (hash !== bundle.contentHash || bundle.approval.contentHash !== hash) {
       await event(ctx, "security", p.name, "submit_denied", "Approval did not cover the exact submitted content — rejected.", "denied");
       fail("APPROVAL_REQUIRED", "The approval does not cover this exact bundle. Re-stage and approve it.");
+    }
+    // Idempotent per content: the same principal resubmitting identical content gets its existing (non-rejected) submission.
+    const sameContent = (await ctx.db.query("incidentDrafts").withIndex("by_contributor", (q) => q.eq("contributorOrgId", org._id)).collect()).find(
+      (d) => d.agentSubmission?.principalId === p._id && d.agentSubmission.bundleHash === hash && d.status !== "rejected",
+    );
+    if (sameContent) {
+      await event(ctx, "contributor", p.name, "submit_resolution", `Identical content was already submitted (${sameContent.status}); returned that submission — no duplicate guide.`, "ok", [sameContent._id]);
+      return { submissionId: sameContent._id, status: sameContent.status, moderation: sameContent.agentSubmission!.moderation };
     }
     // Second defense layer: never store known secret formats. Categories only — no echo.
     const text = bundleText(bundle as unknown as Record<string, unknown>);

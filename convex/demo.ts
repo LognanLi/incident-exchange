@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { getActor } from "./lib/access";
+import { requireOperator } from "./lib/access";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { MutationCtx } from "./_generated/server";
@@ -154,7 +154,7 @@ export const reset = mutation({
   handler: async (ctx, { actor }) => {
     assertDemoEnabled();
     // Operator action: requires a signed demo session (bootstrap on an empty deployment is allowed).
-    if (await ctx.db.query("organizations").first()) await getActor(ctx, actor);
+    if (await ctx.db.query("organizations").first()) await requireOperator(ctx, actor);
     const mossNames = (await ctx.db.query("mossIndexes").withIndex("by_isDemo", (q) => q.eq("isDemo", true)).collect()).map((m) => m.name);
     if (mossNames.length) await ctx.scheduler.runAfter(0, internal.mossIndex.deleteIndexes, { names: mossNames });
     for (const table of DEMO_TABLES) {

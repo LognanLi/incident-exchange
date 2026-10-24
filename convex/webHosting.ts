@@ -71,8 +71,8 @@ export function registerWebHosting(http: HttpRouter) {
       if (!Array.isArray(body.slugs) || body.slugs.length > 20) return json(400, { error: "slugs required" });
       const known = new Set((await ctx.runQuery(api.demo.listOrgs, {})).map((o) => o.slug));
       const tokens: Record<string, string> = {};
-      for (const slug of body.slugs) if (typeof slug === "string" && known.has(slug)) tokens[slug] = await mintSession(secret, slug);
-      return json(200, { tokens });
+      for (const slug of body.slugs) if (typeof slug === "string" && known.has(slug)) tokens[slug] = await mintSession(secret, slug, undefined, "viewer");
+      return json(200, { tokens, kind: "viewer" });
     }),
   });
 

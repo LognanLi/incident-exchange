@@ -84,6 +84,14 @@ describe("SECURITY GATE: disclosure and moderation", () => {
     const dump = JSON.stringify(await t.run(async (ctx) => [await ctx.db.query("incidentDrafts").collect(), await ctx.db.query("agentEvents").collect()]));
     expect(dump).not.toContain(canary);
   });
+  it("resubmitting identical content (new request id) returns the existing submission — no duplicate guide", async () => {
+    const t = await setup();
+    const first = await t.mutation(api.mcp.submit, { ...A, bundle: await makeBundle() });
+    const again = await t.mutation(api.mcp.submit, { ...A, bundle: await makeBundle() });
+    expect(again.submissionId).toBe(first.submissionId);
+    const changed = await t.mutation(api.mcp.submit, { ...A, bundle: await makeBundle({ summary: "A different lesson about duplicate webhook jobs" }) });
+    expect(changed.submissionId).not.toBe(first.submissionId);
+  });
   it("approval must cover the exact content", async () => {
     const t = await setup();
     const b = (await makeBundle()) as Record<string, unknown>;
