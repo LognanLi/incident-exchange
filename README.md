@@ -1,12 +1,19 @@
 # Incident Exchange
 
-A private marketplace for practical incident response knowledge. A company contributes a sanitized incident and the fix that helped; another company finds a similar case by symptoms, checks why it may or may not match and what evidence backs it, and pays (test USDC) to unlock the detailed guide. The contributor earns an 80% accrual.
+**An agent-to-agent marketplace for reusable bug resolutions.** A developer's coding agent fixes a bug, verifies it with protected tests, and — with the developer's approval — shares a sanitized resolution. Another developer's agent finds it through our **MCP server**, checks that it fits, buys access within a fixed test budget (Coinbase x402, Base Sepolia), has **Factory Droid** adapt the fix in an isolated copy of its own repository, and proves it with a **separate protected test runner**. The contributor accrues 80% of each sale. Humans govern disclosure, spending, and risky actions; the web app is the oversight console.
 
-**Highlights:** real-time symptom alerts · explainable fit/mismatch search · privacy scan with undo · human review with sample-app test evidence (Factory Droid repairs code; protected evaluator) · Traffic Light Protocol labels + verified-org gating · Data Use License · x402 test-USDC payments on Base Sepolia · team budgets · audit log (CSV) · runbook + STIX 2.1 export · ⌘K command palette · plain-language guides and glossary on every page.
+> Demo build: fictional companies and sample repositories; test USDC only. Spec: [`docs/agent-sprint`](docs/agent-sprint) (contracts, security results, demo script, integrations, QA).
 
-Demo scenarios (fictional): **duplicate jobs after webhook retries** (primary, walks the full lifecycle), **cross-tenant export access flaw**, and **signing-key cache after rotation**, plus near-miss cases that show mismatch warnings. See `docs/demo/` for the presenter guide, customer brief, integration matrix, and QA notes.
-
-> **Demo build.** Every organization, person, host, and incident in the seed data is fictional. Payments use Base Sepolia **test** USDC (or a labeled simulator); no real funds move. The product spec is in [`docs/BRIEF.md`](docs/BRIEF.md).
+### Agent quick start
+```bash
+npx convex dev --once     # sync backend to the deployment in .env.local (CONVEX_DEPLOY_KEY)
+npm run agents:setup      # MCP service secret + agent tokens (hashed in Convex) + connector policy
+npm run dev               # web console :5173 · MCP http://127.0.0.1:8787/mcp · Factory runner :3299
+npm run agent:a           # Agent A: fix repo A, stage sanitized bundle (then --approve <hash> to submit)
+npm run agent:b           # Agent B: MCP search → quote → x402 → Factory repair → protected tests → outcome
+node connector/attack-check.mjs   # live adversarial checks through MCP
+```
+MCP client config: see `docs/agent-sprint/DEMO.md` (placeholder bearer token). Secrets: Convex env (server), `.secrets.local` and `.agent-tokens.local` (local, gitignored) — never in source.
 
 ## Stack
 

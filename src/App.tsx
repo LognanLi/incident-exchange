@@ -7,6 +7,7 @@ import { LiveToasts } from "./components/LiveToasts";
 import { CommandPalette } from "./components/CommandPalette";
 import { DemoTour } from "./components/DemoTour";
 import Home from "./pages/Home";
+import Agents from "./pages/Agents";
 import HowItWorks from "./pages/HowItWorks";
 import Pricing from "./pages/Pricing";
 import Trust from "./pages/Trust";
@@ -93,6 +94,13 @@ export default function App() {
           <Icon name="swap" />
         </Link>
 
+        <nav className="vtabs" aria-label="Agents">
+          <div className="vtabs-label">Agents</div>
+          <NavLink to="/agents" className="vtab">
+            <Icon name="spark" />
+            <span>Agent activity</span>
+          </NavLink>
+        </nav>
         {nav && (
           <nav className="vtabs" aria-label={nav.section}>
             <div className="vtabs-label">{nav.section}</div>
@@ -137,6 +145,7 @@ export default function App() {
             <div className="page-enter" key={location.pathname}>
               <Routes>
                 <Route path="/" element={<Home />} />
+                <Route path="/agents" element={<Agents />} />
                 <Route path="/how-it-works" element={<HowItWorks />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/trust" element={<Trust />} />

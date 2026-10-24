@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "setup": "CONVEX_AGENT_MODE=anonymous convex dev --once",
-    "dev": "npm-run-all --parallel dev:backend dev:frontend dev:factory",
+    "dev": "npm-run-all --parallel dev:backend dev:frontend dev:factory dev:mcp",
     "dev:frontend": "vite --open=false",
     "dev:backend": "convex dev",
     "dev:factory": "node scripts/factory-runner.mjs",
+    "dev:mcp": "node mcp/server.mjs",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b && tsc -p convex --noEmit",
     "test": "vitest run && node --test toy-apps/toy.test.mjs",
@@ -17,7 +18,10 @@
     "x402:setup": "convex run x402Node:setup",
     "test:toys": "node --test toy-apps/toy.test.mjs",
     "agents:setup": "node scripts/agents-setup.mjs",
-    "mcp": "node mcp/server.mjs"
+    "mcp": "node mcp/server.mjs",
+    "agent:a": "node connector/agentA.mjs",
+    "agent:b": "node connector/agentB.mjs",
+    "agents:demo": "node connector/demo.mjs"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.60.0",
