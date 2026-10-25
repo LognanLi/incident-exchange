@@ -29,7 +29,7 @@ Shared contracts (lead-owned; ask before changing): `shared/applicability.mjs` (
 - [x] 20:40 security re-run on the deployed integration: attack-check 9/9 (check 5 fixed to target an explicitly over-budget, unowned guide; DB confirmed no new purchase), remote-check 13/13 (11 tools), protocol-check OK; fit-check evidence redacted for other orgs; credential-like fact sources rejected.
 - [x] 20:41 **Zen browser rehearsal** (localhost:5173, scenario picker): tenant run 8:40:32–8:41:05 (fit recommend, purchase reused, Factory, 6/6, `runner_verified`), then dedupe run 8:41:17–8:41:50 (recommend 4/4, reused, 5/5, `runner_verified`); runner log shows both requested from `http://localhost:5173`; purchases unchanged (3). Recording refreshed from the dedupe run (includes the fit check).
 - [x] PRs #10, #11, #12 merged by the user; #13 (integration) open, mergeable, CI green. Cloud functions + hosted console = `agent-product` tree (= `main` after #13).
-- [ ] After #13 merges: `git checkout main && git pull && npx convex dev --once && npm run deploy:web`, then compare the hosted bundle hash with a local build.
+- [x] 21:01 #13 merged; deployed from `main` @ 00fc503 (functions + hosted console). Hosted bundle `index-DPcnZNyU.js` = fresh build of `main`; protocol-check OK, remote-check 13/13, attack-check 9/9; hosted `connect-check.mjs` and `ix-token-header.sh` download identical to `main`; purchases unchanged (3).
 
 ## Resume here
 - Presenter: `npm run dev:factory`, `npm run dev:mcp`, `npm run dev:frontend`; Zen → `http://localhost:5173` → Agents → scenario picker → Run demo. Fallback: Agents → Recorded run.
