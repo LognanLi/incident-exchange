@@ -1,7 +1,8 @@
 // Agent B (buyer): fail → MCP search (sanitized) → preview/fit → quote → own policy check → acquire (x402)
 // → retrieve exact revision → Factory Droid adapts a fix in an isolated workspace → host policy check
 // → separate protected runner → record outcome with runner evidence.
-//   node connector/agentB.mjs [--simulate-payment] [--local-adapter]
+//   node connector/agentB.mjs [--scenario dedupe|tenant] [--simulate-payment] [--local-adapter]
+// Scenario "dedupe" (default) repairs repo-b; "tenant" repairs repo-d. See connector/lib/scenarios.mjs.
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,14 +12,19 @@ import { enforceCandidate, snapshot, PolicyError } from "./lib/policy.mjs";
 import { protectedRun, logEvent, generation } from "./lib/runner.mjs";
 import { lineDiff } from "./lib/diff.mjs";
 import { buildPrompt, factoryAvailable, runDroid } from "./lib/factoryRepair.mjs";
+import { applicabilityGate } from "./lib/applicability.mjs";
+import { parseScenario, repoPolicy } from "./lib/scenarios.mjs";
 
 const args = process.argv.slice(2);
 const simulate = args.includes("--simulate-payment");
+const S = parseScenario(args);
 const P = policy();
-const repo = P.repos["repo-b"];
+const say = (s) => console.log(`[agent-b] ${s}`);
+const repoKey = S.buyerRepo;
+const repo = repoPolicy(P, repoKey, ROOT, say);
 const editable = repo.editable[0];
 const gen = await generation();
-const say = (s) => console.log(`[agent-b] ${s}`);
+if (S.id !== "dedupe") say(`scenario: ${S.id} (${repoKey})`);
 const result = { stages: [] };
 const stage = (name, data) => (result.stages.push({ name, at: new Date().toISOString(), ...data }), data);
 
@@ -26,15 +32,15 @@ const stage = (name, data) => (result.stages.push({ name, at: new Date().toISOSt
 const ws = mkdtempSync(join(tmpdir(), "ix-agent-b-"));
 cpSync(join(ROOT, repo.root, "src"), join(ws, "src"), { recursive: true });
 const before = snapshot(ws);
-const base = await protectedRun({ repo: "repo-b", candidateDir: join(ws, "src"), stage: "baseline", principalName: "agent-b", gen, note: "original code" });
+const base = await protectedRun({ repo: repoKey, candidateDir: join(ws, "src"), stage: "baseline", principalName: "agent-b", gen, note: "original code" });
 say(`baseline: ${base.passedCount}/${base.total} protected tests passed`);
 stage("baseline", { passed: base.passed, passedCount: base.passedCount, total: base.total, runId: base.runId });
 const failing = base.tests.filter((t) => !t.ok).map((t) => t.name);
 
 // 2. Sanitized query built from failing test names + environment facts (no repo, no raw logs).
 const c = await connect("AGENT_B_TOKEN");
-const symptoms = `Same message delivered twice creates two queued tasks; concurrent duplicate deliveries also duplicate work; provider retries the same message id. Failing checks: ${failing.join("; ")}`.slice(0, 600);
-const search = await c.tool("search_resolutions", { symptoms, environment: ["Message queue consumer", "Webhooks", "Node.js"] });
+const symptoms = S.symptoms(failing);
+const search = await c.tool("search_resolutions", { symptoms, environment: S.environment });
 if (search.isError) {
   say(`search → ${search.text}`);
   await logEvent("consumer", "agent-b", "abstain", "No applicable resolution; agent abstains instead of forcing a fix.", "ok", "local", gen);
@@ -49,6 +55,18 @@ if (!pick) {
 }
 await logEvent("consumer", "agent-b", "search_resolutions", `Found “${pick.title}” via MCP (${pick.relevanceLabel}; ${search.envelope.provenance?.sourceIds?.[0] ?? "search"}).`, "ok", search.envelope.provenance?.mode ?? "local", gen);
 stage("search", { resolutionId: pick.resolutionId, matched: pick.matchedClues, missing: pick.missingChecks, conflicts: pick.conflictingClues.length });
+
+// Applicability: compare the guide's declared conditions with facts this connector established about its own
+// repository, BEFORE any entitlement check, quote, purchase or repair. A decline (or a failed check) abstains.
+const gate = await applicabilityGate({ c, resolutionId: pick.resolutionId, repoRoot: repo.root, gen, actor: "agent-b", say });
+stage("applicability", { recommendation: gate.result?.recommendation ?? "unavailable", conflicts: gate.result?.conflicts?.length ?? null });
+if (!gate.proceed) {
+  await logEvent("consumer", "agent-b", "abstain", "Guide does not apply to this repository (or applicability could not be checked); no purchase, no repair.", "ok", "local", gen);
+  say("applicability gate → abstain (no purchase, no repair)");
+  await c.close();
+  rmSync(ws, { recursive: true, force: true });
+  process.exit(0);
+}
 
 // Already entitled (e.g. a re-run after reload)? Reuse the existing receipt — never pay twice.
 const existing = await c.tool("get_resolution", { resolutionId: pick.resolutionId });
@@ -94,8 +112,8 @@ let tool;
 let droid = null;
 if (factoryAvailable() && !args.includes("--local-adapter")) {
   tool = "Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace)";
-  await logEvent("consumer", "agent-b", "factory_repair_started", "Factory Droid is adapting the purchased lesson in an isolated copy of repo B.", "pending", "live", gen);
-  droid = await runDroid({ cwd: ws, prompt: buildPrompt({ editable, resolution }) });
+  await logEvent("consumer", "agent-b", "factory_repair_started", `Factory Droid is adapting the purchased lesson in an isolated copy of ${S.id === "dedupe" ? "repo B" : repoKey}.`, "pending", "live", gen);
+  droid = await runDroid({ cwd: ws, prompt: buildPrompt({ editable, resolution, task: S.task?.(editable) }) });
   say(`factory droid: ${droid.ok ? "ok" : "failed"} in ${Math.round(droid.durationMs / 1000)}s — ${droid.summary}`);
 } else {
   tool = "Factory unavailable — no repair attempted";
@@ -118,17 +136,17 @@ try {
 const diff = changed.length ? lineDiff(before.get(editable), readFileSync(join(ws, editable), "utf8"), editable) : "";
 
 // 8. Separate protected test runner on the candidate.
-const cand = await protectedRun({ repo: "repo-b", candidateDir: join(ws, "src"), stage: "candidate", principalName: "agent-b", resolutionId: pick.resolutionId, diff, changedFiles: changed, gen, mode: droid ? "live" : "local", note: `${tool}${droid?.sessionId ? ` · session ${droid.sessionId.slice(0, 8)}` : ""}` });
+const cand = await protectedRun({ repo: repoKey, candidateDir: join(ws, "src"), stage: "candidate", principalName: "agent-b", resolutionId: pick.resolutionId, diff, changedFiles: changed, gen, mode: droid ? "live" : "local", note: `${tool}${droid?.sessionId ? ` · session ${droid.sessionId.slice(0, 8)}` : ""}` });
 say(`candidate: ${cand.passedCount}/${cand.total} protected tests passed (${cand.passed ? "ACCEPTED" : "REJECTED — discarded"})`);
 stage("candidate", { passed: cand.passed, passedCount: cand.passedCount, total: cand.total, runId: cand.runId, changed, tool });
 
 // 9. Outcome tied to the revision and the runner's evidence id.
-const out = await c.tool("record_outcome", { resolutionId: pick.resolutionId, passed: cand.passed, evidenceRunId: cand.runId, summary: `Adapted fix in repo B; protected tests ${cand.passedCount}/${cand.total}.` });
+const out = await c.tool("record_outcome", { resolutionId: pick.resolutionId, passed: cand.passed, evidenceRunId: cand.runId, summary: S.outcomeSummary(cand) });
 say(`record_outcome → ${out.text}`);
 await c.close();
 rmSync(ws, { recursive: true, force: true });
 
 mkdirSync(join(ROOT, "connector", ".staging"), { recursive: true });
-writeFileSync(join(ROOT, "connector", ".staging", "agent-b-result.json"), JSON.stringify({ ...result, diff, droid: droid && { summary: droid.summary, sessionId: droid.sessionId, durationMs: droid.durationMs } }, null, 2));
+writeFileSync(join(ROOT, "connector", ".staging", S.staging.result), JSON.stringify({ ...result, diff, droid: droid && { summary: droid.summary, sessionId: droid.sessionId, durationMs: droid.durationMs } }, null, 2));
 if (diff) console.log(diff);
 process.exit(cand.passed ? 0 : 9);

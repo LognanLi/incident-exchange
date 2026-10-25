@@ -1,0 +1,38 @@
+{
+  "_note": "SYNTHETIC local findings for Agent A, scenario 2 (repo-c, cross-tenant read). Contains a fake canary credential, private host, email and person name on purpose so the local disclosure gate can be demonstrated. Nothing here is real.",
+  "privateTerms": ["Dana Okafor", "invoice-api-prod"],
+  "summary": "Users of one tenant can read or void another tenant's records by changing the id in the URL",
+  "symptoms": [
+    "A user signed in to one tenant receives another tenant's invoice when requesting its id",
+    "Sequential or leaked ids let a caller enumerate records across tenants",
+    "Requests for another tenant's id return a different error than truly missing ids, revealing which ids exist",
+    "Repro log: GET https://api.invoices.internal/v1/invoices/inv_2001 auth=ix_canary_4Hq8ZtW2mN6pLx3V returned 200 for the wrong tenant"
+  ],
+  "environmentCategories": ["Multi-tenant SaaS", "REST API", "Authorization", "Node.js"],
+  "rootCauseEvidence": "The service loads records by the client-supplied id and returns or modifies them without comparing the record's owning tenant to the caller's authenticated tenant. In the protected tests a caller from one tenant reads and voids another tenant's invoice. Found by Dana Okafor (security@invoice-api.example) on invoice-api-prod.",
+  "unsuccessfulApproaches": [
+    "Switching to random, unguessable ids made enumeration harder, but any leaked or shared id still opened the record across tenants",
+    "Hiding the record in the UI did not help because the API itself returned it",
+    "Answering 403 for other tenants' records stopped the read, but revealed which ids exist"
+  ],
+  "fixPattern": "On every path that loads a record by a client-supplied id (read, update, delete), fetch the record, then compare its owning tenant field with the caller's authenticated tenant taken from server-side auth, never from the request body or query. If the record is missing OR belongs to another tenant, return the same not-found response, and do it before any write. Prefer one shared helper (load-owned-or-not-found) so every handler uses the same check. Keep legitimate same-tenant access unchanged.",
+  "applicability": [
+    "Each record stores the tenant or workspace that owns it",
+    "The caller's authenticated tenant is available server-side on every request",
+    "Records are fetched by an id the client supplies",
+    "There is no legitimate cross-tenant access (shared links, partner or support access)"
+  ],
+  "limitations": [
+    "Doesn't cover list or search endpoints; filter those queries by tenant separately",
+    "Doesn't address shared links, partner access or support impersonation; those need an explicit grant model",
+    "Checks ownership after loading, so the store still reads the row; scoping the query by tenant is stronger where the store supports it",
+    "Tested only on a toy in-memory store"
+  ],
+  "conditions": [
+    { "fact": "runtime.node", "expected": true },
+    { "fact": "records.tenant_scoped", "expected": true, "note": "Each record stores its owning tenant or workspace id" },
+    { "fact": "request.authenticated_tenant", "expected": true, "note": "The authenticated tenant comes from server-side auth, not the request" },
+    { "fact": "access.fetch_by_client_id", "expected": true },
+    { "fact": "access.cross_tenant_sharing", "expected": false, "note": "Shared links or partner access need a grant model this fix does not provide" }
+  ]
+}

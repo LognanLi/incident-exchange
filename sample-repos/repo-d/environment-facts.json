@@ -1,0 +1,6 @@
+{
+  "_note": "Developer-declared environment facts for repo-d (report-exports). Keys come from the exchange vocabulary in shared/applicability.mjs.",
+  "facts": {
+    "access.cross_tenant_sharing": false
+  }
+}

@@ -8,6 +8,14 @@ import { ConvexHttpClient } from "convex/browser";
 import { anyApi } from "convex/server";
 import { ROOT, readEnv } from "./lib/mcpClient.mjs";
 import { mintSession } from "../shared/session.mjs";
+import { parseScenario } from "./lib/scenarios.mjs";
+
+// --scenario dedupe|tenant (default dedupe = scenario 1, unchanged). Passed through to both agents.
+const argv = process.argv.slice(2);
+const S = parseScenario(argv);
+const scenarioArgs = S.id === "dedupe" ? [] : ["--scenario", S.id];
+const passThrough = argv.filter((a, i) => a !== "--scenario" && argv[i - 1] !== "--scenario");
+const STAGING = join(ROOT, "connector", ".staging");
 
 const secrets = readEnv(join(ROOT, ".secrets.local"));
 const convex = new ConvexHttpClient(readEnv(join(ROOT, ".env.local")).VITE_CONVEX_URL);
@@ -22,12 +30,12 @@ const stage = async (s, status) => {
 };
 const run = (file, args = []) => execFileSync(process.execPath, [join(ROOT, "connector", file), ...args], { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"], timeout: 600_000 }).toString();
 try {
-  await stage("Agent A: fix + stage bundle");
-  console.log(run("agentA.mjs"));
-  const hash = JSON.parse(readFileSync(join(ROOT, "connector", ".staging", "agent-a-bundle.json"), "utf8")).contentHash;
+  await stage(`Agent A: fix + stage bundle${S.id === "dedupe" ? "" : ` (scenario: ${S.id})`}`);
+  console.log(run("agentA.mjs", scenarioArgs));
+  const hash = JSON.parse(readFileSync(join(STAGING, S.staging.bundle), "utf8")).contentHash;
   await stage("Agent A: approved bundle → MCP submit");
-  console.log(run("agentA.mjs", ["--approve", hash]));
-  const sub = JSON.parse(readFileSync(join(ROOT, "connector", ".staging", "agent-a-submission.json"), "utf8"));
+  console.log(run("agentA.mjs", [...scenarioArgs, "--approve", hash]));
+  const sub = JSON.parse(readFileSync(join(STAGING, S.staging.submission), "utf8"));
   if (sub.status === "published") {
     // Idempotent rehearsal: identical content was already reviewed and published — reuse that guide.
     await stage("Reusing the already-published guide (identical content; no new review)");
@@ -35,8 +43,8 @@ try {
   await stage("Reviewer approves exact revision (demo reviewer policy)");
   await convex.mutation(anyApi.reviews.decide, { actor: await mintSession(secrets.DEMO_SESSION_SECRET, "review-desk", 600_000), draftId: sub.submissionId, decision: "approve", note: "Demo reviewer policy: evidence and limits checked.", evidenceLevel: "evidence_reviewed", checklist: { sixSectionsComplete: true, noSensitiveData: true, defensiveOnly: true, evidenceSupportsLabel: true, limitationsStated: true } });
   }
-  await stage("Agent B: search → buy → Factory repair → protected tests");
-  console.log(run("agentB.mjs", process.argv.slice(2)));
+  await stage(`Agent B: search → applicability → buy → Factory repair → protected tests${S.id === "dedupe" ? "" : ` (scenario: ${S.id})`}`);
+  console.log(run("agentB.mjs", [...scenarioArgs, ...passThrough]));
   await stage("Done", "succeeded");
 } catch (e) {
   const msg = (e.stdout?.toString() ?? "") + (e.message ?? "");
