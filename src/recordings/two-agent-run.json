@@ -1,52 +1,52 @@
 {
   "kind": "recorded_run",
-  "recordedAt": 1792884958856,
+  "recordedAt": 1792892122577,
   "run": {
-    "startedAt": 1792884902595,
-    "finishedAt": 1792884955876,
-    "durationMs": 53281
+    "startedAt": 1792892015683,
+    "finishedAt": 1792892092451,
+    "durationMs": 76768
   },
   "source": {
     "deployment": "quirky-robin-694",
-    "commit": "498f6fb"
+    "commit": "f716c63"
   },
   "overview": {
     "events": [
       {
-        "_creationTime": 1792884954773.7507,
-        "_id": "md7b5qahx2fph1bg3290twvb2s8gxfz4",
+        "_creationTime": 1792892092258.9663,
+        "_id": "md7d3we188ba6t4qypeyzx10f18gzprd",
         "actor": "agent-b",
-        "at": 1792884954773,
+        "at": 1792892092258,
         "isDemo": true,
         "kind": "record_outcome",
         "lane": "consumer",
         "mode": "local",
         "refs": [
-          "mh75q8naswrhmtgt8prhxygq1h8gxhzg"
+          "mh79csvw9avphc4dah9wng5d6s8gz1fj"
         ],
         "status": "ok",
         "summary": "Outcome passed (verified by protected runner)."
       },
       {
-        "_creationTime": 1792884948405.4153,
-        "_id": "md71cgsjgaqwxjvsq5mh19t41x8gwjnv",
+        "_creationTime": 1792892090366.448,
+        "_id": "md7421yf9n8g5fq4phpn7rja958gz4tn",
         "actor": "protected-runner",
-        "at": 1792884948405,
+        "at": 1792892090366,
         "isDemo": true,
         "kind": "candidate_tests",
         "lane": "consumer",
         "mode": "live",
         "refs": [
-          "n570qqsn802d1jahh1wyrhvyhx8gxs4s"
+          "n575rwm7tm835yr4f8b1kscn298gzxsx"
         ],
         "status": "ok",
-        "summary": "repo-b candidate: 5/5 protected tests passed — Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session 509af5e7"
+        "summary": "repo-b candidate: 5/5 protected tests passed — Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session 21a8040a"
       },
       {
-        "_creationTime": 1792884915638.8262,
-        "_id": "md7f4j0veyqagj0ew1gbz4n0nx8gxa30",
+        "_creationTime": 1792892064593.1013,
+        "_id": "md7an4qsgqrwhhbb5w8af05xy98gy2aq",
         "actor": "agent-b",
-        "at": 1792884915638,
+        "at": 1792892064593,
         "isDemo": true,
         "kind": "factory_repair_started",
         "lane": "consumer",
@@ -56,51 +56,68 @@
         "summary": "Factory Droid is adapting the purchased lesson in an isolated copy of repo B."
       },
       {
-        "_creationTime": 1792884914946.4407,
-        "_id": "md72nbpsdnz7qak4sfdv2nh96s8gx0an",
+        "_creationTime": 1792892039824.585,
+        "_id": "md72bymg8wzfvbaeckckkve3ys8gz681",
         "actor": "agent-b",
-        "at": 1792884914946,
+        "at": 1792892039824,
         "isDemo": true,
-        "kind": "entitlement_reused",
+        "kind": "acquire_resolution",
         "lane": "consumer",
-        "mode": "local",
-        "refs": [],
-        "status": "ok",
-        "summary": "Already entitled to rev 1 — reused the earlier purchase; no new payment."
+        "mode": "testnet",
+        "refs": [
+          "kh7100zv5aaymnaf1755va3scn8gyptt"
+        ],
+        "status": "pending",
+        "summary": "Payment reserved within policy (0.01 USDC, x402 test network)."
       },
       {
-        "_creationTime": 1792884913766.8564,
-        "_id": "md7eanqkke18c1r51rrftta7q18gxm13",
+        "_creationTime": 1792892038675.3035,
+        "_id": "md7arj1f58g0a8kbpt97zr1bm58gzgv6",
         "actor": "agent-b",
-        "at": 1792884913766,
+        "at": 1792892038675,
+        "isDemo": true,
+        "kind": "quote_resolution",
+        "lane": "consumer",
+        "mode": "local",
+        "refs": [
+          "n17axmgmn6cf0wgz79e98n58c58gycxr"
+        ],
+        "status": "ok",
+        "summary": "Quote for “Duplicate jobs when a webhook provider retries the same event” rev 1: 0.01 USDC"
+      },
+      {
+        "_creationTime": 1792892036227.3364,
+        "_id": "md72xkxb8kb5h72y4xx54rxqnx8gy8dc",
+        "actor": "agent-b",
+        "at": 1792892036227,
         "isDemo": true,
         "kind": "search_resolutions",
         "lane": "consumer",
-        "mode": "local",
+        "mode": "live",
         "refs": [],
         "status": "ok",
-        "summary": "Found “Duplicate jobs when a webhook provider retries the same event” via MCP (Strong overlap; keyword-fallback)."
+        "summary": "Found “Duplicate jobs when a webhook provider retries the same event” via MCP (Strong overlap; moss:ix-public-previews)."
       },
       {
-        "_creationTime": 1792884909873.3425,
-        "_id": "md725mkyyksfqmz1pvjahn0vm98gwan4",
+        "_creationTime": 1792892022481.6694,
+        "_id": "md7d7dt79jx4cxsf00ptz8j7mn8gyzmd",
         "actor": "protected-runner",
-        "at": 1792884909873,
+        "at": 1792892022481,
         "isDemo": true,
         "kind": "baseline_tests",
         "lane": "consumer",
         "mode": "local",
         "refs": [
-          "n579rz7nnhjx0pxr20kfdnwy5n8gw98r"
+          "n57a0wqhphx5pw8chtskn7fe7d8gz8b3"
         ],
         "status": "ok",
         "summary": "repo-b baseline: 2/5 protected tests passed — original code"
       },
       {
-        "_creationTime": 1792884908389.0994,
-        "_id": "md7caxdjc512623wkzcrmdzge18gw7xk",
+        "_creationTime": 1792892020556.423,
+        "_id": "md761tb4tt52rk2b364mxcvt5d8gytcc",
         "actor": "agent-a",
-        "at": 1792884908389,
+        "at": 1792892020556,
         "isDemo": true,
         "kind": "submit_resolution",
         "lane": "contributor",
@@ -112,10 +129,10 @@
         "summary": "Same request already submitted (published); returned that submission — no duplicate guide."
       },
       {
-        "_creationTime": 1792884905512.2751,
-        "_id": "md72sdaj02n633xcvd8tw2hqzn8gxr8r",
+        "_creationTime": 1792892018308.953,
+        "_id": "md74xthsnzv3shgranmfpg5h0d8gyb8b",
         "actor": "agent-a",
-        "at": 1792884905512,
+        "at": 1792892018308,
         "isDemo": true,
         "kind": "needs_approval",
         "lane": "contributor",
@@ -125,10 +142,10 @@
         "summary": "Bundle sha256:bc9e311fd37f… staged; waiting for developer approval."
       },
       {
-        "_creationTime": 1792884905101.1763,
-        "_id": "md70amxtfq3krtcnayw8qspad18gx4h5",
+        "_creationTime": 1792892018009.396,
+        "_id": "md71wmvhpem4tmyxmbcfp4mmsd8gzwbe",
         "actor": "agent-a connector",
-        "at": 1792884905101,
+        "at": 1792892018009,
         "isDemo": true,
         "kind": "local_disclosure_gate",
         "lane": "security",
@@ -138,31 +155,31 @@
         "summary": "Local gate dropped 1 credential-format line(s) (api_token) and generalized 3 identifier(s) before any network call."
       },
       {
-        "_creationTime": 1792884904943.1743,
-        "_id": "md79n8fmr1jwn6n8b7ry4pgyg98gxnhw",
+        "_creationTime": 1792892017765.353,
+        "_id": "md79pep0ed9cf0t955y9ztzrpx8gy76r",
         "actor": "protected-runner",
-        "at": 1792884904943,
+        "at": 1792892017765,
         "isDemo": true,
         "kind": "candidate_tests",
         "lane": "contributor",
         "mode": "local",
         "refs": [
-          "n57bs16rte3adkgpx3hv8dtwxn8gwm7p"
+          "n578pjsh0wgntejd3e97sksxj58gyc6k"
         ],
         "status": "ok",
         "summary": "repo-a candidate: 5/5 protected tests passed — Agent A fix (reference patch, local connector)"
       },
       {
-        "_creationTime": 1792884904476.6382,
-        "_id": "md78kxn11g4p7jgrm3fxvffy758gw6nw",
+        "_creationTime": 1792892017139.859,
+        "_id": "md73mke61rammx7mbmqhqmy6bx8gy4kf",
         "actor": "protected-runner",
-        "at": 1792884904476,
+        "at": 1792892017139,
         "isDemo": true,
         "kind": "baseline_tests",
         "lane": "contributor",
         "mode": "local",
         "refs": [
-          "n57a1cz0ns89phj8b9ebrmqgd18gxk2e"
+          "n57c6p600q1gpsf3q3byp1qkd98gyanf"
         ],
         "status": "ok",
         "summary": "repo-a baseline: 3/5 protected tests passed — original code"
@@ -170,9 +187,9 @@
     ],
     "runs": [
       {
-        "_creationTime": 1792884948405.415,
-        "_id": "n570qqsn802d1jahh1wyrhvyhx8gxs4s",
-        "at": 1792884948405,
+        "_creationTime": 1792892090366.4478,
+        "_id": "n575rwm7tm835yr4f8b1kscn298gzxsx",
+        "at": 1792892090366,
         "candidateHash": "sha256:692d481972cac2bcc8b99c161a4f31ee",
         "changedFiles": [
           "src/consumer/messageConsumer.mjs"
@@ -180,10 +197,10 @@
         "diff": "--- a/src/consumer/messageConsumer.mjs\n+++ b/src/consumer/messageConsumer.mjs\n   return {\n     async onMessage(msg) {\n-      await queue.push({\n-        queue: QUEUE_NAME,\n-        sourceMessageId: msg.messageId,\n-        kind: msg.kind,\n-        body: msg.body,\n-      });\n+      if (!(await ledger.claim(msg.messageId))) {\n+        return { ack: true, result: \"skipped_duplicate\" };\n+      }\n+      try {\n+        await queue.push({\n+          queue: QUEUE_NAME,\n+          sourceMessageId: msg.messageId,\n+          kind: msg.kind,\n+          body: msg.body,\n+        });\n+      } catch (error) {\n+        await ledger.unclaim(msg.messageId);\n+        throw error;\n+      }\n       return { ack: true, result: \"queued\" };\n     },",
         "isDemo": true,
         "mode": "live",
-        "note": "Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session 509af5e7",
+        "note": "Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session 21a8040a",
         "passed": true,
         "passedCount": 5,
-        "playbookId": "k97ey80a4ktyvjdpfeh16z9rw98gxb3w",
+        "playbookId": "k973s6kygzsak2r682bd34xgk58gxmf0",
         "principalName": "agent-b",
         "protectedSuiteHash": "sha256:167c80e8a1a94599797abb61149052d0",
         "repo": "repo-b",
@@ -215,9 +232,9 @@
         "total": 5
       },
       {
-        "_creationTime": 1792884909873.3423,
-        "_id": "n579rz7nnhjx0pxr20kfdnwy5n8gw98r",
-        "at": 1792884909873,
+        "_creationTime": 1792892022481.6692,
+        "_id": "n57a0wqhphx5pw8chtskn7fe7d8gz8b3",
+        "at": 1792892022481,
         "candidateHash": "sha256:75d6b49f84ca763cd0276dd547b44b8a",
         "changedFiles": [],
         "isDemo": true,
@@ -255,9 +272,9 @@
         "total": 5
       },
       {
-        "_creationTime": 1792884904943.174,
-        "_id": "n57bs16rte3adkgpx3hv8dtwxn8gwm7p",
-        "at": 1792884904943,
+        "_creationTime": 1792892017765.3528,
+        "_id": "n578pjsh0wgntejd3e97sksxj58gyc6k",
+        "at": 1792892017765,
         "candidateHash": "sha256:6cd36a8066a8aa030db3ba9b861ef844",
         "changedFiles": [
           "src/handler.mjs"
@@ -298,9 +315,9 @@
         "total": 5
       },
       {
-        "_creationTime": 1792884904476.638,
-        "_id": "n57a1cz0ns89phj8b9ebrmqgd18gxk2e",
-        "at": 1792884904476,
+        "_creationTime": 1792892017139.8586,
+        "_id": "n57c6p600q1gpsf3q3byp1qkd98gyanf",
+        "at": 1792892017139,
         "candidateHash": "sha256:19e456b5aaa0d59c277150f1e7079bae",
         "changedFiles": [],
         "isDemo": true,
@@ -396,20 +413,6 @@
         "updatedAt": 1792877979954
       },
       {
-        "_id": "jh70d6rz3v4rhmkbrk716gtzxs8gxrqq",
-        "bundleHash": "sha256:315666aa4aa323cf0f8b1f37b2f0a31911ecd96488d45d3f25e610194c30bc7c",
-        "moderation": "quarantined",
-        "reasons": [
-          "override_instructions",
-          "reveal_secret",
-          "payment_redirect",
-          "command_execution"
-        ],
-        "status": "submitted",
-        "title": "Duplicate jobs after webhook retries (quick fix)",
-        "updatedAt": 1792878045409
-      },
-      {
         "_id": "jh70pxgz5ntc9dnw0fh8dc204s8gwedv",
         "bundleHash": "sha256:840e4dc58b6df33856da207be60e4fa0ee416e874b3b094bd9acc7bc4b1df38f",
         "moderation": "clean",
@@ -420,20 +423,6 @@
         "updatedAt": 1792878159590
       },
       {
-        "_id": "jh7027yc05dgwxcdk7t5br4r0h8gxxzz",
-        "bundleHash": "sha256:315666aa4aa323cf0f8b1f37b2f0a31911ecd96488d45d3f25e610194c30bc7c",
-        "moderation": "quarantined",
-        "reasons": [
-          "override_instructions",
-          "reveal_secret",
-          "payment_redirect",
-          "command_execution"
-        ],
-        "status": "submitted",
-        "title": "Duplicate jobs after webhook retries (quick fix)",
-        "updatedAt": 1792878249558
-      },
-      {
         "_id": "jh7bqkfs96wmhe6th6s0q5jqdh8gwff0",
         "bundleHash": "sha256:0c473ef278ab924f665750a1f02b716cbe32be76c040d3341e5854c929bfedb0",
         "moderation": "clean",
@@ -442,48 +431,6 @@
         "status": "published",
         "title": "Duplicate jobs when a webhook provider retries the same event",
         "updatedAt": 1792880939336
-      },
-      {
-        "_id": "jh7ax0pr4jg2ch8dn9pexsxrmd8gxjyn",
-        "bundleHash": "sha256:315666aa4aa323cf0f8b1f37b2f0a31911ecd96488d45d3f25e610194c30bc7c",
-        "moderation": "quarantined",
-        "reasons": [
-          "override_instructions",
-          "reveal_secret",
-          "payment_redirect",
-          "command_execution"
-        ],
-        "status": "submitted",
-        "title": "Duplicate jobs after webhook retries (quick fix)",
-        "updatedAt": 1792880960318
-      },
-      {
-        "_id": "jh79h8mbgs4scyqppjkbm9qf1x8gw4s1",
-        "bundleHash": "sha256:315666aa4aa323cf0f8b1f37b2f0a31911ecd96488d45d3f25e610194c30bc7c",
-        "moderation": "quarantined",
-        "reasons": [
-          "override_instructions",
-          "reveal_secret",
-          "payment_redirect",
-          "command_execution"
-        ],
-        "status": "submitted",
-        "title": "Duplicate jobs after webhook retries (quick fix)",
-        "updatedAt": 1792880964274
-      },
-      {
-        "_id": "jh70t9kpf4nyqbr7mvm8gv7g058gx8nj",
-        "bundleHash": "sha256:315666aa4aa323cf0f8b1f37b2f0a31911ecd96488d45d3f25e610194c30bc7c",
-        "moderation": "quarantined",
-        "reasons": [
-          "override_instructions",
-          "reveal_secret",
-          "payment_redirect",
-          "command_execution"
-        ],
-        "status": "submitted",
-        "title": "Duplicate jobs after webhook retries (quick fix)",
-        "updatedAt": 1792883121221
       },
       {
         "_id": "jh7a2z41zkhr69jwadqrfe37rx8gxwp5",
@@ -498,12 +445,12 @@
     ],
     "outcomes": [
       {
-        "_creationTime": 1792884954773.7502,
-        "_id": "mh75q8naswrhmtgt8prhxygq1h8gxhzg",
-        "at": 1792884954773,
-        "evidenceRunId": "n570qqsn802d1jahh1wyrhvyhx8gxs4s",
+        "_creationTime": 1792892092258.9658,
+        "_id": "mh79csvw9avphc4dah9wng5d6s8gz1fj",
+        "at": 1792892092258,
+        "evidenceRunId": "n575rwm7tm835yr4f8b1kscn298gzxsx",
         "isDemo": true,
-        "playbookId": "k97ey80a4ktyvjdpfeh16z9rw98gxb3w",
+        "playbookId": "k973s6kygzsak2r682bd34xgk58gxmf0",
         "principalId": "mn7absehzd0evbbpqsge0v0zr98gwgs5",
         "reportedPassed": true,
         "revision": 1,
@@ -513,14 +460,14 @@
     ],
     "jobs": [
       {
-        "_creationTime": 1792884902595.7893,
-        "_id": "ms7e3gsv9ekr71v10t0k4evvzs8gxz14",
-        "finishedAt": 1792884955876,
+        "_creationTime": 1792892015683.2412,
+        "_id": "ms786bs97znzmckzhfhakkq9c98gycv6",
+        "finishedAt": 1792892092451,
         "generation": 1,
         "isDemo": true,
         "kind": "two_agent_demo",
         "stage": "Done",
-        "startedAt": 1792884902595,
+        "startedAt": 1792892015683,
         "status": "succeeded"
       }
     ],
@@ -534,6 +481,16 @@
         "revision": 1,
         "status": "test_success",
         "txHash": "0xd7811882b060ae5a94f9f51e542957ed787437aa51b618f7dac1310d3ff01d88"
+      },
+      {
+        "_id": "kh7100zv5aaymnaf1755va3scn8gyptt",
+        "amountAtomic": "10000",
+        "contributorShareAtomic": "8000",
+        "platformShareAtomic": "2000",
+        "provider": "x402_test",
+        "revision": 1,
+        "status": "test_success",
+        "txHash": "0xf5469b05473a900a5827f1ab55a4990d2daba148c10859e6209b0399c3e17cf7"
       }
     ]
   }

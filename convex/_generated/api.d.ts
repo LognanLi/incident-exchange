@@ -36,6 +36,7 @@ import type * as lib_search from "../lib/search.js";
 import type * as lib_searchIndex from "../lib/searchIndex.js";
 import type * as lib_seedData from "../lib/seedData.js";
 import type * as lib_x402 from "../lib/x402.js";
+import type * as maintenance from "../maintenance.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpRemote from "../mcpRemote.js";
 import type * as mossIndex from "../mossIndex.js";
@@ -88,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   "lib/searchIndex": typeof lib_searchIndex;
   "lib/seedData": typeof lib_seedData;
   "lib/x402": typeof lib_x402;
+  maintenance: typeof maintenance;
   mcp: typeof mcp;
   mcpRemote: typeof mcpRemote;
   mossIndex: typeof mossIndex;
