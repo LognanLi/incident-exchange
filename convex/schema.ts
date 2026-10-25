@@ -48,6 +48,8 @@ export const applicabilityV = v.object({
   clues: v.array(clueV),
   mismatchSignals: v.array(mismatchV),
   checksBeforeUse: v.array(v.string()),
+  /** Structured conditions over the exchange fact vocabulary (shared/applicability.mjs); used by check_applicability. */
+  conditions: v.optional(v.array(v.object({ fact: v.string(), expected: v.boolean(), note: v.optional(v.string()) }))),
 });
 
 export const privacyFindingV = v.object({
@@ -433,6 +435,9 @@ export default defineSchema({
     /** Spend policy installed by an operator; retrieved content can never change it. */
     policy: v.object({ maxPerPurchaseAtomic: v.string(), sessionMaxAtomic: v.string(), maxPurchases: v.number(), network: v.string(), allowSimulator: v.optional(v.boolean()) }),
     createdAt: v.number(),
+    /** Last successful authorized call to get_my_access (the onboarding connection check). */
+    lastSeenAt: v.optional(v.number()),
+    lastSeenVia: v.optional(v.union(v.literal("local"), v.literal("remote"))),
   })
     .index("by_tokenHash", ["tokenHash"])
     .index("by_name", ["name"]),
@@ -543,6 +548,21 @@ export default defineSchema({
     .index("by_startedAt", ["startedAt"])
     .index("by_isDemo", ["isDemo"]),
 
+  /** Results of check_applicability: what matched, conflicted, or still needs verification. No scores. */
+  applicabilityChecks: defineTable({
+    principalName: v.string(),
+    orgSlug: v.string(),
+    playbookId: v.id("playbooks"),
+    revision: v.number(),
+    title: v.string(),
+    recommendation: v.union(v.literal("recommend"), v.literal("verify_first"), v.literal("decline")),
+    reason: v.string(),
+    matched: v.array(v.object({ fact: v.string(), label: v.string(), expected: v.boolean(), observed: v.boolean(), source: v.string(), note: v.optional(v.string()) })),
+    conflicts: v.array(v.object({ fact: v.string(), label: v.string(), expected: v.boolean(), observed: v.boolean(), source: v.string(), note: v.optional(v.string()) })),
+    needsVerification: v.array(v.object({ fact: v.union(v.string(), v.null()), label: v.string(), expected: v.union(v.boolean(), v.null()), note: v.optional(v.string()) })),
+    at: v.number(),
+    isDemo: v.boolean(),
+  }).index("by_at", ["at"]),
   rateLimits: defineTable({ key: v.string(), windowStart: v.number(), count: v.number() }).index("by_key", ["key"]),
   meta: defineTable({ key: v.string(), value: v.number() }).index("by_key", ["key"]),
 

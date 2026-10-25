@@ -27,6 +27,7 @@ export type PublishInput = {
   clues: Clue[];
   mismatchSignals: MismatchSignal[];
   checksBeforeUse: string[];
+  conditions?: { fact: string; expected: boolean; note?: string }[];
   evidenceScope: string;
   evidenceLevel: EvidenceLevel;
   toyCase?: ToyCase;
@@ -55,7 +56,7 @@ export async function publishPlaybook(ctx: MutationCtx, input: PublishInput): Pr
     publicLimitations: input.sections.limitations,
     systemCategories: input.systemCategories,
     environment: input.environment,
-    applicability: { clues, mismatchSignals: input.mismatchSignals, checksBeforeUse: input.checksBeforeUse },
+    applicability: { clues, mismatchSignals: input.mismatchSignals, checksBeforeUse: input.checksBeforeUse, ...(input.conditions ? { conditions: input.conditions } : {}) },
     evidenceScope: input.evidenceScope,
     toyCase: input.toyCase,
     sharingLevel: input.sharingLevel,

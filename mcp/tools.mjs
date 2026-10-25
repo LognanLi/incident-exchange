@@ -4,6 +4,7 @@ import { randomUUID } from "./uuid.mjs";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { anyApi } from "convex/server";
+import { FACTS } from "../shared/applicability.mjs";
 
 export function envelope(status, data, error, mode = "local") {
   return { schemaVersion: "1", requestId: randomUUID(), status, ...(data !== undefined ? { data } : {}), ...(error ? { error } : {}), provenance: { mode, sourceIds: [] } };
@@ -40,7 +41,10 @@ export function buildServer({ token, svc: SVC, exec, deployment }) {
     async () => {
       const r = await call("query", anyApi.mcp.capabilities, { svc: SVC }, (d) => `Schema v${d.schemaVersion}; payments ${d.payment.mode} on ${d.payment.network}.`);
       // Each search reports the engine it actually used (and any fallback reason) in its provenance.
-      if (r.structuredContent?.data) r.structuredContent.data.retrieval = { engine: "moss_semantic", fallback: "keyword", reportedPer: "search_resolutions provenance" };
+      if (r.structuredContent?.data) {
+        r.structuredContent.data.retrieval = { engine: "moss_semantic", fallback: "keyword", reportedPer: "search_resolutions provenance" };
+        r.structuredContent.data.applicabilityFacts = Object.entries(FACTS).map(([fact, f]) => ({ fact, label: f.label }));
+      }
       return r;
     });
 
@@ -62,6 +66,21 @@ export function buildServer({ token, svc: SVC, exec, deployment }) {
 
   server.registerTool("get_resolution_preview", { title: "Resolution preview", description: "Free applicability, evidence, limitations, and price for one resolution. No paid details.", inputSchema: { resolutionId: z.string().max(64) }, annotations: ro },
     (a) => call("query", anyApi.mcp.preview, { ...auth, resolutionId: a.resolutionId }, (d) => `“${d.title}” rev ${d.revision}: ${d.evidenceLevel}; ${d.price.amountAtomic} atomic USDC.`));
+
+  server.registerTool("check_applicability", {
+    title: "Check applicability before buying",
+    description: "Compare a resolution's declared conditions with facts YOUR connector established about your environment. Returns matching conditions, conflicting conditions, and facts still needing verification, plus recommend / verify_first / decline. Facts use a fixed vocabulary (keys listed in get_exchange_capabilities); send booleans and how you know them, never code or logs. No confidence score is computed.",
+    inputSchema: { resolutionId: z.string().max(64), facts: z.array(z.object({ fact: z.string().max(64), value: z.boolean(), source: z.string().max(160) })).max(16).default([]) },
+    annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
+  }, (a) => call("mutation", anyApi.mcp.checkApplicability, { ...auth, resolutionId: a.resolutionId, facts: a.facts }, (d) =>
+    `Fit for “${d.title}”: ${d.recommendation} — ${d.matched.length} match, ${d.conflicts.length} conflict, ${d.needsVerification.length} to verify. ${d.reason}`));
+
+  server.registerTool("get_my_access", {
+    title: "My access (connection check)",
+    description: "Authorized self-check for onboarding: your organization, agent principal, scopes, credential expiry, spend policy, budget used and remaining, and the sharing policy. Works with any valid credential.",
+    inputSchema: {}, annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
+  }, () => call("mutation", anyApi.mcp.myAccess, { ...auth, via: deployment }, (d) =>
+    `Connected as ${d.principal} for ${d.organization.displayName} (${d.organization.slug}); scopes: ${d.scopes.join(", ") || "none"}; ${d.remaining.purchases} purchase(s) and ${d.remaining.sessionAtomic} atomic test USDC left.`));
 
   server.registerTool("quote_resolution", { title: "Quote a resolution", description: "Create a fixed, expiring quote bound to you, one revision, price, network, and payee.", inputSchema: { resolutionId: z.string().max(64) }, annotations: { readOnlyHint: false, idempotentHint: false } },
     (a) => call("mutation", anyApi.mcp.quote, { ...auth, resolutionId: a.resolutionId }, (d) => `Quote ${d.quoteId}: ${d.price.amountAtomic} atomic USDC to ${d.payTo} on ${d.network}, expires ${new Date(d.expiresAt).toISOString()}.`));
@@ -96,6 +115,7 @@ export function buildServer({ token, svc: SVC, exec, deployment }) {
         applicability: list, limitations: list, sourceKind: z.enum(["agent_resolved_bug", "incident_postmortem"]), sharingLicense: z.literal("IX-DUL-1.0"),
         priceAtomic: z.string().regex(/^\d+$/), contentHash: z.string().max(80),
         approval: z.object({ kind: z.enum(["developer_approval", "exact_policy"]), reference: z.string().max(80), contentHash: z.string().max(80) }), publicationConsent: z.boolean(),
+        conditions: z.array(z.object({ fact: z.string().max(64), expected: z.boolean(), note: z.string().max(200).optional() })).max(12).optional(),
       }),
     },
     annotations: { readOnlyHint: false, idempotentHint: true },

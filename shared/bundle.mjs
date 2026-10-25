@@ -31,6 +31,9 @@ function sortKeys(v) {
 export function canonicalBundle(bundle) {
   const out = {};
   for (const f of CONTENT_FIELDS) out[f] = bundle[f] ?? null;
+  // Optional structured applicability conditions (shared/applicability.mjs). Hashed only when present, so
+  // bundles without them keep their existing hash.
+  if (bundle.conditions !== undefined) out.conditions = bundle.conditions;
   return JSON.stringify(sortKeys(out));
 }
 
