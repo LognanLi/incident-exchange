@@ -76,6 +76,8 @@ export default function DemoMenu() {
             className="btn danger"
             disabled={resetAction.pending}
             onClick={async () => {
+              // The deployment is shared and a reset deletes every demo record, including purchases: never on one click.
+              if (!window.confirm("Reset ALL demo data on the shared deployment? This deletes every guide, purchase, receipt and agent run, and reseeds the demo. It cannot be undone.")) return;
               setResetDone(false);
               const r = await resetAction.run({ actor: session.actor });
               if (r) {

@@ -1,52 +1,52 @@
 {
   "kind": "recorded_run",
-  "recordedAt": 1792892122577,
+  "recordedAt": 1792894045383,
   "run": {
-    "startedAt": 1792892015683,
-    "finishedAt": 1792892092451,
-    "durationMs": 76768
+    "startedAt": 1792893668998,
+    "finishedAt": 1792893758332,
+    "durationMs": 89334
   },
   "source": {
     "deployment": "quirky-robin-694",
-    "commit": "f716c63"
+    "commit": "08318d3"
   },
   "overview": {
     "events": [
       {
-        "_creationTime": 1792892092258.9663,
-        "_id": "md7d3we188ba6t4qypeyzx10f18gzprd",
+        "_creationTime": 1792893757960.8596,
+        "_id": "md79br7ts1fn34jpgqny3d2b6h8gz939",
         "actor": "agent-b",
-        "at": 1792892092258,
+        "at": 1792893757960,
         "isDemo": true,
         "kind": "record_outcome",
         "lane": "consumer",
         "mode": "local",
         "refs": [
-          "mh79csvw9avphc4dah9wng5d6s8gz1fj"
+          "mh75nsn26hrj4wg3cckn9hrt4n8gyn1d"
         ],
         "status": "ok",
         "summary": "Outcome passed (verified by protected runner)."
       },
       {
-        "_creationTime": 1792892090366.448,
-        "_id": "md7421yf9n8g5fq4phpn7rja958gz4tn",
+        "_creationTime": 1792893755834.1309,
+        "_id": "md7b4b3f1pe8q3e678r2p9xj1h8gz7tp",
         "actor": "protected-runner",
-        "at": 1792892090366,
+        "at": 1792893755834,
         "isDemo": true,
         "kind": "candidate_tests",
         "lane": "consumer",
         "mode": "live",
         "refs": [
-          "n575rwm7tm835yr4f8b1kscn298gzxsx"
+          "n578gvwt882perejde34s2h2sh8gyzp5"
         ],
         "status": "ok",
-        "summary": "repo-b candidate: 5/5 protected tests passed — Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session 21a8040a"
+        "summary": "repo-b candidate: 5/5 protected tests passed — Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session 944a454f"
       },
       {
-        "_creationTime": 1792892064593.1013,
-        "_id": "md7an4qsgqrwhhbb5w8af05xy98gy2aq",
+        "_creationTime": 1792893722181.535,
+        "_id": "md76g79x88afpjgz7m1h8wp3v98gyc1n",
         "actor": "agent-b",
-        "at": 1792892064593,
+        "at": 1792893722181,
         "isDemo": true,
         "kind": "factory_repair_started",
         "lane": "consumer",
@@ -56,40 +56,40 @@
         "summary": "Factory Droid is adapting the purchased lesson in an isolated copy of repo B."
       },
       {
-        "_creationTime": 1792892039824.585,
-        "_id": "md72bymg8wzfvbaeckckkve3ys8gz681",
+        "_creationTime": 1792893700197.2217,
+        "_id": "md715j60rcepb63shfyk5njrkh8gzha9",
         "actor": "agent-b",
-        "at": 1792892039824,
+        "at": 1792893700197,
         "isDemo": true,
         "kind": "acquire_resolution",
         "lane": "consumer",
         "mode": "testnet",
         "refs": [
-          "kh7100zv5aaymnaf1755va3scn8gyptt"
+          "kh7a534en74frdm5zvd2g82s1h8gzcvz"
         ],
         "status": "pending",
         "summary": "Payment reserved within policy (0.01 USDC, x402 test network)."
       },
       {
-        "_creationTime": 1792892038675.3035,
-        "_id": "md7arj1f58g0a8kbpt97zr1bm58gzgv6",
+        "_creationTime": 1792893697793.196,
+        "_id": "md78ndcghk3wtw5ceexg61jbad8gyc95",
         "actor": "agent-b",
-        "at": 1792892038675,
+        "at": 1792893697793,
         "isDemo": true,
         "kind": "quote_resolution",
         "lane": "consumer",
         "mode": "local",
         "refs": [
-          "n17axmgmn6cf0wgz79e98n58c58gycxr"
+          "n17fpyqq05tk0f159fj8j2r6md8gyda7"
         ],
         "status": "ok",
         "summary": "Quote for “Duplicate jobs when a webhook provider retries the same event” rev 1: 0.01 USDC"
       },
       {
-        "_creationTime": 1792892036227.3364,
-        "_id": "md72xkxb8kb5h72y4xx54rxqnx8gy8dc",
+        "_creationTime": 1792893695741.661,
+        "_id": "md7cqv0pc5bs8n00nsba5fwm4d8gzpnw",
         "actor": "agent-b",
-        "at": 1792892036227,
+        "at": 1792893695741,
         "isDemo": true,
         "kind": "search_resolutions",
         "lane": "consumer",
@@ -99,40 +99,40 @@
         "summary": "Found “Duplicate jobs when a webhook provider retries the same event” via MCP (Strong overlap; moss:ix-public-previews)."
       },
       {
-        "_creationTime": 1792892022481.6694,
-        "_id": "md7d7dt79jx4cxsf00ptz8j7mn8gyzmd",
+        "_creationTime": 1792893684750.5095,
+        "_id": "md732a7bs4pbgmc4vsvx727n9s8gy2gv",
         "actor": "protected-runner",
-        "at": 1792892022481,
+        "at": 1792893684750,
         "isDemo": true,
         "kind": "baseline_tests",
         "lane": "consumer",
         "mode": "local",
         "refs": [
-          "n57a0wqhphx5pw8chtskn7fe7d8gz8b3"
+          "n570vyrrx35swkmwpyxm6k2s218gy75b"
         ],
         "status": "ok",
         "summary": "repo-b baseline: 2/5 protected tests passed — original code"
       },
       {
-        "_creationTime": 1792892020556.423,
-        "_id": "md761tb4tt52rk2b364mxcvt5d8gytcc",
+        "_creationTime": 1792893680973.2803,
+        "_id": "md7e2zvqqc5qshepc308qfr24d8gz54n",
         "actor": "agent-a",
-        "at": 1792892020556,
+        "at": 1792893680973,
         "isDemo": true,
         "kind": "submit_resolution",
         "lane": "contributor",
         "mode": "local",
         "refs": [
-          "jh7a2z41zkhr69jwadqrfe37rx8gxwp5"
+          "jh76tjrf1041djwpn7q8d0806h8gyrjb"
         ],
         "status": "ok",
-        "summary": "Same request already submitted (published); returned that submission — no duplicate guide."
+        "summary": "Approved bundle sha256:bc9e311fd37f… submitted for human review."
       },
       {
-        "_creationTime": 1792892018308.953,
-        "_id": "md74xthsnzv3shgranmfpg5h0d8gyb8b",
+        "_creationTime": 1792893675551.9568,
+        "_id": "md7601m22bnj4y0cz921tv2k2n8gy2tc",
         "actor": "agent-a",
-        "at": 1792892018308,
+        "at": 1792893675551,
         "isDemo": true,
         "kind": "needs_approval",
         "lane": "contributor",
@@ -142,10 +142,10 @@
         "summary": "Bundle sha256:bc9e311fd37f… staged; waiting for developer approval."
       },
       {
-        "_creationTime": 1792892018009.396,
-        "_id": "md71wmvhpem4tmyxmbcfp4mmsd8gzwbe",
+        "_creationTime": 1792893675041.0383,
+        "_id": "md7epc1xn755r8e8km52a0ck258gzmge",
         "actor": "agent-a connector",
-        "at": 1792892018009,
+        "at": 1792893675041,
         "isDemo": true,
         "kind": "local_disclosure_gate",
         "lane": "security",
@@ -155,31 +155,31 @@
         "summary": "Local gate dropped 1 credential-format line(s) (api_token) and generalized 3 identifier(s) before any network call."
       },
       {
-        "_creationTime": 1792892017765.353,
-        "_id": "md79pep0ed9cf0t955y9ztzrpx8gy76r",
+        "_creationTime": 1792893674845.5098,
+        "_id": "md7dynv6ch290vxhs5tkndj09s8gy0a4",
         "actor": "protected-runner",
-        "at": 1792892017765,
+        "at": 1792893674845,
         "isDemo": true,
         "kind": "candidate_tests",
         "lane": "contributor",
         "mode": "local",
         "refs": [
-          "n578pjsh0wgntejd3e97sksxj58gyc6k"
+          "n579kybh28f8xybm78w1znyp5n8gzw3m"
         ],
         "status": "ok",
         "summary": "repo-a candidate: 5/5 protected tests passed — Agent A fix (reference patch, local connector)"
       },
       {
-        "_creationTime": 1792892017139.859,
-        "_id": "md73mke61rammx7mbmqhqmy6bx8gy4kf",
+        "_creationTime": 1792893673710.1653,
+        "_id": "md72vkvb16jdn7zm3mk3aek3e98gypd1",
         "actor": "protected-runner",
-        "at": 1792892017139,
+        "at": 1792893673710,
         "isDemo": true,
         "kind": "baseline_tests",
         "lane": "contributor",
         "mode": "local",
         "refs": [
-          "n57c6p600q1gpsf3q3byp1qkd98gyanf"
+          "n571k08cfnjbm12ng2vyyjn8c18gytc1"
         ],
         "status": "ok",
         "summary": "repo-a baseline: 3/5 protected tests passed — original code"
@@ -187,9 +187,9 @@
     ],
     "runs": [
       {
-        "_creationTime": 1792892090366.4478,
-        "_id": "n575rwm7tm835yr4f8b1kscn298gzxsx",
-        "at": 1792892090366,
+        "_creationTime": 1792893755834.1306,
+        "_id": "n578gvwt882perejde34s2h2sh8gyzp5",
+        "at": 1792893755834,
         "candidateHash": "sha256:692d481972cac2bcc8b99c161a4f31ee",
         "changedFiles": [
           "src/consumer/messageConsumer.mjs"
@@ -197,10 +197,10 @@
         "diff": "--- a/src/consumer/messageConsumer.mjs\n+++ b/src/consumer/messageConsumer.mjs\n   return {\n     async onMessage(msg) {\n-      await queue.push({\n-        queue: QUEUE_NAME,\n-        sourceMessageId: msg.messageId,\n-        kind: msg.kind,\n-        body: msg.body,\n-      });\n+      if (!(await ledger.claim(msg.messageId))) {\n+        return { ack: true, result: \"skipped_duplicate\" };\n+      }\n+      try {\n+        await queue.push({\n+          queue: QUEUE_NAME,\n+          sourceMessageId: msg.messageId,\n+          kind: msg.kind,\n+          body: msg.body,\n+        });\n+      } catch (error) {\n+        await ledger.unclaim(msg.messageId);\n+        throw error;\n+      }\n       return { ack: true, result: \"queued\" };\n     },",
         "isDemo": true,
         "mode": "live",
-        "note": "Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session 21a8040a",
+        "note": "Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session 944a454f",
         "passed": true,
         "passedCount": 5,
-        "playbookId": "k973s6kygzsak2r682bd34xgk58gxmf0",
+        "playbookId": "k979mewc359579pr1y8pjqvhkd8gypc7",
         "principalName": "agent-b",
         "protectedSuiteHash": "sha256:167c80e8a1a94599797abb61149052d0",
         "repo": "repo-b",
@@ -232,9 +232,9 @@
         "total": 5
       },
       {
-        "_creationTime": 1792892022481.6692,
-        "_id": "n57a0wqhphx5pw8chtskn7fe7d8gz8b3",
-        "at": 1792892022481,
+        "_creationTime": 1792893684750.5093,
+        "_id": "n570vyrrx35swkmwpyxm6k2s218gy75b",
+        "at": 1792893684750,
         "candidateHash": "sha256:75d6b49f84ca763cd0276dd547b44b8a",
         "changedFiles": [],
         "isDemo": true,
@@ -272,9 +272,9 @@
         "total": 5
       },
       {
-        "_creationTime": 1792892017765.3528,
-        "_id": "n578pjsh0wgntejd3e97sksxj58gyc6k",
-        "at": 1792892017765,
+        "_creationTime": 1792893674845.5095,
+        "_id": "n579kybh28f8xybm78w1znyp5n8gzw3m",
+        "at": 1792893674845,
         "candidateHash": "sha256:6cd36a8066a8aa030db3ba9b861ef844",
         "changedFiles": [
           "src/handler.mjs"
@@ -315,9 +315,9 @@
         "total": 5
       },
       {
-        "_creationTime": 1792892017139.8586,
-        "_id": "n57c6p600q1gpsf3q3byp1qkd98gyanf",
-        "at": 1792892017139,
+        "_creationTime": 1792893673710.165,
+        "_id": "n571k08cfnjbm12ng2vyyjn8c18gytc1",
+        "at": 1792893673710,
         "candidateHash": "sha256:19e456b5aaa0d59c277150f1e7079bae",
         "changedFiles": [],
         "isDemo": true,
@@ -398,7 +398,7 @@
     ],
     "submissions": [
       {
-        "_id": "jh74zhp14z09femdtxhsxp751n8gwzh3",
+        "_id": "jh7502mrmf8k73zx6ajat0drbn8gy002",
         "bundleHash": "sha256:seeded",
         "moderation": "quarantined",
         "reasons": [
@@ -410,47 +410,27 @@
         ],
         "status": "submitted",
         "title": "Fix for duplicate webhook jobs (fast!)",
-        "updatedAt": 1792877979954
+        "updatedAt": 1792893542517
       },
       {
-        "_id": "jh70pxgz5ntc9dnw0fh8dc204s8gwedv",
-        "bundleHash": "sha256:840e4dc58b6df33856da207be60e4fa0ee416e874b3b094bd9acc7bc4b1df38f",
-        "moderation": "clean",
-        "playbookId": "k97ey80a4ktyvjdpfeh16z9rw98gxb3w",
-        "reasons": [],
-        "status": "published",
-        "title": "Duplicate jobs when a webhook provider retries the same event",
-        "updatedAt": 1792878159590
-      },
-      {
-        "_id": "jh7bqkfs96wmhe6th6s0q5jqdh8gwff0",
-        "bundleHash": "sha256:0c473ef278ab924f665750a1f02b716cbe32be76c040d3341e5854c929bfedb0",
-        "moderation": "clean",
-        "playbookId": "k97ftdkq7c9jebm4pzgesmhf298gxbmt",
-        "reasons": [],
-        "status": "published",
-        "title": "Duplicate jobs when a webhook provider retries the same event",
-        "updatedAt": 1792880939336
-      },
-      {
-        "_id": "jh7a2z41zkhr69jwadqrfe37rx8gxwp5",
+        "_id": "jh76tjrf1041djwpn7q8d0806h8gyrjb",
         "bundleHash": "sha256:bc9e311fd37f02f5242db49b566f4851f0144f9f9f9b1cd05a8c7c46300957d8",
         "moderation": "clean",
-        "playbookId": "k973s6kygzsak2r682bd34xgk58gxmf0",
+        "playbookId": "k979mewc359579pr1y8pjqvhkd8gypc7",
         "reasons": [],
         "status": "published",
         "title": "Duplicate jobs when a webhook provider retries the same event",
-        "updatedAt": 1792884634977
+        "updatedAt": 1792893682931
       }
     ],
     "outcomes": [
       {
-        "_creationTime": 1792892092258.9658,
-        "_id": "mh79csvw9avphc4dah9wng5d6s8gz1fj",
-        "at": 1792892092258,
-        "evidenceRunId": "n575rwm7tm835yr4f8b1kscn298gzxsx",
+        "_creationTime": 1792893757960.8591,
+        "_id": "mh75nsn26hrj4wg3cckn9hrt4n8gyn1d",
+        "at": 1792893757960,
+        "evidenceRunId": "n578gvwt882perejde34s2h2sh8gyzp5",
         "isDemo": true,
-        "playbookId": "k973s6kygzsak2r682bd34xgk58gxmf0",
+        "playbookId": "k979mewc359579pr1y8pjqvhkd8gypc7",
         "principalId": "mn7absehzd0evbbpqsge0v0zr98gwgs5",
         "reportedPassed": true,
         "revision": 1,
@@ -460,37 +440,27 @@
     ],
     "jobs": [
       {
-        "_creationTime": 1792892015683.2412,
-        "_id": "ms786bs97znzmckzhfhakkq9c98gycv6",
-        "finishedAt": 1792892092451,
-        "generation": 1,
+        "_creationTime": 1792893668998.8438,
+        "_id": "ms77639sqqs6brc8xypdf8zf8n8gzmv6",
+        "finishedAt": 1792893758332,
+        "generation": 2,
         "isDemo": true,
         "kind": "two_agent_demo",
         "stage": "Done",
-        "startedAt": 1792892015683,
+        "startedAt": 1792893668998,
         "status": "succeeded"
       }
     ],
     "purchases": [
       {
-        "_id": "kh76r5c3ean6pbhgdmk3qhbw158gwjma",
+        "_id": "kh7a534en74frdm5zvd2g82s1h8gzcvz",
         "amountAtomic": "10000",
         "contributorShareAtomic": "8000",
         "platformShareAtomic": "2000",
         "provider": "x402_test",
         "revision": 1,
         "status": "test_success",
-        "txHash": "0xd7811882b060ae5a94f9f51e542957ed787437aa51b618f7dac1310d3ff01d88"
-      },
-      {
-        "_id": "kh7100zv5aaymnaf1755va3scn8gyptt",
-        "amountAtomic": "10000",
-        "contributorShareAtomic": "8000",
-        "platformShareAtomic": "2000",
-        "provider": "x402_test",
-        "revision": 1,
-        "status": "test_success",
-        "txHash": "0xf5469b05473a900a5827f1ab55a4990d2daba148c10859e6209b0399c3e17cf7"
+        "txHash": "0x0ab34ed0e9ddaa9c88ad289b1b9052769d46fbb2e619a7077302de02c1d54da1"
       }
     ]
   }
