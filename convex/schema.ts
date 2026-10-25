@@ -44,6 +44,15 @@ export const toyCaseV = v.union(v.literal("webhook"), v.literal("tenant"), v.lit
 
 const clueV = v.object({ id: v.string(), label: v.string(), terms: v.array(v.string()), weight: v.union(v.literal("key"), v.literal("supporting")) });
 const mismatchV = v.object({ id: v.string(), label: v.string(), terms: v.array(v.string()), explanation: v.string() });
+const detailEntryV = v.object({ k: v.string(), v: v.string() });
+export const eventDetailV = v.object({
+  tool: v.optional(v.string()),
+  input: v.optional(v.array(detailEntryV)),
+  result: v.optional(v.string()),
+  resolutionId: v.optional(v.string()),
+  revision: v.optional(v.number()),
+  evidence: v.optional(v.array(detailEntryV)),
+});
 export const applicabilityV = v.object({
   clues: v.array(clueV),
   mismatchSignals: v.array(mismatchV),
@@ -299,6 +308,8 @@ export default defineSchema({
       v.literal("simulated_success"),
       v.literal("test_success"),
       v.literal("cancelled"),
+      /** The payment attempt failed before settlement could start: no funds moved; budget released. */
+      v.literal("failed"),
     ),
     /** Internal accrual ledger (exact integer split of amountAtomic). Not an on-chain payout. */
     contributorShareAtomic: v.string(),
@@ -310,6 +321,11 @@ export default defineSchema({
     principalId: v.optional(v.id("agentPrincipals")),
     quoteId: v.optional(v.id("quotes")),
     clientRequestId: v.optional(v.string()),
+    /** Operator policy and reservation at acquisition time (older receipts may have no snapshot). */
+    spendPolicySnapshot: v.optional(v.object({
+      maxPerPurchaseAtomic: v.string(), sessionMaxAtomic: v.string(), maxPurchases: v.number(),
+      committedBeforeAtomic: v.string(), remainingAfterAtomic: v.string(), remainingPurchases: v.number(),
+    })),
     licenseAcceptedAt: v.optional(v.number()),
     /** Present for x402 test purchases: what actually settled on Base Sepolia. */
     x402: v.optional(
@@ -454,6 +470,8 @@ export default defineSchema({
     payTo: v.string(),
     expiresAt: v.number(),
     status: v.union(v.literal("open"), v.literal("used")),
+    /** Also binds later quotes that reused an earlier purchase. */
+    purchaseId: v.optional(v.id("purchases")),
     isDemo: v.boolean(),
     createdAt: v.number(),
   })
@@ -526,6 +544,8 @@ export default defineSchema({
     summary: v.string(),
     status: v.union(v.literal("ok"), v.literal("pending"), v.literal("denied"), v.literal("error")),
     mode: v.string(),
+    /** Sanitized technical evidence (shared/eventDetail.mjs): MCP tool, inputs, result, revision, evidence. */
+    detail: v.optional(eventDetailV),
     refs: v.array(v.string()),
     jobId: v.optional(v.id("jobs")),
     at: v.number(),

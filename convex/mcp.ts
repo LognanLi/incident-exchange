@@ -12,6 +12,9 @@ import { draftContentHash } from "./lib/draftContent";
 import { formatPrice, splitRevenue, sumAtomic } from "./lib/money";
 import { USDC_BASE_SEPOLIA, X402_NETWORK, cdpCredentialsPresent } from "./lib/x402";
 import { LICENSE_VERSION } from "./lib/license";
+import { recordAgentEvent } from "./lib/agentEvents";
+import { eventDetailV } from "./schema";
+import type { EventDetail } from "../shared/eventDetail.mjs";
 import { FACTS, evaluateApplicability, validateConditions, validateFacts, type FactKey } from "../shared/applicability.mjs";
 
 export const SCOPES = ["search", "preview", "quote", "acquire", "retrieve", "outcome", "submit", "status"] as const;
@@ -27,6 +30,16 @@ function fail(code: Code, message: string, retryable = false): never {
   throw new ConvexError({ code, message, retryable });
 }
 
+/**
+ * A denial that must leave an audit trail. Convex rolls back every write of a mutation that throws, so a
+ * denial event followed by fail() was never stored. Denials therefore record their event and RETURN this
+ * marker; the MCP tool layer (mcp/tools.mjs) turns it into the same tool error a thrown ConvexError produces.
+ */
+type Denied = { __denied: { code: Code; message: string; retryable: boolean } };
+function deny(code: Code, message: string): Denied {
+  return { __denied: { code, message, retryable: false } };
+}
+
 async function event(
   ctx: MutationCtx,
   lane: Doc<"agentEvents">["lane"],
@@ -36,8 +49,9 @@ async function event(
   status: Doc<"agentEvents">["status"] = "ok",
   refs: string[] = [],
   mode = "local",
+  detail?: EventDetail,
 ) {
-  await ctx.db.insert("agentEvents", { lane, actor, kind, summary: summary.slice(0, 240), status, mode, refs: refs.slice(0, 6), at: Date.now(), isDemo: true });
+  await recordAgentEvent(ctx, { lane, actor, kind, summary, status, refs, mode, detail });
 }
 
 const authArgs = { svc: v.string(), token: v.string() };
@@ -189,7 +203,13 @@ export const checkApplicability = mutation({
     const label = { recommend: "recommends using", verify_first: "needs verification before using", decline: "declined" }[result.recommendation];
     await event(ctx, result.recommendation === "decline" ? "security" : "consumer", p.name, result.recommendation === "decline" ? "applicability_declined" : "applicability_checked",
       `Fit check ${label} “${pb.publicTitle}”: ${result.matched.length} match, ${result.conflicts.length} conflict, ${result.needsVerification.length} to verify.`,
-      result.recommendation === "decline" ? "denied" : "ok", [pb._id]);
+      result.recommendation === "decline" ? "denied" : "ok", [pb._id], "local", {
+        tool: "check_applicability", resolutionId: pb._id, revision: pb.revision,
+        // Fact keys and values only; the buyer's evidence sources stay in applicabilityChecks (org/operator-only).
+        input: facts.slice(0, 8).map((f) => ({ k: f.fact, v: f.value ? "yes" : "no" })),
+        result: `${result.recommendation}: ${result.matched.length} match, ${result.conflicts.length} conflict, ${result.needsVerification.length} to verify`,
+        evidence: result.conflicts.slice(0, 4).map((c) => ({ k: `conflict ${c.fact}`, v: `guide needs ${c.expected ? "yes" : "no"}, observed ${c.observed ? "yes" : "no"}` })),
+      });
     return {
       resolutionId: pb._id, revision: pb.revision, title: pb.publicTitle,
       conditions: conditions.map((c) => ({ ...c, label: FACTS[c.fact as FactKey]?.label ?? c.fact })),
@@ -247,7 +267,11 @@ export const quote = mutation({
       principalId: p._id, playbookId: pb._id, revision: pb.revision, contentHash: paid.contentHash, priceAtomic: pb.priceAtomic,
       currency: "USDC", decimals: 6, network: X402_NETWORK, payTo: receiver?.address ?? "simulator", expiresAt, status: "open", isDemo: true, createdAt: Date.now(),
     });
-    await event(ctx, "consumer", p.name, "quote_resolution", `Quote for “${pb.publicTitle}” rev ${pb.revision}: ${formatPrice(pb.priceAtomic)}`, "ok", [quoteId]);
+    await event(ctx, "consumer", p.name, "quote_resolution", `Quote for “${pb.publicTitle}” rev ${pb.revision}: ${formatPrice(pb.priceAtomic)}`, "ok", [quoteId], "local", {
+      tool: "quote_resolution", resolutionId: pb._id, revision: pb.revision, input: [{ k: "resolutionId", v: pb._id }],
+      result: `${formatPrice(pb.priceAtomic)} to ${receiver?.address ?? "simulator"} on ${X402_NETWORK}; expires ${new Date(expiresAt).toISOString()}`,
+      evidence: [{ k: "quote", v: quoteId }, { k: "revision hash", v: paid.contentHash.slice(0, 24) + "…" }],
+    });
     return { quoteId, resolutionId: pb._id, revision: pb.revision, revisionHash: paid.contentHash, price: { amountAtomic: pb.priceAtomic, currency: "USDC", decimals: 6 }, network: X402_NETWORK, asset: USDC_BASE_SEPOLIA, payTo: receiver?.address ?? "simulator", expiresAt, buyer: p.name };
   },
 });
@@ -282,8 +306,11 @@ export const acquire = mutation({
     // Terms must match what the connector's own policy approved (payee/network/price injection defense).
     const assetMismatch = approved.asset !== undefined && approved.asset.toLowerCase() !== USDC_BASE_SEPOLIA.toLowerCase();
     if (assetMismatch || approved.payTo.toLowerCase() !== qt.payTo.toLowerCase() || approved.network !== qt.network || BigInt(qt.priceAtomic) > BigInt(approved.maxAmountAtomic)) {
-      await event(ctx, "security", p.name, "acquire_denied", "Quote terms did not match the connector's approved payee/network/price — no spend.", "denied", [quoteId]);
-      fail("FORBIDDEN", "Quote terms do not match the approved payment policy.");
+      await event(ctx, "security", p.name, "acquire_denied", "Quote terms did not match the connector's approved payee/network/price — no spend.", "denied", [quoteId], "local", {
+        tool: "acquire_resolution", resolutionId: qt.playbookId, revision: qt.revision, input: [{ k: "approved payee", v: approved.payTo }, { k: "approved network", v: approved.network }, { k: "approved max (atomic)", v: approved.maxAmountAtomic }, { k: "payment mode", v: simulate ? "simulator" : "x402_testnet" }],
+        result: "FORBIDDEN: terms differ from the quote", evidence: [{ k: "quote payee", v: qt.payTo }, { k: "quote network", v: qt.network }, { k: "quote price (atomic)", v: qt.priceAtomic }],
+      });
+      return deny("FORBIDDEN", "Quote terms do not match the approved payment policy.");
     }
     // Operator-installed spend policy with reservation of pending + settled purchases.
     const mine = await ctx.db.query("purchases").withIndex("by_principal", (q) => q.eq("principalId", p._id)).collect();
@@ -291,19 +318,34 @@ export const acquire = mutation({
     // Server-side double-purchase guard: an existing live purchase of this exact revision is returned, never re-charged.
     const dup = live.find((x) => x.playbookId === pb._id && x.revision === qt.revision);
     if (dup) {
-      await ctx.db.patch(qt._id, { status: "used" });
+      await ctx.db.patch(qt._id, { status: "used", purchaseId: dup._id });
+      await event(ctx, "consumer", p.name, PAID.has(dup.paymentStatus) ? "entitlement_reused" : "purchase_reused", PAID.has(dup.paymentStatus) ? "Reused the earlier purchase of this revision; no new payment." : "Reused the pending purchase; no duplicate reservation.", PAID.has(dup.paymentStatus) ? "ok" : "pending", [dup._id, qt._id], dup.provider === "x402_test" ? "testnet" : "simulated", {
+        tool: "acquire_resolution", resolutionId: pb._id, revision: dup.revision, result: PAID.has(dup.paymentStatus) ? "existing entitlement" : "existing pending purchase", evidence: [{ k: "purchase", v: dup._id }, { k: "quote", v: qt._id }],
+      });
       return paymentReference(dup);
     }
     // The simulator is an operator-granted policy option, never an agent's free choice; testnet never silently degrades to it.
     if (simulate && !p.policy.allowSimulator) {
-      await event(ctx, "security", p.name, "acquire_denied", "Simulated payment requested but not allowed by this agent's policy.", "denied", [quoteId]);
-      fail("FORBIDDEN", "This agent's policy does not allow simulated payments.");
+      await event(ctx, "security", p.name, "acquire_denied", "Simulated payment requested but not allowed by this agent's policy.", "denied", [quoteId], "local", {
+        tool: "acquire_resolution", resolutionId: qt.playbookId, revision: qt.revision, input: [{ k: "approved payee", v: approved.payTo }, { k: "approved network", v: approved.network }, { k: "approved max (atomic)", v: approved.maxAmountAtomic }, { k: "payment mode", v: simulate ? "simulator" : "x402_testnet" }], result: "FORBIDDEN: simulator not allowed by policy",
+      });
+      return deny("FORBIDDEN", "This agent's policy does not allow simulated payments.");
     }
     if (!simulate && (!cdpCredentialsPresent() || qt.payTo === "simulator")) fail("PROVIDER_UNAVAILABLE", "x402 testnet payments are unavailable on this deployment.", true);
     const committed = BigInt(sumAtomic(live.map((x) => x.amountAtomic)));
     if (BigInt(qt.priceAtomic) > BigInt(p.policy.maxPerPurchaseAtomic) || committed + BigInt(qt.priceAtomic) > BigInt(p.policy.sessionMaxAtomic) || live.length >= p.policy.maxPurchases) {
-      await event(ctx, "security", p.name, "budget_exceeded", `Purchase of ${formatPrice(qt.priceAtomic)} refused by spend policy.`, "denied", [quoteId]);
-      fail("BUDGET_EXCEEDED", "Purchase exceeds the agent's spend policy.");
+      await event(ctx, "security", p.name, "budget_exceeded", `Purchase of ${formatPrice(qt.priceAtomic)} refused by spend policy.`, "denied", [quoteId], "local", {
+        tool: "acquire_resolution", resolutionId: qt.playbookId, revision: qt.revision, input: [{ k: "approved payee", v: approved.payTo }, { k: "approved network", v: approved.network }, { k: "approved max (atomic)", v: approved.maxAmountAtomic }, { k: "payment mode", v: simulate ? "simulator" : "x402_testnet" }],
+        result: "BUDGET_EXCEEDED: no purchase reserved, no payment attempted",
+        evidence: [
+          { k: "price (atomic)", v: qt.priceAtomic },
+          { k: "policy max per purchase", v: p.policy.maxPerPurchaseAtomic },
+          { k: "policy session max", v: p.policy.sessionMaxAtomic },
+          { k: "already committed", v: committed.toString() },
+          { k: "purchases used", v: `${live.length} of ${p.policy.maxPurchases}` },
+        ],
+      });
+      return deny("BUDGET_EXCEEDED", "Purchase exceeds the agent's spend policy.");
     }
     const useX402 = !simulate;
     const purchaseId = await ctx.db.insert("purchases", {
@@ -311,12 +353,20 @@ export const acquire = mutation({
       provider: useX402 ? "x402_test" : "demo_simulator", paymentStatus: "pending", ...splitRevenue(qt.priceAtomic),
       transactionReference: `${useX402 ? "X402" : "DEMO-SIM"}-AGENT-${clientRequestId.slice(0, 12)}`, licenseVersion: LICENSE_VERSION, licenseAcceptedAt: Date.now(),
       principalId: p._id, quoteId: qt._id, clientRequestId,
+      spendPolicySnapshot: {
+        maxPerPurchaseAtomic: p.policy.maxPerPurchaseAtomic, sessionMaxAtomic: p.policy.sessionMaxAtomic, maxPurchases: p.policy.maxPurchases,
+        committedBeforeAtomic: committed.toString(), remainingAfterAtomic: (BigInt(p.policy.sessionMaxAtomic) - committed - BigInt(qt.priceAtomic)).toString(), remainingPurchases: p.policy.maxPurchases - live.length - 1,
+      },
       x402: useX402 ? { network: qt.network, asset: USDC_BASE_SEPOLIA, atomicAmount: qt.priceAtomic, payTo: qt.payTo } : undefined,
       isDemo: true, createdAt: Date.now(),
     });
-    await ctx.db.patch(qt._id, { status: "used" });
+    await ctx.db.patch(qt._id, { status: "used", purchaseId });
     const purchase = (await ctx.db.get(purchaseId))!;
-    await event(ctx, "consumer", p.name, "acquire_resolution", `Payment reserved within policy (${formatPrice(qt.priceAtomic)}, ${useX402 ? "x402 test network" : "simulated, no funds"}).`, "pending", [purchaseId], useX402 ? "testnet" : "simulated");
+    await event(ctx, "consumer", p.name, "acquire_resolution", `Payment reserved within policy (${formatPrice(qt.priceAtomic)}, ${useX402 ? "x402 test network" : "simulated, no funds"}).`, "pending", [purchaseId, quoteId], useX402 ? "testnet" : "simulated", {
+      tool: "acquire_resolution", resolutionId: qt.playbookId, revision: qt.revision, input: [{ k: "approved payee", v: approved.payTo }, { k: "approved network", v: approved.network }, { k: "approved max (atomic)", v: approved.maxAmountAtomic }, { k: "payment mode", v: simulate ? "simulator" : "x402_testnet" }],
+      result: `reserved ${formatPrice(qt.priceAtomic)} within policy; ${useX402 ? "server wallet pays via x402 next" : "simulator completes next"}`,
+      evidence: [{ k: "purchase", v: purchaseId }, { k: "quote", v: quoteId }, { k: "idempotency key", v: clientRequestId }],
+    });
     return paymentReference(purchase);
   },
 });
@@ -356,8 +406,13 @@ export const completeSimulated = mutation({
     const pu = id ? await ctx.db.get(id) : null;
     if (!pu || pu.principalId !== p._id) fail("NOT_FOUND_OR_FORBIDDEN", "No such purchase.");
     if (pu.provider !== "demo_simulator") fail("FORBIDDEN", "Live purchases cannot be completed by the simulator.");
+    if (pu.paymentStatus === "simulated_success") return { purchaseId: pu._id, status: "entitled", mode: "simulated" };
+    if (pu.paymentStatus !== "pending") fail("PAYMENT_FAILED", "This purchase did not complete; request a new quote and clientRequestId.");
     if (pu.paymentStatus === "pending") await ctx.db.patch(pu._id, { paymentStatus: "simulated_success", completedAt: Date.now() });
-    await event(ctx, "consumer", p.name, "entitlement_granted", "Simulated payment completed (no funds moved); entitlement granted.", "ok", [pu._id], "simulated");
+    await event(ctx, "consumer", p.name, "entitlement_granted", "Simulated payment completed (no funds moved); entitlement granted.", "ok", [pu._id], "simulated", {
+      tool: "acquire_resolution", resolutionId: pu.playbookId, revision: pu.revision, result: "simulated_success: access granted, no funds moved, not counted as earnings",
+      evidence: [{ k: "purchase", v: pu._id }],
+    });
     return { purchaseId: pu._id, status: "entitled", mode: "simulated" };
   },
 });
@@ -452,7 +507,9 @@ export const submit = mutation({
       (d) => d.agentSubmission?.clientRequestId === bundle.clientRequestId,
     );
     if (dup) {
-      await event(ctx, "contributor", p.name, "submit_resolution", `Same request already submitted (${dup.status}); returned that submission — no duplicate guide.`, "ok", [dup._id]);
+      await event(ctx, "contributor", p.name, "submit_resolution", `Same request already submitted (${dup.status}); returned that submission — no duplicate guide.`, "ok", [dup._id], "local", {
+        tool: "submit_resolution", input: [{ k: "clientRequestId", v: bundle.clientRequestId }], result: `idempotent: existing submission (${dup.status})`, evidence: [{ k: "submission", v: dup._id }],
+      });
       return { submissionId: dup._id, status: dup.status, moderation: dup.agentSubmission!.moderation };
     }
 
@@ -460,14 +517,17 @@ export const submit = mutation({
     const hash = await bundleHash(bundle as unknown as Record<string, unknown>);
     if (hash !== bundle.contentHash || bundle.approval.contentHash !== hash) {
       await event(ctx, "security", p.name, "submit_denied", "Approval did not cover the exact submitted content — rejected.", "denied");
-      fail("APPROVAL_REQUIRED", "The approval does not cover this exact bundle. Re-stage and approve it.");
+      return deny("APPROVAL_REQUIRED", "The approval does not cover this exact bundle. Re-stage and approve it.");
     }
     // Idempotent per content: the same principal resubmitting identical content gets its existing (non-rejected) submission.
     const sameContent = (await ctx.db.query("incidentDrafts").withIndex("by_contributor", (q) => q.eq("contributorOrgId", org._id)).collect()).find(
       (d) => d.agentSubmission?.principalId === p._id && d.agentSubmission.bundleHash === hash && d.status !== "rejected",
     );
     if (sameContent) {
-      await event(ctx, "contributor", p.name, "submit_resolution", `Identical content was already submitted (${sameContent.status}); returned that submission — no duplicate guide.`, "ok", [sameContent._id]);
+      await event(ctx, "contributor", p.name, "submit_resolution", `Identical content was already submitted (${sameContent.status}); returned that submission — no duplicate guide.`, "ok", [sameContent._id], "local", {
+        tool: "submit_resolution", input: [{ k: "summary", v: bundle.summary }], result: `idempotent: identical content already ${sameContent.status}; no duplicate guide`,
+        evidence: [{ k: "content hash", v: hash }, { k: "submission", v: sameContent._id }, ...(sameContent.playbookId ? [{ k: "published guide", v: sameContent.playbookId }] : [])],
+      });
       return { submissionId: sameContent._id, status: sameContent.status, moderation: sameContent.agentSubmission!.moderation };
     }
     // Second defense layer: never store known secret formats. Categories only — no echo.
@@ -475,7 +535,7 @@ export const submit = mutation({
     const secretKinds = scanSecrets(text);
     if (secretKinds.length) {
       await event(ctx, "security", p.name, "sensitive_content_detected", `Submission rejected by server scan (${secretKinds.join(", ")}).`, "denied");
-      fail("SENSITIVE_CONTENT_DETECTED", `Rejected: content matched ${secretKinds.length} sensitive pattern categories (${secretKinds.join(", ")}).`);
+      return deny("SENSITIVE_CONTENT_DETECTED", `Rejected: content matched ${secretKinds.length} sensitive pattern categories (${secretKinds.join(", ")}).`);
     }
     const injection = scanInjection(text);
     const bullets = (xs: string[]) => xs.map((x) => `- ${x.replace(/^\s*-\s*/, "")}`).join("\n");
@@ -504,7 +564,10 @@ export const submit = mutation({
     if (injection.length) {
       await event(ctx, "security", p.name, "submission_quarantined", `Submission quarantined for review (${injection.join(", ")}); it is not searchable.`, "denied", [draftId]);
     } else {
-      await event(ctx, "contributor", p.name, "submit_resolution", `Approved bundle ${hash.slice(0, 19)}… submitted for human review.`, "ok", [draftId]);
+      await event(ctx, "contributor", p.name, "submit_resolution", `Approved bundle ${hash.slice(0, 19)}… submitted for human review.`, "ok", [draftId], "local", {
+        tool: "submit_resolution", input: [{ k: "summary", v: bundle.summary }, { k: "price (atomic)", v: bundle.priceAtomic }, { k: "conditions", v: String(conditions?.length ?? 0) }],
+        result: "accepted: clean, waiting for human review", evidence: [{ k: "content hash", v: hash }, { k: "approval", v: bundle.approval.kind }, { k: "submission", v: draftId }],
+      });
     }
     return { submissionId: draftId, status: "submitted", moderation: injection.length ? "quarantined" : "clean", contentHash: hash };
   },
@@ -518,11 +581,11 @@ export const submissionStatus = query({
     const d = id ? await ctx.db.get(id) : null;
     if (!d || d.agentSubmission?.principalId !== p._id) fail("NOT_FOUND_OR_FORBIDDEN", "No such submission, or you cannot access it.");
     const purchases = d.playbookId ? await ctx.db.query("purchases").withIndex("by_playbook", (q) => q.eq("playbookId", d.playbookId!)).collect() : [];
-    const paid = purchases.filter((x) => PAID.has(x.paymentStatus));
+    const paid = purchases.filter((x) => x.paymentStatus === "test_success");
     return {
       submissionId: d._id, status: d.status, moderation: d.agentSubmission.moderation, reviewerNote: d.reviewerNote ?? null,
       evidenceLevel: d.evidenceLevel ?? null, resolutionId: d.playbookId ?? null,
-      earnings: { accruedAtomic: sumAtomic(paid.map((x) => x.contributorShareAtomic)), paidOutAtomic: "0", sales: paid.length, note: "Accrual is an internal ledger; no payout has been made." },
+      earnings: { accruedAtomic: sumAtomic(paid.map((x) => x.contributorShareAtomic)), paidOutAtomic: "0", sales: paid.length, simulatedSales: purchases.filter((x) => x.paymentStatus === "simulated_success").length, note: "Accrual is an internal ledger; no payout has been made. Simulated purchases are excluded." },
     };
   },
 });
@@ -550,7 +613,10 @@ export const recordOutcome = mutation({
     }
     const id = await ctx.db.insert("agentOutcomes", { principalId: p._id, playbookId: pb._id, revision: purchase.revision, reportedPassed: passed, trust, evidenceRunId: runRef, summary, at: Date.now(), isDemo: true });
     await ctx.db.insert("outcomeFeedback", { buyerOrgId: org._id, playbookId: pb._id, relevance: "very_relevant", outcome: passed ? "resolved" : "not_resolved", notes: `[agent ${p.name}, ${trust}] ${summary}`.slice(0, 600), reviewStatus: "new", isDemo: true, createdAt: Date.now() });
-    await event(ctx, "consumer", p.name, "record_outcome", `Outcome ${passed ? "passed" : "failed"} (${trust === "runner_verified" ? "verified by protected runner" : "reported, unverified"}).`, "ok", [id]);
+    await event(ctx, "consumer", p.name, "record_outcome", `Outcome ${passed ? "passed" : "failed"} (${trust === "runner_verified" ? "verified by protected runner" : "reported, unverified"}).`, "ok", [id], "local", {
+      tool: "record_outcome", resolutionId: pb._id, revision: purchase.revision, input: [{ k: "passed", v: passed ? "true" : "false" }, { k: "evidenceRunId", v: evidenceRunId ?? "none" }],
+      result: trust, evidence: [{ k: "outcome", v: id }, ...(runRef ? [{ k: "protected run", v: runRef }] : [])],
+    });
     return { outcomeId: id, trust };
   },
 });
@@ -571,7 +637,7 @@ export const recordRepairRun = mutation({
     // Diffs and notes are shown in the console: refuse anything that looks like a credential or private identifier.
     if (scanSecrets(`${a.diff ?? ""}\n${a.note ?? ""}`).length) {
       await event(ctx, "security", "protected-runner", "repair_run_rejected", `${a.repo} ${a.stage}: diff contained sensitive-looking content; not stored.`, "denied", [], a.mode);
-      fail("SENSITIVE_CONTENT_DETECTED", "Diff or note contains sensitive-looking content.");
+      return deny("SENSITIVE_CONTENT_DETECTED", "Diff or note contains sensitive-looking content.");
     }
     const playbookId = a.resolutionId ? ctx.db.normalizeId("playbooks", a.resolutionId) ?? undefined : undefined;
     const pb = playbookId ? await ctx.db.get(playbookId) : null;
@@ -580,19 +646,37 @@ export const recordRepairRun = mutation({
       tests: a.tests.slice(0, 20), diff: a.diff?.slice(0, 8000), changedFiles: a.changedFiles.slice(0, 10), candidateHash: a.candidateHash, protectedSuiteHash: a.protectedSuiteHash,
       playbookId, revision: pb?.revision, mode: a.mode, note: a.note?.slice(0, 240), at: Date.now(), isDemo: true,
     });
-    await event(ctx, a.repo === "repo-a" ? "contributor" : "consumer", "protected-runner", `${a.stage}_tests`, `${a.repo} ${a.stage}: ${a.passedCount}/${a.total} protected tests passed${a.note ? ` — ${a.note}` : ""}`, a.passed ? "ok" : a.stage === "baseline" ? "ok" : "error", [id], a.mode);
+    // Lane follows the agent's operator-granted role (contributors hold "submit"), not the repository name.
+    const runFor = await ctx.db.query("agentPrincipals").withIndex("by_name", (q) => q.eq("name", a.principalName)).unique();
+    const lane = runFor ? (runFor.scopes.includes("submit") ? "contributor" : "consumer") : a.repo === "repo-a" || a.repo === "repo-c" ? "contributor" : "consumer";
+    await event(ctx, lane, "protected-runner", `${a.stage}_tests`, `${a.repo} ${a.stage}: ${a.passedCount}/${a.total} protected tests passed`, a.passed ? "ok" : a.stage === "baseline" ? "ok" : "error", [id], a.mode, {
+      tool: "protected test runner", resolutionId: pb?._id, revision: pb?.revision,
+      input: [{ k: "repository", v: a.repo }, { k: "stage", v: a.stage }, { k: "for agent", v: a.principalName }, ...(a.changedFiles.length ? [{ k: "changed files", v: a.changedFiles.join(", ") }] : [])],
+      result: `${a.passedCount}/${a.total} passed${a.stage === "candidate" ? (a.passed ? " — accepted" : " — rejected") : ""}`,
+      evidence: [
+        { k: "run", v: id },
+        { k: "protected suite", v: a.protectedSuiteHash },
+        { k: "candidate", v: a.candidateHash },
+        ...a.tests.filter((t) => !t.ok).slice(0, 4).map((t) => ({ k: "failing test", v: t.name })),
+      ],
+    });
     return { runId: id };
   },
 });
 
 /** Connector-side events (e.g. local disclosure gate, policy denials). Runner secret; redacted summaries only. */
 export const logConnectorEvent = mutation({
-  args: { runnerSecret: v.string(), generation: v.optional(v.number()), lane: v.union(v.literal("contributor"), v.literal("consumer"), v.literal("security"), v.literal("system")), actor: v.string(), kind: v.string(), summary: v.string(), status: v.union(v.literal("ok"), v.literal("pending"), v.literal("denied"), v.literal("error")), mode: v.string() },
+  args: {
+    runnerSecret: v.string(), generation: v.optional(v.number()), lane: v.union(v.literal("contributor"), v.literal("consumer"), v.literal("security"), v.literal("system")), actor: v.string(), kind: v.string(), summary: v.string(),
+    status: v.union(v.literal("ok"), v.literal("pending"), v.literal("denied"), v.literal("error")), mode: v.string(),
+    // Sanitized again server-side (credential-like values redacted, forbidden keys dropped).
+    detail: v.optional(eventDetailV), refs: v.optional(v.array(v.string())),
+  },
   handler: async (ctx, a) => {
     if (!process.env.FACTORY_RUNNER_SECRET || a.runnerSecret !== process.env.FACTORY_RUNNER_SECRET) fail("AUTH_REQUIRED", "Unrecognized runner.");
     if (a.generation !== undefined && a.generation !== (await currentGeneration(ctx))) fail("FORBIDDEN", "Stale event from before a reset; ignored.");
     if (scanSecrets(a.summary).length) fail("SENSITIVE_CONTENT_DETECTED", "Event summaries must be redacted.");
-    await event(ctx, a.lane, a.actor, a.kind, a.summary, a.status, [], a.mode);
+    await event(ctx, a.lane, a.actor, a.kind, a.summary, a.status, a.refs ?? [], a.mode, a.detail);
   },
 });
 

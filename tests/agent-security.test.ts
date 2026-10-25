@@ -18,8 +18,8 @@ beforeAll(() => {
 
 const errCode = async (p: Promise<unknown>) => {
   try {
-    await p;
-    return "NO_ERROR";
+    const r = (await p) as { __denied?: { code: string } } | null;
+    return r?.__denied ? r.__denied.code : "NO_ERROR";
   } catch (e) {
     return (e as { data?: { code?: string } }).data?.code ?? String(e);
   }
@@ -135,7 +135,7 @@ describe("SECURITY GATE: tenancy, paywall, payments", () => {
   });
   it("replay is idempotent, the session cap holds, and a purchase does not entitle another principal", async () => {
     const t = await setup();
-    const { resolutionId } = await publishOne(t);
+    const { resolutionId, submissionId } = await publishOne(t);
     const q = await t.mutation(api.mcp.quote, { ...B, resolutionId });
     const r1 = await t.mutation(api.mcp.acquire, { ...B, quoteId: q.quoteId, clientRequestId: "req-replay-1", approved: approved(), simulate: true });
     const r2 = await t.mutation(api.mcp.acquire, { ...B, quoteId: q.quoteId, clientRequestId: "req-replay-1", approved: approved(), simulate: true });
@@ -149,6 +149,7 @@ describe("SECURITY GATE: tenancy, paywall, payments", () => {
     const ledger = await t.run((ctx) => ctx.db.query("purchases").collect());
     expect(ledger).toHaveLength(1);
     expect(ledger[0].contributorShareAtomic).toBe("8000");
+    expect((await t.query(api.mcp.submissionStatus, { ...A, submissionId })).earnings).toMatchObject({ accruedAtomic: "0", sales: 0, simulatedSales: 1, paidOutAtomic: "0" });
   });
   it("the simulator requires an operator policy flag; testnet never silently degrades to it", async () => {
     const t = await setup();

@@ -1,149 +1,523 @@
 {
   "kind": "recorded_run",
-  "recordedAt": 1792899770502,
+  "recordedAt": 1792902999070,
   "run": {
-    "startedAt": 1792899677832,
-    "finishedAt": 1792899710159,
-    "durationMs": 32327
+    "startedAt": 1792902827840,
+    "finishedAt": 1792902855798,
+    "durationMs": 27958
   },
   "source": {
     "deployment": "quirky-robin-694",
-    "commit": "2fd0cb0"
+    "commit": "ac9c6cd",
+    "workingTree": "uncommitted changes"
   },
   "overview": {
     "events": [
       {
-        "_creationTime": 1792899710006.767,
-        "_id": "md72r04bcn3hy3pe5mpbx7vpt58gzb5s",
+        "_creationTime": 1792902855599.9717,
+        "_id": "md73vme2a1jyf33smqq7dmr0r58gyqt2",
         "actor": "agent-b",
-        "at": 1792899710006,
+        "at": 1792902855599,
+        "detail": {
+          "evidence": [
+            {
+              "k": "outcome",
+              "v": "mh75cs9c9wc5w3z5jgq88nc4a18gyrcd"
+            },
+            {
+              "k": "protected run",
+              "v": "n57b0zmd195zbyypyskecz21958gyxf3"
+            }
+          ],
+          "input": [
+            {
+              "k": "passed",
+              "v": "true"
+            },
+            {
+              "k": "evidenceRunId",
+              "v": "n57b0zmd195zbyypyskecz21958gyxf3"
+            }
+          ],
+          "resolutionId": "k9780ry9926p820jstccf0qdax8gyem5",
+          "result": "runner_verified",
+          "revision": 1,
+          "tool": "record_outcome"
+        },
         "isDemo": true,
         "kind": "record_outcome",
         "lane": "consumer",
         "mode": "local",
         "refs": [
-          "mh733ekb8dwbq4na5pqp51kpen8gy2a7"
+          "mh75cs9c9wc5w3z5jgq88nc4a18gyrcd"
         ],
         "status": "ok",
         "summary": "Outcome passed (verified by protected runner)."
       },
       {
-        "_creationTime": 1792899709463.5874,
-        "_id": "md71wy026f4wyp8kvh9hpzjsy58gycpt",
+        "_creationTime": 1792902854961.0151,
+        "_id": "md7e1symz0v6xwjdb4aap0k0458gyrnw",
         "actor": "protected-runner",
-        "at": 1792899709463,
+        "at": 1792902854961,
+        "detail": {
+          "evidence": [
+            {
+              "k": "run",
+              "v": "n57b0zmd195zbyypyskecz21958gyxf3"
+            },
+            {
+              "k": "protected suite",
+              "v": "sha256:8167ca98f991a165cf17cc3c3dc88389"
+            },
+            {
+              "k": "candidate",
+              "v": "sha256:e205357668f3875bcde630ef65b9482f"
+            }
+          ],
+          "input": [
+            {
+              "k": "repository",
+              "v": "repo-d"
+            },
+            {
+              "k": "stage",
+              "v": "candidate"
+            },
+            {
+              "k": "for agent",
+              "v": "agent-b"
+            },
+            {
+              "k": "changed files",
+              "v": "src/routes/exports.mjs"
+            }
+          ],
+          "resolutionId": "k9780ry9926p820jstccf0qdax8gyem5",
+          "result": "6/6 passed — accepted",
+          "revision": 1,
+          "tool": "protected test runner"
+        },
         "isDemo": true,
         "kind": "candidate_tests",
         "lane": "consumer",
         "mode": "live",
         "refs": [
-          "n57026xmswf1dx6d983bgqeny58gy5mt"
+          "n57b0zmd195zbyypyskecz21958gyxf3"
         ],
         "status": "ok",
-        "summary": "repo-b candidate: 5/5 protected tests passed — Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session ebd86e51"
+        "summary": "repo-d candidate: 6/6 protected tests passed"
       },
       {
-        "_creationTime": 1792899694318.8281,
-        "_id": "md7e3nep207mn2gx98462sr4jx8gz8jn",
+        "_creationTime": 1792902854352.1826,
+        "_id": "md7cmxws803r02qy4qj1bjagk58gzjmc",
         "actor": "agent-b",
-        "at": 1792899694318,
+        "at": 1792902854352,
+        "detail": {
+          "evidence": [
+            {
+              "k": "session",
+              "v": "176e87e4"
+            },
+            {
+              "k": "duration (s)",
+              "v": "13"
+            }
+          ],
+          "input": [
+            {
+              "k": "allowed tools",
+              "v": "Read, LS, ApplyPatch"
+            },
+            {
+              "k": "editable file",
+              "v": "src/routes/exports.mjs"
+            },
+            {
+              "k": "workspace",
+              "v": "isolated temp copy (source only)"
+            }
+          ],
+          "resolutionId": "k9780ry9926p820jstccf0qdax8gyem5",
+          "result": "Repair process completed; inspect the separately recorded protected test result.",
+          "revision": 1,
+          "tool": "factory droid exec"
+        },
+        "isDemo": true,
+        "kind": "factory_repair_finished",
+        "lane": "consumer",
+        "mode": "live",
+        "refs": [
+          "k9780ry9926p820jstccf0qdax8gyem5"
+        ],
+        "status": "ok",
+        "summary": "Factory Droid proposed a patch in 13 s; the protected runner decides."
+      },
+      {
+        "_creationTime": 1792902841258.1934,
+        "_id": "md703fwcpxwr9mtttp62arrjb98gzmz8",
+        "actor": "agent-b",
+        "at": 1792902841258,
+        "detail": {
+          "input": [
+            {
+              "k": "allowed tools",
+              "v": "Read, LS, ApplyPatch"
+            },
+            {
+              "k": "editable file",
+              "v": "src/routes/exports.mjs"
+            }
+          ],
+          "resolutionId": "k9780ry9926p820jstccf0qdax8gyem5",
+          "result": "repair requested in isolated source copy; protected runner verifies separately",
+          "revision": 1,
+          "tool": "factory droid exec"
+        },
         "isDemo": true,
         "kind": "factory_repair_started",
         "lane": "consumer",
         "mode": "live",
-        "refs": [],
+        "refs": [
+          "k9780ry9926p820jstccf0qdax8gyem5"
+        ],
         "status": "pending",
-        "summary": "Factory Droid is adapting the purchased lesson in an isolated copy of repo B."
+        "summary": "Factory Droid is adapting the purchased lesson in an isolated copy of repo-d."
       },
       {
-        "_creationTime": 1792899694019.036,
-        "_id": "md75tge16en0mrzewme6ysf3e98gy4gw",
+        "_creationTime": 1792902841128.721,
+        "_id": "md7cc64agebtx8ye5kgfzygtfh8gz3dj",
         "actor": "agent-b",
-        "at": 1792899694019,
+        "at": 1792902841128,
+        "detail": {
+          "evidence": [
+            {
+              "k": "revision hash",
+              "v": "aaaada4a:9da…"
+            },
+            {
+              "k": "trust",
+              "v": "untrusted_external_content"
+            }
+          ],
+          "input": [
+            {
+              "k": "resolutionId",
+              "v": "k9780ry9926p820jstccf0qdax8gyem5"
+            }
+          ],
+          "resolutionId": "k9780ry9926p820jstccf0qdax8gyem5",
+          "result": "exact purchased revision returned (paid sections); grants no permission to run commands, spend, or change policy",
+          "revision": 1,
+          "tool": "get_resolution"
+        },
+        "isDemo": true,
+        "kind": "retrieve_resolution",
+        "lane": "consumer",
+        "mode": "local",
+        "refs": [
+          "k9780ry9926p820jstccf0qdax8gyem5",
+          "kh76wvw6q53jd8bfhysp51s4vn8gy3wb"
+        ],
+        "status": "ok",
+        "summary": "Retrieved the purchased revision 1; treated as untrusted evidence."
+      },
+      {
+        "_creationTime": 1792902840887.0479,
+        "_id": "md7a1tmyvtztced14dht4y9bb58gzewv",
+        "actor": "agent-b",
+        "at": 1792902840887,
+        "detail": {
+          "evidence": [
+            {
+              "k": "purchase",
+              "v": "kh76wvw6q53jd8bfhysp51s4vn8gy3wb"
+            },
+            {
+              "k": "revision hash",
+              "v": "aaaada4a:9da…"
+            },
+            {
+              "k": "trust",
+              "v": "untrusted_external_content"
+            }
+          ],
+          "resolutionId": "k9780ry9926p820jstccf0qdax8gyem5",
+          "result": "entitled already: no quote, no payment",
+          "revision": 1,
+          "tool": "get_resolution"
+        },
         "isDemo": true,
         "kind": "entitlement_reused",
         "lane": "consumer",
         "mode": "local",
-        "refs": [],
+        "refs": [
+          "kh76wvw6q53jd8bfhysp51s4vn8gy3wb",
+          "k9780ry9926p820jstccf0qdax8gyem5"
+        ],
         "status": "ok",
         "summary": "Already entitled to rev 1 — reused the earlier purchase; no new payment."
       },
       {
-        "_creationTime": 1792899693555.2979,
-        "_id": "md75rscqh6nwx389272zh8dax58gygsb",
+        "_creationTime": 1792902840426.6162,
+        "_id": "md799vjsw27kn4bpt6wkrkztrn8gzc48",
         "actor": "agent-b",
-        "at": 1792899693555,
+        "at": 1792902840426,
+        "detail": {
+          "input": [
+            {
+              "k": "runtime.node",
+              "v": "yes"
+            },
+            {
+              "k": "store.atomic_claim",
+              "v": "no"
+            },
+            {
+              "k": "records.tenant_scoped",
+              "v": "yes"
+            },
+            {
+              "k": "request.authenticated_tenant",
+              "v": "yes"
+            },
+            {
+              "k": "access.fetch_by_client_id",
+              "v": "yes"
+            },
+            {
+              "k": "access.cross_tenant_sharing",
+              "v": "no"
+            }
+          ],
+          "resolutionId": "k9780ry9926p820jstccf0qdax8gyem5",
+          "result": "recommend: 5 match, 0 conflict, 0 to verify",
+          "revision": 1,
+          "tool": "check_applicability"
+        },
         "isDemo": true,
         "kind": "applicability_checked",
         "lane": "consumer",
         "mode": "local",
         "refs": [
-          "k979mewc359579pr1y8pjqvhkd8gypc7"
+          "k9780ry9926p820jstccf0qdax8gyem5"
         ],
         "status": "ok",
-        "summary": "Fit check recommends using “Duplicate jobs when a webhook provider retries the same event”: 4 match, 0 conflict, 0 to verify."
+        "summary": "Fit check recommends using “Users of one tenant can read or void another tenant's records by changing the id in the URL”: 5 match, 0 conflict, 0 to verify."
       },
       {
-        "_creationTime": 1792899692977.858,
-        "_id": "md77tx2bmsbhcv3hx4twcbwe658gyky5",
+        "_creationTime": 1792902840094.299,
+        "_id": "md72v95ts4k074zz2ak9hq6q4d8gz1kv",
         "actor": "agent-b",
-        "at": 1792899692977,
+        "at": 1792902840094,
+        "detail": {
+          "evidence": [
+            {
+              "k": "retrieval",
+              "v": "moss:ix-public-previews"
+            },
+            {
+              "k": "retrieval latency (ms)",
+              "v": "6762"
+            },
+            {
+              "k": "matched clues",
+              "v": "A user signed in to one tenant receives another tenant's invoice when requesting its id; Sequential or leaked ids let a caller enumerate records across tenants; Requests for another tenant's id return a different error than truly missing id"
+            }
+          ],
+          "input": [
+            {
+              "k": "symptoms",
+              "v": "Members of one workspace can download or delete another workspace's records by changing the record id in the URL; responses for other workspaces' ids differ from unknown ids. Failing checks: another workspace's export cannot be downloaded a"
+            },
+            {
+              "k": "environment",
+              "v": "Multi-tenant SaaS, REST API, Authorization, Node.js"
+            }
+          ],
+          "resolutionId": "k9780ry9926p820jstccf0qdax8gyem5",
+          "result": "3 result(s); picked “Users of one tenant can read or void another tenant's records by changing the id in the URL” (Strong overlap, 10000 atomic USDC)",
+          "revision": 1,
+          "tool": "search_resolutions"
+        },
         "isDemo": true,
         "kind": "search_resolutions",
         "lane": "consumer",
         "mode": "live",
-        "refs": [],
+        "refs": [
+          "k9780ry9926p820jstccf0qdax8gyem5"
+        ],
         "status": "ok",
-        "summary": "Found “Duplicate jobs when a webhook provider retries the same event” via MCP (Strong overlap; moss:ix-public-previews)."
+        "summary": "Found “Users of one tenant can read or void another tenant's records by changing the id in the URL” via MCP (Strong overlap; moss:ix-public-previews)."
       },
       {
-        "_creationTime": 1792899682407.9976,
-        "_id": "md71xch8wddmm2b3h53mt01aks8gy8ha",
+        "_creationTime": 1792902832457.7107,
+        "_id": "md7a4p3cjtpk0evqw89ygtswhd8gztvs",
         "actor": "protected-runner",
-        "at": 1792899682407,
+        "at": 1792902832457,
+        "detail": {
+          "evidence": [
+            {
+              "k": "run",
+              "v": "n579v0jzr85r4eft7r2t0ptrjh8gz08f"
+            },
+            {
+              "k": "protected suite",
+              "v": "sha256:8167ca98f991a165cf17cc3c3dc88389"
+            },
+            {
+              "k": "candidate",
+              "v": "sha256:16dbf3872715a1f190afe3b2b869ce06"
+            },
+            {
+              "k": "failing test",
+              "v": "another workspace's export cannot be downloaded and nothing about it is returned"
+            },
+            {
+              "k": "failing test",
+              "v": "another workspace's export id answers exactly like an unknown id"
+            },
+            {
+              "k": "failing test",
+              "v": "deleting another workspace's export is refused and the export survives"
+            }
+          ],
+          "input": [
+            {
+              "k": "repository",
+              "v": "repo-d"
+            },
+            {
+              "k": "stage",
+              "v": "baseline"
+            },
+            {
+              "k": "for agent",
+              "v": "agent-b"
+            }
+          ],
+          "result": "3/6 passed",
+          "tool": "protected test runner"
+        },
         "isDemo": true,
         "kind": "baseline_tests",
         "lane": "consumer",
         "mode": "local",
         "refs": [
-          "n57ex389css7qtmgt8kt958s2n8gy23a"
+          "n579v0jzr85r4eft7r2t0ptrjh8gz08f"
         ],
         "status": "ok",
-        "summary": "repo-b baseline: 2/5 protected tests passed — original code"
+        "summary": "repo-d baseline: 3/6 protected tests passed"
       },
       {
-        "_creationTime": 1792899681219.849,
-        "_id": "md787s3vdx34bjw13ygxbcrd7x8gy3e1",
+        "_creationTime": 1792902831275.8276,
+        "_id": "md7793strn4nbrd7s6rrf6f1cd8gynyj",
         "actor": "agent-a",
-        "at": 1792899681219,
+        "at": 1792902831275,
+        "detail": {
+          "evidence": [
+            {
+              "k": "submission",
+              "v": "jh75n46m20bzx0xymmgr87e9958gzqt0"
+            }
+          ],
+          "input": [
+            {
+              "k": "clientRequestId",
+              "v": "a-33c01bfbf86964dd41a58c88"
+            }
+          ],
+          "result": "idempotent: existing submission (published)",
+          "tool": "submit_resolution"
+        },
         "isDemo": true,
         "kind": "submit_resolution",
         "lane": "contributor",
         "mode": "local",
         "refs": [
-          "jh76tjrf1041djwpn7q8d0806h8gyrjb"
+          "jh75n46m20bzx0xymmgr87e9958gzqt0"
         ],
         "status": "ok",
         "summary": "Same request already submitted (published); returned that submission — no duplicate guide."
       },
       {
-        "_creationTime": 1792899679853.9187,
-        "_id": "md72t2tq5pwqtjj7vzn8hj7btx8gzbza",
+        "_creationTime": 1792902830512.874,
+        "_id": "md700jrsqpra3gzmm6f96v14yh8gzm32",
         "actor": "agent-a",
-        "at": 1792899679853,
+        "at": 1792902830512,
+        "detail": {
+          "evidence": [
+            {
+              "k": "content hash",
+              "v": "sha256:33c01bfbf86964dd41a58c88842d0bb68debee009da7ef93eeccb4417ae5aebc"
+            }
+          ],
+          "result": "exact hash approved",
+          "tool": "developer approval"
+        },
+        "isDemo": true,
+        "kind": "developer_approval",
+        "lane": "contributor",
+        "mode": "local",
+        "refs": [],
+        "status": "ok",
+        "summary": "Developer approval matched the exact staged bundle hash; submitting through MCP."
+      },
+      {
+        "_creationTime": 1792902829774.6792,
+        "_id": "md749jbscpwxfy8yxzepj87m5x8gypy2",
+        "actor": "agent-a",
+        "at": 1792902829774,
+        "detail": {
+          "evidence": [
+            {
+              "k": "content hash",
+              "v": "sha256:33c01bfbf86964dd41a58c88842d0bb68debee009da7ef93eeccb4417ae5aebc"
+            },
+            {
+              "k": "price (atomic)",
+              "v": "10000"
+            },
+            {
+              "k": "conditions",
+              "v": "5"
+            }
+          ],
+          "result": "nothing leaves the machine until the developer approves this exact hash",
+          "tool": "developer approval"
+        },
         "isDemo": true,
         "kind": "needs_approval",
         "lane": "contributor",
         "mode": "local",
         "refs": [],
         "status": "pending",
-        "summary": "Bundle sha256:bc9e311fd37f… staged; waiting for developer approval."
+        "summary": "Bundle sha256:33c01bfbf869… staged; waiting for developer approval."
       },
       {
-        "_creationTime": 1792899679643.5615,
-        "_id": "md74m9xhwpxeera928hv0916fd8gykff",
+        "_creationTime": 1792902829570.694,
+        "_id": "md76f62axgp9jbdw7qmershryn8gzp1v",
         "actor": "agent-a connector",
-        "at": 1792899679643,
+        "at": 1792902829570,
+        "detail": {
+          "evidence": [
+            {
+              "k": "categories (no values)",
+              "v": "api_token"
+            },
+            {
+              "k": "staged content hash",
+              "v": "sha256:33c01bfbf86964dd41a58c88842d0bb68debee009da7ef93eeccb4417ae5aebc"
+            }
+          ],
+          "input": [
+            {
+              "k": "allowed fields",
+              "v": "summary, symptoms, environmentCategories, rootCauseEvidence, unsuccessfulApproaches, fixPattern, verificationEvidence, applicability, limitations"
+            }
+          ],
+          "result": "1 credential line(s) dropped, 3 identifier(s) generalized, residual findings 0",
+          "tool": "local disclosure gate"
+        },
         "isDemo": true,
         "kind": "local_disclosure_gate",
         "lane": "security",
@@ -153,159 +527,245 @@
         "summary": "Local gate dropped 1 credential-format line(s) (api_token) and generalized 3 identifier(s) before any network call."
       },
       {
-        "_creationTime": 1792899679416.548,
-        "_id": "md71p3ch2ggah3efa6p44eysrh8gypet",
+        "_creationTime": 1792902829439.9294,
+        "_id": "md7a2b0p3ps0p543ywzryggtbn8gy8ve",
         "actor": "protected-runner",
-        "at": 1792899679416,
+        "at": 1792902829439,
+        "detail": {
+          "evidence": [
+            {
+              "k": "run",
+              "v": "n5788wjsykazn6q7b90x2mnvqn8gy808"
+            },
+            {
+              "k": "protected suite",
+              "v": "sha256:27370b5c68c49485de6e10e11209c2fe"
+            },
+            {
+              "k": "candidate",
+              "v": "sha256:8e1e3c4ed97dd45f533f5f11e8e42655"
+            }
+          ],
+          "input": [
+            {
+              "k": "repository",
+              "v": "repo-c"
+            },
+            {
+              "k": "stage",
+              "v": "candidate"
+            },
+            {
+              "k": "for agent",
+              "v": "agent-a"
+            },
+            {
+              "k": "changed files",
+              "v": "src/invoices.mjs"
+            }
+          ],
+          "result": "5/5 passed — accepted",
+          "tool": "protected test runner"
+        },
         "isDemo": true,
         "kind": "candidate_tests",
         "lane": "contributor",
         "mode": "local",
         "refs": [
-          "n57cafqhnj3696w57sw25d1c658gztnq"
+          "n5788wjsykazn6q7b90x2mnvqn8gy808"
         ],
         "status": "ok",
-        "summary": "repo-a candidate: 5/5 protected tests passed — Agent A fix (reference patch, local connector)"
+        "summary": "repo-c candidate: 5/5 protected tests passed"
       },
       {
-        "_creationTime": 1792899678924.5303,
-        "_id": "md7f5136ceek1rqdmbff1kc2pd8gz7j5",
+        "_creationTime": 1792902828947.9736,
+        "_id": "md7fv9b6kg1a8pp1rfac2tzt3x8gz4m7",
         "actor": "protected-runner",
-        "at": 1792899678924,
+        "at": 1792902828947,
+        "detail": {
+          "evidence": [
+            {
+              "k": "run",
+              "v": "n579pepd5w2wwxw918vyrzgahd8gyewn"
+            },
+            {
+              "k": "protected suite",
+              "v": "sha256:27370b5c68c49485de6e10e11209c2fe"
+            },
+            {
+              "k": "candidate",
+              "v": "sha256:88720b90d31ce3a86aa70b7d9f048d62"
+            },
+            {
+              "k": "failing test",
+              "v": "cross-tenant read is denied with not_found and leaks no invoice data"
+            },
+            {
+              "k": "failing test",
+              "v": "another tenant's invoice is indistinguishable from a missing id"
+            },
+            {
+              "k": "failing test",
+              "v": "cross-tenant void is denied and leaves the invoice unchanged"
+            }
+          ],
+          "input": [
+            {
+              "k": "repository",
+              "v": "repo-c"
+            },
+            {
+              "k": "stage",
+              "v": "baseline"
+            },
+            {
+              "k": "for agent",
+              "v": "agent-a"
+            }
+          ],
+          "result": "2/5 passed",
+          "tool": "protected test runner"
+        },
         "isDemo": true,
         "kind": "baseline_tests",
         "lane": "contributor",
         "mode": "local",
         "refs": [
-          "n57fsq2qmp4tf994bpth5m8nx18gy5hz"
+          "n579pepd5w2wwxw918vyrzgahd8gyewn"
         ],
         "status": "ok",
-        "summary": "repo-a baseline: 3/5 protected tests passed — original code"
+        "summary": "repo-c baseline: 2/5 protected tests passed"
       }
     ],
     "runs": [
       {
-        "_creationTime": 1792899709463.5872,
-        "_id": "n57026xmswf1dx6d983bgqeny58gy5mt",
-        "at": 1792899709463,
-        "candidateHash": "sha256:692d481972cac2bcc8b99c161a4f31ee",
+        "_creationTime": 1792902854961.015,
+        "_id": "n57b0zmd195zbyypyskecz21958gyxf3",
+        "at": 1792902854961,
+        "candidateHash": "sha256:e205357668f3875bcde630ef65b9482f",
         "changedFiles": [
-          "src/consumer/messageConsumer.mjs"
+          "src/routes/exports.mjs"
         ],
-        "diff": "--- a/src/consumer/messageConsumer.mjs\n+++ b/src/consumer/messageConsumer.mjs\n   return {\n     async onMessage(msg) {\n-      await queue.push({\n-        queue: QUEUE_NAME,\n-        sourceMessageId: msg.messageId,\n-        kind: msg.kind,\n-        body: msg.body,\n-      });\n+      if (!(await ledger.claim(msg.messageId))) {\n+        return { ack: true, result: \"skipped_duplicate\" };\n+      }\n+      try {\n+        await queue.push({\n+          queue: QUEUE_NAME,\n+          sourceMessageId: msg.messageId,\n+          kind: msg.kind,\n+          body: msg.body,\n+        });\n+      } catch (error) {\n+        await ledger.unclaim(msg.messageId);\n+        throw error;\n+      }\n       return { ack: true, result: \"queued\" };\n     },",
+        "detailsHidden": true,
         "isDemo": true,
         "mode": "live",
-        "note": "Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace) · session ebd86e51",
         "passed": true,
-        "passedCount": 5,
-        "playbookId": "k979mewc359579pr1y8pjqvhkd8gypc7",
+        "passedCount": 6,
+        "playbookId": "k9780ry9926p820jstccf0qdax8gyem5",
         "principalName": "agent-b",
-        "protectedSuiteHash": "sha256:167c80e8a1a94599797abb61149052d0",
-        "repo": "repo-b",
+        "protectedSuiteHash": "sha256:8167ca98f991a165cf17cc3c3dc88389",
+        "repo": "repo-d",
         "revision": 1,
         "stage": "candidate",
         "tests": [
           {
-            "name": "same message delivered twice queues exactly one task",
+            "name": "workspace member downloads their own workspace's export",
             "ok": true
           },
           {
-            "name": "two different message ids queue two tasks",
+            "name": "another workspace's export cannot be downloaded and nothing about it is returned",
             "ok": true
           },
           {
-            "name": "five concurrent deliveries of the same message queue one task",
+            "name": "another workspace's export id answers exactly like an unknown id",
             "ok": true
           },
           {
-            "name": "failed first attempt does not swallow a legitimate redelivery",
+            "name": "deleting another workspace's export is refused and the export survives",
             "ok": true
           },
           {
-            "name": "every successful delivery is acknowledged",
+            "name": "workspace member can delete their own export",
+            "ok": true
+          },
+          {
+            "name": "a request without an export id gets 404 and changes nothing",
             "ok": true
           }
         ],
         "toolName": "Protected test runner (node --test, separate process)",
-        "total": 5
+        "total": 6
       },
       {
-        "_creationTime": 1792899682407.9973,
-        "_id": "n57ex389css7qtmgt8kt958s2n8gy23a",
-        "at": 1792899682407,
-        "candidateHash": "sha256:75d6b49f84ca763cd0276dd547b44b8a",
+        "_creationTime": 1792902832457.7104,
+        "_id": "n579v0jzr85r4eft7r2t0ptrjh8gz08f",
+        "at": 1792902832457,
+        "candidateHash": "sha256:16dbf3872715a1f190afe3b2b869ce06",
         "changedFiles": [],
+        "detailsHidden": true,
         "isDemo": true,
         "mode": "local",
-        "note": "original code",
         "passed": false,
-        "passedCount": 2,
+        "passedCount": 3,
         "principalName": "agent-b",
-        "protectedSuiteHash": "sha256:167c80e8a1a94599797abb61149052d0",
-        "repo": "repo-b",
+        "protectedSuiteHash": "sha256:8167ca98f991a165cf17cc3c3dc88389",
+        "repo": "repo-d",
         "stage": "baseline",
         "tests": [
           {
-            "name": "same message delivered twice queues exactly one task",
-            "ok": false
-          },
-          {
-            "name": "two different message ids queue two tasks",
+            "name": "workspace member downloads their own workspace's export",
             "ok": true
           },
           {
-            "name": "five concurrent deliveries of the same message queue one task",
+            "name": "another workspace's export cannot be downloaded and nothing about it is returned",
             "ok": false
           },
           {
-            "name": "failed first attempt does not swallow a legitimate redelivery",
+            "name": "another workspace's export id answers exactly like an unknown id",
+            "ok": false
+          },
+          {
+            "name": "deleting another workspace's export is refused and the export survives",
+            "ok": false
+          },
+          {
+            "name": "workspace member can delete their own export",
             "ok": true
           },
           {
-            "name": "every successful delivery is acknowledged",
-            "ok": false
+            "name": "a request without an export id gets 404 and changes nothing",
+            "ok": true
           }
         ],
         "toolName": "Protected test runner (node --test, separate process)",
-        "total": 5
+        "total": 6
       },
       {
-        "_creationTime": 1792899679416.5479,
-        "_id": "n57cafqhnj3696w57sw25d1c658gztnq",
-        "at": 1792899679416,
-        "candidateHash": "sha256:6cd36a8066a8aa030db3ba9b861ef844",
+        "_creationTime": 1792902829439.9292,
+        "_id": "n5788wjsykazn6q7b90x2mnvqn8gy808",
+        "at": 1792902829439,
+        "candidateHash": "sha256:8e1e3c4ed97dd45f533f5f11e8e42655",
         "changedFiles": [
-          "src/handler.mjs"
+          "src/invoices.mjs"
         ],
-        "diff": "--- a/src/handler.mjs\n+++ b/src/handler.mjs\n-// billing-events: webhook event handler.\n-// The provider may retry the same delivery (same event.id) several times.\n+// billing-events: webhook event handler (reference fix).\n+// Idempotent on event.id: reserve before work, release on failure so a\n+// legitimate provider retry can still succeed.\n \n export function createEventHandler(store) {\n   return {\n     async handle(event) {\n-      await store.insertJob({\n-        eventId: event.id,\n-        type: event.type,\n-        payload: event.payload,\n-      });\n+      const reserved = await store.reserve(event.id);\n+      if (!reserved) {\n+        return { status: 200, outcome: \"duplicate\" };\n+      }\n+      try {\n+        await store.insertJob({\n+          eventId: event.id,\n+          type: event.type,\n+          payload: event.payload,\n+        });\n+      } catch (err) {\n+        await store.release(event.id);\n+        throw err;\n+      }\n       return { status: 200, outcome: \"processed\" };\n     },",
+        "detailsHidden": true,
         "isDemo": true,
         "mode": "local",
-        "note": "Agent A fix (reference patch, local connector)",
         "passed": true,
         "passedCount": 5,
         "principalName": "agent-a",
-        "protectedSuiteHash": "sha256:ceb14207ea626605349d63541bbe5203",
-        "repo": "repo-a",
+        "protectedSuiteHash": "sha256:27370b5c68c49485de6e10e11209c2fe",
+        "repo": "repo-c",
         "stage": "candidate",
         "tests": [
           {
-            "name": "same event delivered twice creates exactly one job",
+            "name": "same-tenant read returns the caller's own invoice",
             "ok": true
           },
           {
-            "name": "two different event ids create two jobs",
+            "name": "cross-tenant read is denied with not_found and leaks no invoice data",
             "ok": true
           },
           {
-            "name": "five concurrent deliveries of the same event create one job",
+            "name": "another tenant's invoice is indistinguishable from a missing id",
             "ok": true
           },
           {
-            "name": "failed first attempt does not swallow a legitimate retry",
+            "name": "cross-tenant void is denied and leaves the invoice unchanged",
             "ok": true
           },
           {
-            "name": "every successful delivery is acknowledged with status 200",
+            "name": "same-tenant void still works; a missing id is not_found without a write",
             "ok": true
           }
         ],
@@ -313,39 +773,39 @@
         "total": 5
       },
       {
-        "_creationTime": 1792899678924.53,
-        "_id": "n57fsq2qmp4tf994bpth5m8nx18gy5hz",
-        "at": 1792899678924,
-        "candidateHash": "sha256:19e456b5aaa0d59c277150f1e7079bae",
+        "_creationTime": 1792902828947.9734,
+        "_id": "n579pepd5w2wwxw918vyrzgahd8gyewn",
+        "at": 1792902828947,
+        "candidateHash": "sha256:88720b90d31ce3a86aa70b7d9f048d62",
         "changedFiles": [],
+        "detailsHidden": true,
         "isDemo": true,
         "mode": "local",
-        "note": "original code",
         "passed": false,
-        "passedCount": 3,
+        "passedCount": 2,
         "principalName": "agent-a",
-        "protectedSuiteHash": "sha256:ceb14207ea626605349d63541bbe5203",
-        "repo": "repo-a",
+        "protectedSuiteHash": "sha256:27370b5c68c49485de6e10e11209c2fe",
+        "repo": "repo-c",
         "stage": "baseline",
         "tests": [
           {
-            "name": "same event delivered twice creates exactly one job",
-            "ok": false
-          },
-          {
-            "name": "two different event ids create two jobs",
+            "name": "same-tenant read returns the caller's own invoice",
             "ok": true
           },
           {
-            "name": "five concurrent deliveries of the same event create one job",
+            "name": "cross-tenant read is denied with not_found and leaks no invoice data",
             "ok": false
           },
           {
-            "name": "failed first attempt does not swallow a legitimate retry",
-            "ok": true
+            "name": "another tenant's invoice is indistinguishable from a missing id",
+            "ok": false
           },
           {
-            "name": "every successful delivery is acknowledged with status 200",
+            "name": "cross-tenant void is denied and leaves the invoice unchanged",
+            "ok": false
+          },
+          {
+            "name": "same-tenant void still works; a missing id is not_found without a write",
             "ok": true
           }
         ],
@@ -468,29 +928,29 @@
     ],
     "outcomes": [
       {
-        "_creationTime": 1792899710006.7666,
-        "_id": "mh733ekb8dwbq4na5pqp51kpen8gy2a7",
-        "at": 1792899710006,
-        "evidenceRunId": "n57026xmswf1dx6d983bgqeny58gy5mt",
+        "_creationTime": 1792902855599.9712,
+        "_id": "mh75cs9c9wc5w3z5jgq88nc4a18gyrcd",
+        "at": 1792902855599,
+        "evidenceRunId": "n57b0zmd195zbyypyskecz21958gyxf3",
         "isDemo": true,
-        "playbookId": "k979mewc359579pr1y8pjqvhkd8gypc7",
+        "playbookId": "k9780ry9926p820jstccf0qdax8gyem5",
         "principalId": "mn7absehzd0evbbpqsge0v0zr98gwgs5",
         "reportedPassed": true,
         "revision": 1,
-        "summary": "Adapted fix in repo B; protected tests 5/5.",
-        "trust": "runner_verified"
+        "trust": "runner_verified",
+        "summary": "Free-text outcome summary omitted from shareable recording."
       }
     ],
     "jobs": [
       {
-        "_creationTime": 1792899677832.9836,
-        "_id": "ms71mhzybamfkwsbazykbezthd8gz5bf",
-        "finishedAt": 1792899710159,
+        "_creationTime": 1792902827840.949,
+        "_id": "ms78g94e9cwfga9sh09cgtx4x98gzhkg",
+        "finishedAt": 1792902855798,
         "generation": 2,
         "isDemo": true,
         "kind": "two_agent_demo",
         "stage": "Done",
-        "startedAt": 1792899677832,
+        "startedAt": 1792902827840,
         "status": "succeeded"
       }
     ],
@@ -527,8 +987,8 @@
     ],
     "applicabilityChecks": [
       {
-        "_id": "nn73t79pgbc50qvbvqkd2z8ns58gykjv",
-        "at": 1792899693555,
+        "_id": "nn78b0zjm438q34kske5h6gewx8gyddp",
+        "at": 1792902840426,
         "conflicts": [],
         "matched": [
           {
@@ -536,43 +996,148 @@
             "fact": "runtime.node",
             "label": "The service runs on Node.js",
             "observed": true,
-            "source": "probe: source is Node.js ES modules (.mjs)"
+            "source": "Local fixture evidence (source text omitted from shareable recording)"
           },
           {
             "expected": true,
-            "fact": "delivery.stable_message_ids",
-            "label": "Retried deliveries carry the same message or event id",
-            "note": "From the guide: duplicates share the same provider event id.",
+            "fact": "records.tenant_scoped",
+            "label": "Each record stores the tenant or workspace that owns it",
+            "note": "Each record stores its owning tenant or workspace id",
             "observed": true,
-            "source": "declared by the developer in environment-facts.json"
+            "source": "Local fixture evidence (source text omitted from shareable recording)"
           },
           {
             "expected": true,
-            "fact": "store.atomic_claim",
-            "label": "The store offers an atomic claim / insert-if-absent on that id",
-            "note": "From the guide: the store can do an atomic insert-if-absent or enforce a unique key.",
+            "fact": "request.authenticated_tenant",
+            "label": "The caller's authenticated tenant or workspace is available server-side",
+            "note": "The authenticated tenant comes from server-side auth, not the request",
             "observed": true,
-            "source": "probe: src/ports.mjs documents an atomic claim(id) → boolean"
+            "source": "Local fixture evidence (source text omitted from shareable recording)"
+          },
+          {
+            "expected": true,
+            "fact": "access.fetch_by_client_id",
+            "label": "Records are looked up by an id the client supplies",
+            "observed": true,
+            "source": "Local fixture evidence (source text omitted from shareable recording)"
           },
           {
             "expected": false,
-            "fact": "duplicates.distinct_ids",
-            "label": "Duplicates arrive with different ids",
-            "note": "From the guide limitations: does not help when duplicates arrive with different ids.",
+            "fact": "access.cross_tenant_sharing",
+            "label": "Legitimate cross-tenant access exists (shared links, partner or support access)",
+            "note": "Shared links or partner access need a grant model this fix does not provide",
             "observed": false,
-            "source": "declared by the developer in environment-facts.json"
+            "source": "Local fixture evidence (source text omitted from shareable recording)"
           }
         ],
         "needsVerification": [],
         "orgSlug": "harbor",
-        "playbookId": "k979mewc359579pr1y8pjqvhkd8gypc7",
+        "playbookId": "k9780ry9926p820jstccf0qdax8gyem5",
         "principalName": "agent-b",
-        "reason": "All 4 condition(s) match facts your connector established.",
+        "reason": "All 5 condition(s) match facts your connector established.",
         "recommendation": "recommend",
         "revision": 1,
-        "sourcesHidden": false,
-        "title": "Duplicate jobs when a webhook provider retries the same event"
+        "sourcesHidden": true,
+        "title": "Users of one tenant can read or void another tenant's records by changing the id in the URL"
       }
-    ]
+    ],
+    "payments": [
+      {
+        "allowanceAsOf": 1792902998967,
+        "allowanceNow": {
+          "allowSimulator": true,
+          "committedAtomic": "20000",
+          "maxPerPurchaseAtomic": "10000",
+          "maxPurchases": 2,
+          "remainingAtomic": "30000",
+          "remainingPurchases": 0,
+          "sessionMaxAtomic": "50000"
+        },
+        "amountAtomic": "10000",
+        "authorizedBudget": null,
+        "buyer": "agent-b",
+        "buyerOrg": "harbor",
+        "contributorShareAtomic": "8000",
+        "error": null,
+        "eventIds": [
+          "md7cc64agebtx8ye5kgfzygtfh8gz3dj",
+          "md7a1tmyvtztced14dht4y9bb58gzewv",
+          "md7d96ntz77nr8stkerqhrrsdn8gy9rn",
+          "md77xxyjegzdr0aqny2g9z43js8gzjvg"
+        ],
+        "expiresAt": 1792896232807,
+        "lastReusedAt": 1792902840887,
+        "mode": "testnet",
+        "network": "eip155:84532",
+        "payTo": "0x22204BeDAdC581473c5472B2F797f30902d85527",
+        "payer": "0x2d6C90190D67Df2084502fCB5b21A58DB9Fc5d4F",
+        "platformShareAtomic": "2000",
+        "purchaseId": "kh76wvw6q53jd8bfhysp51s4vn8gy3wb",
+        "quoteId": "n17am0e1nmbx151rnt45e2py7n8gzn0c",
+        "quotedAt": 1792895632807,
+        "resolutionId": "k9780ry9926p820jstccf0qdax8gyem5",
+        "reusedCount": 1,
+        "revision": 1,
+        "state": "settled",
+        "steps": [
+          {
+            "at": 1792895632807,
+            "key": "requested",
+            "label": "Quote requested",
+            "state": "done"
+          },
+          {
+            "at": 1792895633217,
+            "key": "authorized",
+            "label": "Authorized within policy (budget reserved)",
+            "state": "done"
+          },
+          {
+            "at": 1792895652323,
+            "key": "payment",
+            "label": "Settled on Base Sepolia",
+            "state": "done"
+          },
+          {
+            "at": 1792895652323,
+            "key": "access",
+            "label": "Access granted",
+            "state": "done"
+          }
+        ],
+        "title": "Users of one tenant can read or void another tenant's records by changing the id in the URL",
+        "txHash": "0x385e800e5dd3d669fdd16ffbfe10afe25f2cb3c0b521b9bdd17c3ec452fcac5a"
+      }
+    ],
+    "earnings": {
+      "balanced": true,
+      "byGuide": [
+        {
+          "contributorAtomic": "8000",
+          "grossAtomic": "10000",
+          "platformAtomic": "2000",
+          "resolutionId": "k979mewc359579pr1y8pjqvhkd8gypc7",
+          "sales": 1,
+          "simulatedSales": 1,
+          "title": "Duplicate jobs when a webhook provider retries the same event"
+        },
+        {
+          "contributorAtomic": "8000",
+          "grossAtomic": "10000",
+          "platformAtomic": "2000",
+          "resolutionId": "k9780ry9926p820jstccf0qdax8gyem5",
+          "sales": 1,
+          "simulatedSales": 0,
+          "title": "Users of one tenant can read or void another tenant's records by changing the id in the URL"
+        }
+      ],
+      "contributorAccruedAtomic": "16000",
+      "grossAtomic": "20000",
+      "paidOutAtomic": "0",
+      "platformFeeAtomic": "4000",
+      "simulatedGrossAtomic": "10000",
+      "simulatedSales": 1,
+      "testnetSales": 2
+    }
   }
 }

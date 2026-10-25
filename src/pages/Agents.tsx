@@ -8,6 +8,10 @@ import { ErrorBox, Loading, PageHeader, formatDate } from "../components/ui";
 import { Icon } from "../components/icons";
 import { STORY_SENTENCE, StoryStrip } from "../components/StoryStrip";
 import recordingFile from "../recordings/two-agent-run.json";
+import { EventRow, Lane, laneOf } from "../components/agents/activity";
+import { EarningsPanel, PaymentInspector } from "../components/agents/payments";
+import { NowPanel, useRunnerHealth } from "../components/agents/NowPanel";
+import { checksOf, paymentsOf, duringRun, recordedUntil, type Recording } from "../components/agents/timeline";
 
 const RUNNER_URL = (import.meta.env.VITE_FACTORY_RUNNER_URL as string | undefined) ?? "http://127.0.0.1:3299";
 
@@ -18,17 +22,8 @@ function useOverview(actor: string) {
 }
 
 /** A real earlier run captured by scripts/record-run.mjs. Viewing it executes nothing. */
-const recording = recordingFile as unknown as { recordedAt: number; run: { startedAt: number; finishedAt: number; durationMs: number }; source: { deployment: string; commit: string }; overview: Overview };
+const recording = recordingFile as unknown as Recording;
 const REPLAY_SPEED = 2;
-
-/** Applicability checks, if this overview has them (recordings and older deployments don't). */
-const checksOf = (o: Overview): Check[] => (o as Partial<Overview>).applicabilityChecks ?? [];
-
-/** Recorded data up to a point in the run's own timeline (for replay). */
-function recordedUntil(t: number): Overview {
-  const o = recording.overview;
-  return { ...o, events: o.events.filter((e) => e.at <= t), runs: o.runs.filter((r) => r.at <= t), outcomes: o.outcomes.filter((x) => x.at <= t), purchases: t >= recording.run.finishedAt ? o.purchases : o.purchases.filter((p) => o.events.some((e) => e.at <= t && e.refs.includes(p._id))), applicabilityChecks: checksOf(o).filter((c) => c.at <= t) };
-}
 
 /** Which agent is the contributor and which the buyer, by their operator-granted scopes. */
 function roles(o: Overview) {
@@ -39,13 +34,19 @@ function roles(o: Overview) {
   return { sellers, buyers, isSellerRun, isBuyerRun };
 }
 
-const fitEvent = (o: Overview) => o.events.find((e) => e.kind === "applicability_checked" || e.kind === "check_applicability");
+/** The buyer's latest candidate test result, for the Now panel. */
+function bCandNow(o: Overview) {
+  const r = o.runs.find((x) => roles(o).isBuyerRun(x) && x.stage === "candidate");
+  return r ? { passed: r.passedCount, total: r.total } : null;
+}
+
+const fitEvent = (o: Overview) => o.events.find((e) => ["applicability_checked", "check_applicability", "applicability_declined"].includes(e.kind));
 
 type StepState = boolean | "declined";
 const STORY: { key: string; label: string; test: (o: Overview) => StepState }[] = [
   { key: "a_fixed", label: "A fixed a bug; its protected tests passed", test: (o) => o.runs.some((r) => roles(o).isSellerRun(r) && r.stage === "candidate" && r.passed) },
-  { key: "shared", label: "Shared an approved, sanitized lesson", test: (o) => o.submissions.some((s) => s.status === "published") },
-  { key: "found", label: "B found a candidate guide via MCP", test: (o) => o.events.some((e) => e.kind === "quote_resolution" || e.kind === "search_resolutions") },
+  { key: "shared", label: "Shared an approved, sanitized lesson", test: (o) => o.events.some((e) => e.kind === "submit_resolution" && e.status === "ok") },
+  { key: "found", label: "B found a candidate guide via MCP", test: (o) => o.events.some((e) => e.kind === "search_resolutions" && e.status === "ok") },
   {
     key: "fit",
     label: "Checked fit against B’s environment",
@@ -57,38 +58,10 @@ const STORY: { key: string; label: string; test: (o: Overview) => StepState }[] 
       return !e ? false : /declin/i.test(e.summary) || e.status === "denied" ? "declined" : true;
     },
   },
-  { key: "paid", label: "Paid within budget (or reused an earlier purchase)", test: (o) => o.purchases.some((p) => p.status === "test_success" || p.status === "simulated_success") || o.events.some((e) => e.kind === "entitlement_reused") },
-  { key: "adapted", label: "Factory Droid adapted the fix in B’s code", test: (o) => o.runs.some((r) => roles(o).isBuyerRun(r) && r.stage === "candidate") },
+  { key: "paid", label: "Paid within budget (or reused an earlier purchase)", test: (o) => o.events.some((e) => ["payment_settled", "entitlement_granted", "entitlement_reused"].includes(e.kind) && e.status === "ok") },
+  { key: "adapted", label: "An adapted patch was checked in B’s code", test: (o) => o.runs.some((r) => roles(o).isBuyerRun(r) && r.stage === "candidate") },
   { key: "passed", label: "B’s protected tests passed", test: (o) => o.runs.some((r) => roles(o).isBuyerRun(r) && r.stage === "candidate" && r.passed) },
 ];
-
-const KIND_LABEL: Record<string, string> = {
-  search_resolutions: "Search",
-  quote_resolution: "Quote",
-  check_applicability: "Fit check",
-  applicability_checked: "Fit check",
-  get_my_access: "Access check",
-  acquire_resolution: "Purchase",
-  acquire_denied: "Purchase denied",
-  budget_exceeded: "Over budget",
-  entitlement_granted: "Access granted",
-  entitlement_reused: "Earlier purchase reused",
-  retrieve_resolution: "Retrieve",
-  record_outcome: "Outcome",
-  submit_resolution: "Submit",
-  submit_denied: "Submit denied",
-  needs_approval: "Waiting for developer",
-  developer_approval: "Developer approved",
-  submission_quarantined: "Quarantined",
-  sensitive_content_detected: "Sensitive content",
-  local_disclosure_gate: "Local privacy gate",
-  baseline_tests: "Tests before",
-  candidate_tests: "Tests after",
-  factory_repair_started: "Adapting",
-  repair_run_rejected: "Repair rejected",
-};
-const kindLabel = (k: string) => KIND_LABEL[k] ?? k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
-const MODE_LABEL: Record<string, string> = { live: "live", local: "local", testnet: "testnet", simulated: "simulated", recorded: "recorded" };
 
 const REC_TEXT = { recommend: "Recommend", verify_first: "Verify first", decline: "Declined" } as const;
 const REC_CLASS = { recommend: "ok", verify_first: "warn", decline: "sev-high" } as const;
@@ -99,21 +72,24 @@ export default function Agents() {
   const live = useOverview(actor);
   const [mode, setMode] = useState<"live" | "recorded">("live");
   const [replayAt, setReplayAt] = useState<number | null>(null); // null = show the whole recording
+  const [paused, setPaused] = useState(false);
   useEffect(() => {
-    if (mode !== "recorded" || replayAt === null || replayAt >= recording.run.finishedAt) return;
+    if (mode !== "recorded" || paused || replayAt === null || replayAt >= recording.run.finishedAt) return;
     const t = setTimeout(() => setReplayAt((x) => (x === null ? null : Math.min(recording.run.finishedAt, x + 500 * REPLAY_SPEED))), 500);
     return () => clearTimeout(t);
-  }, [mode, replayAt]);
+  }, [mode, replayAt, paused]);
   const recorded = mode === "recorded";
-  const o = recorded ? recordedUntil(replayAt ?? recording.run.finishedAt) : live;
+  const [history, setHistory] = useState(false);
+  const o = recorded ? recordedUntil(recording, replayAt ?? recording.run.finishedAt) : live && !history && live.jobs[0] ? duringRun(live, live.jobs[0]) : live;
   const reviewerSlug = session.slugForRole("reviewer");
   const reviewerOrg = session.orgs?.find((x) => x.slug === reviewerSlug);
   const [starting, setStarting] = useState(false);
   const [scenario, setScenario] = useState<"dedupe" | "tenant">("dedupe");
   const [error, setError] = useState<string | null>(null);
+  const runner = useRunnerHealth(RUNNER_URL, session.operator && !session.hosted && !recorded);
   if (!o) return <Loading />;
   const job = o.jobs[0];
-  const running = !recorded && job && job.status === "running";
+  const running = !recorded && job && (job.status === "running" || job.status === "queued");
 
   // Runs are a reviewer action. The presenter's operator session holds every org's token, so start as the
   // Review Desk whichever role is on screen; the backend still checks the reviewer role and operator session.
@@ -141,7 +117,10 @@ export default function Agents() {
     const orgs = [...new Set(o.principals.filter((p) => names.has(p.name)).map((p) => orgName(p.orgSlug)))];
     return [...repos, ...orgs].join(" · ");
   };
-  const lane = (name: "contributor" | "consumer") => o.events.filter((e) => e.lane === name).slice(0, 14);
+  const laneEvents = (name: "contributor" | "consumer") => o.events.filter((e) => laneOf(e, sellers, buyers) === name);
+  const payments = paymentsOf(o).filter((p) => recorded || history || !job || o.events.some((e) => e.refs.includes(p.quoteId) || (p.purchaseId && e.refs.includes(p.purchaseId))));
+  const titles = new Map<string, string>([...payments.map((p) => [p.resolutionId, p.title] as const), ...checksOf(o).map((c) => [c.playbookId as string, c.title] as const)]);
+  const titleOf = (id: string) => titles.get(id);
   const security = o.events.filter((e) => e.lane === "security").slice(0, 10);
   const buyerRuns = o.runs.filter(isBuyerRun);
   const bCand = buyerRuns.find((r) => r.stage === "candidate");
@@ -161,35 +140,41 @@ export default function Agents() {
                 <option value="tenant">Cross-tenant access (repo-c → repo-d)</option>
               </select>
             </label>
-            <button className="btn primary" disabled={starting || running} onClick={() => void start(false)}>
+            <button className="btn primary" disabled={starting || running || runner === "unreachable"} title={runner === "unreachable" ? "The local runner isn't reachable (npm run dev:factory)" : undefined} onClick={() => void start(false)}>
               {running ? "Running…" : "Run demo"}
             </button>
-            <button className="btn" disabled={starting || running} onClick={() => void start(true)} title="Same flow, with a payment simulator instead of test USDC">
+            <button className="btn" disabled={starting || running || runner === "unreachable"} onClick={() => void start(true)} title="Same flow, with a payment simulator instead of test USDC">
               Simulated payment
             </button>
           </>
         )}
         {recorded && (
-          <button className="btn primary" onClick={() => setReplayAt(recording.run.startedAt)} disabled={replayAt !== null && replayAt < recording.run.finishedAt}>
+          <button className="btn primary" onClick={() => { setPaused(false); setReplayAt(recording.run.startedAt); }} disabled={replayAt !== null && replayAt < recording.run.finishedAt}>
             {replayAt !== null && replayAt < recording.run.finishedAt ? "Replaying…" : "Replay"}
           </button>
         )}
       </PageHeader>
       <StoryStrip sentence={false} />
-      <div className="mode-tabs" role="tablist" aria-label="Live or recorded">
-        <button role="tab" aria-selected={!recorded} className={!recorded ? "active" : ""} onClick={() => setMode("live")}>
+      <div className="mode-tabs" role="group" aria-label="Live or recorded">
+        <button aria-pressed={!recorded} className={!recorded ? "active" : ""} onClick={() => setMode("live")}>
           Live
         </button>
-        <button role="tab" aria-selected={recorded} className={recorded ? "active" : ""} onClick={() => { setMode("recorded"); setReplayAt(null); }}>
+        <button aria-pressed={recorded} className={recorded ? "active" : ""} onClick={() => { setMode("recorded"); setReplayAt(null); }}>
           Recorded run
         </button>
       </div>
       {recorded && (
         <div className="recording-banner" role="note">
-          <strong>Recording — not live.</strong> Captured from a real run on {formatDate(recording.run.startedAt)} ({Math.round(recording.run.durationMs / 1000)} s, deployment {recording.source.deployment}, commit {recording.source.commit}).
+          <strong>Recording — not live.</strong> Captured from a real run on {formatDate(recording.run.startedAt)} ({Math.round(recording.run.durationMs / 1000)} s, deployment {recording.source.deployment}, commit {recording.source.commit}{recording.source.workingTree ? ` + ${recording.source.workingTree}` : ""}).
           Viewing or replaying it runs no code and moves no money.{replayAt !== null && replayAt < recording.run.finishedAt ? ` Replay at ${REPLAY_SPEED}× · ${Math.round((replayAt - recording.run.startedAt) / 1000)} s into the run.` : ""}
         </div>
       )}
+      {recorded && <div className="replay-controls row gap wrap">
+        <button className="btn sm" disabled={replayAt === null || replayAt >= recording.run.finishedAt} onClick={() => setPaused((x) => !x)}>{paused ? "Resume replay" : "Pause replay"}</button>
+        <label className="small">Recording position <input type="range" min={recording.run.startedAt} max={recording.run.finishedAt} step={100} value={replayAt ?? recording.run.finishedAt} onChange={(e) => { setPaused(true); setReplayAt(Number(e.target.value)); }} aria-label="Recording position" /></label>
+        <button className="btn sm" onClick={() => { setPaused(false); setReplayAt(null); }}>Show complete recording</button>
+        <span className="small muted">{paused && replayAt !== null ? "Paused · " : ""}{Math.round(((replayAt ?? recording.run.finishedAt) - recording.run.startedAt) / 1000)} / {Math.round(recording.run.durationMs / 1000)} s</span>
+      </div>}
       {!recorded && !session.operator && (
         <div className="role-note">
           <span>Live runs are started by the presenter on their machine. Watch here, or open the recorded run.</span>
@@ -204,6 +189,15 @@ export default function Agents() {
         </div>
       )}
       {!recorded && <ErrorBox message={error} />}
+      <NowPanel
+        job={recorded ? recording.overview.jobs[0] : job}
+        events={o.events}
+        recorded={recorded}
+        replaying={recorded && replayAt !== null && replayAt < recording.run.finishedAt}
+        operator={session.operator}
+        runner={runner}
+        buyerPassed={bCandNow(!recorded && live?.jobs[0] ? duringRun(live, live.jobs[0]) : o)}
+      />
       {job && !recorded && (
         <p className="stage-line" aria-live="polite">
           <span className={`badge ${job.status === "succeeded" ? "ok" : job.status === "failed" ? "sev-high" : job.status === "running" ? "" : "warn"}`}>
@@ -218,7 +212,8 @@ export default function Agents() {
         </p>
       )}
 
-      <h2 className="section-title story-title">{recorded ? "In this recording" : "This run"}</h2>
+      {!recorded && <label className="small lane-filter"><input type="checkbox" checked={history} onChange={(e) => setHistory(e.target.checked)} /> Show all recent activity, including earlier failures</label>}
+      <h2 className="section-title story-title">{recorded ? "In this recording" : history ? "Recent activity" : "Latest run"}</h2>
       <ol className="story" aria-label="What happened">
         {STORY.map((s) => {
           const state = s.test(o);
@@ -232,35 +227,16 @@ export default function Agents() {
       </ol>
 
       <div className="lanes">
-        {(["contributor", "consumer"] as const).map((name) => (
-          <section key={name} className="card lane" aria-label={name === "contributor" ? "Contributor agent" : "Buyer agent"}>
-            <div className="lane-head">
-              <h2>{name === "contributor" ? "Agent A · contributor" : "Agent B · buyer"}</h2>
-              <span className="small muted">{laneMeta(name)}</span>
-            </div>
-            {lane(name).length === 0 ? (
-              <p className="muted small">No activity yet.</p>
-            ) : (
-              <ul className="events stagger">
-                {lane(name).map((e) => (
-                  <li key={e._id} className={`event ev-${e.status}`}>
-                    <span className="dot-s" aria-hidden />
-                    <div>
-                      <div>
-                        <strong className="ev-kind">{kindLabel(e.kind)}</strong> {e.summary}
-                      </div>
-                      <div className="small">
-                        {e.status !== "ok" && <>{e.status} · </>}
-                        {e.actor} · {new Date(e.at).toLocaleTimeString()} · <span className="mode">{MODE_LABEL[e.mode] ?? e.mode}</span>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        ))}
+        <Lane key={`${mode}-contributor`} name="contributor" heading="Agent A · contributor" meta={laneMeta("contributor")} events={laneEvents("contributor")} recorded={recorded} title={titleOf} />
+        <Lane key={`${mode}-consumer`} name="consumer" heading="Agent B · buyer" meta={laneMeta("consumer")} events={laneEvents("consumer")} recorded={recorded} title={titleOf} />
       </div>
+      <p className="small muted lanes-note">
+        The agents never talk to each other directly. Agent A's approved resolution is stored by the exchange; Agent B finds and buys it later through MCP
+        tools, so A doesn't need to be online. Select an event to see the tool, sanitized inputs, result and evidence.
+      </p>
+
+      <PaymentInspector payments={payments} recorded={recorded} />
+      <EarningsPanel e={(o as Partial<Overview>).earnings} recorded={recorded} />
 
       <section className="card" aria-labelledby="fit-h">
         <h2 id="fit-h">Check fit</h2>
@@ -311,7 +287,8 @@ export default function Agents() {
                   </li>
                 ))}
               </ul>
-              {bCand.diff && <pre className="diff-view" aria-label="Proposed diff">{bCand.diff}</pre>}
+            {bCand.detailsHidden && <p className="small muted">{recorded ? "Local patches and notes are excluded from the shareable recording." : "Patch details and local notes are hidden for this organization."}</p>}
+              {bCand.diff && <pre className="diff-view" tabIndex={0} aria-label="Proposed diff">{bCand.diff}</pre>}
             </div>
             <p className="small muted">Factory Droid patched an isolated copy; protected tests decided. The buyer’s repository itself is never modified.</p>
           </>
@@ -324,12 +301,8 @@ export default function Agents() {
           {security.length === 0 ? (
             <p className="muted small">No denials yet.</p>
           ) : (
-            <ul className="plain-list small">
-              {security.map((e) => (
-                <li key={e._id}>
-                  <span className={`badge ${e.status === "denied" ? "warn" : "ok"}`}>{e.status}</span> {e.summary}
-                </li>
-              ))}
+            <ul className="events">
+              {security.map((e) => <EventRow key={e._id} e={e} recorded={recorded} title={titleOf} />)}
             </ul>
           )}
           <p className="small muted">Only categories are shown, never values · {o.submissions.filter((s) => s.moderation === "quarantined").length} quarantined</p>
@@ -369,60 +342,7 @@ export default function Agents() {
         </section>
       </div>
 
-      <section className="card">
-        <h2>Receipts</h2>
-        {o.purchases.length === 0 ? (
-          <p className="muted small">No agent purchases yet.</p>
-        ) : (
-          <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Payment</th>
-                <th>Amount</th>
-                <th>Contributor share</th>
-                <th>Platform</th>
-                <th>Settlement</th>
-              </tr>
-            </thead>
-            <tbody>
-              {o.purchases.map((p) => {
-                const sim = p.provider === "demo_simulator";
-                return (
-                  <tr key={p._id}>
-                    <td>
-                      <span className={`badge ${p.status.endsWith("success") ? "ok" : p.status === "pending" ? "warn" : ""}`}>
-                        {p.status === "test_success" ? "Settled · x402 testnet" : p.status === "simulated_success" ? "Simulated" : p.status === "pending" ? "Pending" : "Cancelled"}
-                      </span>
-                      <div className="small muted">revision {p.revision}</div>
-                    </td>
-                    <td>{formatAtomic(p.amountAtomic)} {sim ? "USDC (simulated)" : "test USDC"}</td>
-                    <td className="small">
-                      {formatAtomic(p.contributorShareAtomic)}
-                      <div className="muted">{p.status === "test_success" ? "accrued, not paid out" : sim ? "not counted" : "—"}</div>
-                    </td>
-                    <td className="small">{formatAtomic(p.platformShareAtomic)}</td>
-                    <td className="small">
-                      {p.txHash ? (
-                        <a href={`https://sepolia.basescan.org/tx/${p.txHash}`} target="_blank" rel="noreferrer noopener">
-                          Base Sepolia tx <code>{p.txHash.slice(0, 10)}…</code> ↗
-                        </a>
-                      ) : sim ? (
-                        "simulated, no funds moved"
-                      ) : p.status === "pending" ? (
-                        "not settled yet"
-                      ) : (
-                        "no transaction"
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
-        )}
-      </section>
+
     </div>
   );
 }

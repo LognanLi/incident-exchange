@@ -11,16 +11,23 @@ export function envelope(status, data, error, mode = "local") {
 }
 
 /** Convert a Convex result/error into an MCP tool result (structured + short text, isError on failure). */
+const DENIED_STATUS = ["AUTH_REQUIRED", "FORBIDDEN", "NOT_FOUND_OR_FORBIDDEN", "ENTITLEMENT_REQUIRED", "BUDGET_EXCEEDED", "SENSITIVE_CONTENT_DETECTED"];
+function errorResult(error) {
+  const status = error.code === "APPROVAL_REQUIRED" ? "needs_approval" : DENIED_STATUS.includes(error.code) ? "denied" : "error";
+  return { isError: true, content: [{ type: "text", text: `${error.code}: ${error.message}` }], structuredContent: envelope(status, undefined, error) };
+}
+
 async function callWith(exec, kind, fn, args, summarize, mode) {
   try {
     const data = await exec(kind, fn, args);
+    // Audited denials are returned (so their event commits) rather than thrown; same tool error either way.
+    if (data && typeof data === "object" && data.__denied) return errorResult({ code: data.__denied.code, message: String(data.__denied.message).slice(0, 300), retryable: !!data.__denied.retryable });
     const env = envelope("ok", data, undefined, mode?.(data) ?? "local");
     return { content: [{ type: "text", text: summarize(data) }], structuredContent: env };
   } catch (err) {
     const d = err?.data && typeof err.data === "object" ? err.data : null;
     const error = d?.code ? { code: d.code, message: String(d.message).slice(0, 300), retryable: !!d.retryable } : { code: "PROVIDER_UNAVAILABLE", message: "The exchange could not complete the request.", retryable: true };
-    const status = error.code === "APPROVAL_REQUIRED" ? "needs_approval" : ["AUTH_REQUIRED", "FORBIDDEN", "NOT_FOUND_OR_FORBIDDEN", "ENTITLEMENT_REQUIRED", "BUDGET_EXCEEDED", "SENSITIVE_CONTENT_DETECTED"].includes(error.code) ? "denied" : "error";
-    return { isError: true, content: [{ type: "text", text: `${error.code}: ${error.message}` }], structuredContent: envelope(status, undefined, error) };
+    return errorResult(error);
   }
 }
 
@@ -96,7 +103,7 @@ export function buildServer({ token, svc: SVC, exec, deployment }) {
     const ref = reserved.structuredContent.data;
     if (ref.status === "entitled") return reserved;
     if (ref.mode === "simulated") return call("mutation", anyApi.mcp.completeSimulated, { ...auth, purchaseId: ref.purchaseId }, (d) => `Entitled via explicit simulator (no funds moved). Purchase ${d.purchaseId}.`, () => "simulated");
-    return call("action", anyApi.x402Node.agentPay, { ...auth, purchaseId: ref.purchaseId }, (d) => `x402 payment settled on Base Sepolia; entitlement granted.${d.txHash ? ` tx ${d.txHash}` : ""}`, () => "testnet").then((r) => {
+    return call("action", anyApi.x402Node.agentPay, { ...auth, purchaseId: ref.purchaseId }, (d) => (d.txHash ? `x402 payment settled on Base Sepolia; entitlement granted. tx ${d.txHash}` : "Entitled (this purchase had already settled); no new payment."), () => "testnet").then((r) => {
       if (!r.isError) r.structuredContent.data = { ...ref, ...r.structuredContent.data };
       return r;
     });

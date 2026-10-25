@@ -54,6 +54,8 @@ export const SECRET_PATTERNS = [
   { kind: "jwt", re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\b/ },
   { kind: "private_key", re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
   { kind: "bearer_header", re: /\bBearer\s+[A-Za-z0-9._~+/-]{16,}/i },
+  { kind: "exchange_credential", re: /\b(?:ixa_|ixat_)[A-Za-z0-9_-]{12,}|\bixs2\.[A-Za-z0-9_.-]+/ },
+  { kind: "payment_signature", re: /\b0x[0-9a-fA-F]{128,}\b/ },
   { kind: "email", re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/ },
   { kind: "private_host", re: /\b(?:[a-z0-9-]+\.)+(?:internal|corp|local|lan)\b/i },
   { kind: "ip_address", re: /\b(?:10|127|172\.(?:1[6-9]|2\d|3[01])|192\.168)\.\d{1,3}\.\d{1,3}(?:\.\d{1,3})?\b/ },

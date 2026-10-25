@@ -14,6 +14,8 @@ import { createPublicClient, erc20Abi, formatUnits, http } from "viem";
 import { baseSepolia } from "viem/chains";
 import { action, internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import { sanitizeEventText } from "../shared/eventDetail.mjs";
+import { trackPaymentDispatch } from "./lib/paymentDispatch";
 import {
   BUYER_WALLET_NAME,
   CDP_NETWORK,
@@ -146,7 +148,7 @@ export const sellerHandle = internalAction({
       });
       return { status: 200, headers: settle.headers, body: { ok: true, txHash: settle.transaction, network: settle.network } };
     } catch (err) {
-      const message = err instanceof Error ? err.message.slice(0, 240) : "unknown error";
+      const message = sanitizeEventText(err instanceof Error ? err.message : "unknown error");
       await ctx.runMutation(internal.x402State.recordFailure, { purchaseId: purchase._id, message: `x402 seller error: ${message}` });
       return { status: 502, headers: {}, body: { error: message } };
     }
@@ -172,6 +174,7 @@ export const payWithX402 = action({
       const cdp = new CdpClient();
       const account = await cdp.evm.getOrCreateAccount({ name: BUYER_WALLET_NAME });
       const client = new x402Client();
+      client.onAfterPaymentCreation(trackPaymentDispatch((payer, nonce) => ctx.runMutation(internal.x402State.markSettling, { purchaseId, payer, nonce })));
       registerExactEvmScheme(client, { signer: fromCdpEvmAccount(account) });
       applySpendControls(client, {
         maxAmountPerPayment: { atomic: MAX_ATOMIC_PER_PAYMENT, asset: USDC_BASE_SEPOLIA },
@@ -185,7 +188,7 @@ export const payWithX402 = action({
       if (!res.ok || !body.ok) throw new Error(body.error ?? `Payment endpoint responded ${res.status}`);
       return { txHash: body.txHash };
     } catch (err) {
-      const message = err instanceof Error ? err.message.slice(0, 240) : "unknown error";
+      const message = sanitizeEventText(err instanceof Error ? err.message : "unknown error");
       await ctx.runMutation(internal.x402State.recordFailure, { purchaseId, message: `x402 payment failed: ${message}` });
       throw new ConvexError(`x402 payment failed: ${message}`);
     }
@@ -254,7 +257,9 @@ export const agentPay = action({
   handler: async (ctx, { svc, token, purchaseId }): Promise<{ status: string; txHash?: string }> => {
     requireCdp();
     const info = await ctx.runQuery(api.mcp.purchaseForAgent, { svc, token, purchaseId });
-    if (info.status !== "pending") return { status: info.status === "test_success" ? "entitled" : info.status };
+    if (info.status === "test_success" || info.status === "simulated_success") return { status: "entitled" };
+    // Same idempotency key as a purchase that failed or was cancelled: never report success, never charge again.
+    if (info.status !== "pending") throw new ConvexError({ code: "PAYMENT_FAILED", message: `This purchase ${info.status === "failed" ? "failed earlier (no funds moved)" : `is ${info.status}`}; retry with a new clientRequestId.`, retryable: false });
     if (info.x402.nonce) throw new ConvexError({ code: "PAYMENT_PENDING", message: "An earlier payment is still being confirmed.", retryable: true });
     const siteUrl = process.env.CONVEX_SITE_URL;
     if (!siteUrl) throw new ConvexError({ code: "PROVIDER_UNAVAILABLE", message: "Payment endpoint unavailable.", retryable: true });
@@ -262,6 +267,7 @@ export const agentPay = action({
       const cdp = new CdpClient();
       const account = await cdp.evm.getOrCreateAccount({ name: BUYER_WALLET_NAME });
       const client = new x402Client();
+      client.onAfterPaymentCreation(trackPaymentDispatch((payer, nonce) => ctx.runMutation(internal.x402State.markSettling, { purchaseId: info.purchaseId, payer, nonce })));
       registerExactEvmScheme(client, { signer: fromCdpEvmAccount(account) });
       applySpendControls(client, {
         maxAmountPerPayment: { atomic: BigInt(info.x402.atomicAmount), asset: USDC_BASE_SEPOLIA },
@@ -276,7 +282,7 @@ export const agentPay = action({
       if (!res.ok || !body.ok) throw new Error(body.error ?? `Payment endpoint responded ${res.status}`);
       return { status: "entitled", txHash: body.txHash };
     } catch (err) {
-      const message = err instanceof Error ? err.message.slice(0, 200) : "unknown error";
+      const message = sanitizeEventText(err instanceof Error ? err.message : "unknown error", 200);
       await ctx.runMutation(internal.x402State.recordFailure, { purchaseId: info.purchaseId, message: `Agent x402 payment failed: ${message}` });
       throw new ConvexError({ code: "PAYMENT_FAILED", message: `Payment failed: ${message}`, retryable: false });
     }
