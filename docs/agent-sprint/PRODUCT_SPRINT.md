@@ -21,9 +21,9 @@ Shared contracts (lead-owned; ask before changing): `shared/applicability.mjs` (
 
 ## Checkpoints
 - [x] 19:17 PR #9 merged; cloud functions + hosted bundle = `main` @ 9f52a95.
-- [ ] Applicability tool + gate, conditions on scenario-1 guide, match + decline demos
-- [ ] Onboarding: `get_my_access`, credential issuing, connect-check, error paths, CONNECT.md
-- [ ] Fresh-agent session verified (Claude Code in an empty dir, docs only)
-- [ ] Scenario 2 live: contributor → review → buyer adapts → protected tests (deny + allow)
-- [ ] UI: Connect your agent, 20-second story, applicability/receipts/accrual displays
+- [x] 19:28 `check_applicability` + gate deployed; scenario-1 guide `…kd8gypc7` given conditions (dry run, then apply; revision unchanged). 19:35 scenario-1 run: **recommend** 4/4, entitlement reused, 5/5 `runner_verified`. 19:34 **decline**: repo-b vs the tenant guide → 1 match, 2 conflicts, 2 to verify.
+- [x] 19:31 onboarding: `get_my_access`, `scripts/issue-agent.mjs` (juniper-agent for Juniper Ledger, simulator only, 1 purchase), `connect-check.mjs` (happy path + wrong path, wrong secret, expired token, wrong host, missing scope, local service down), remote `error_description`s, CONNECT.md.
+- [x] 19:38 **fresh Claude Code session** in `/tmp/ix-fresh/session/ledger-webhooks` (Juniper's own app; only CONNECT.md + credential via headersHelper): get_my_access → search → preview → check_applicability (recommend, 4/0/0, facts from its own repo) → quote → acquire (simulator) → get_resolution → adapted fix → `npm test` 2/4 → 4/4 → record_outcome (`reported_unverified`).
+- [x] 19:34 **scenario 2 live**: repo-c 2/5 → 5/5, gate dropped canary; review → publish; repo-d 3/6; fit check recommend 5/5; x402 `0x385e800e…`; Factory adapted (workspace naming, response handler); protected 6/6 (denials + legitimate access), `runner_verified`.
+- [x] 20:25 UI merged + deployed backend: /connect with live agents panel, 20-second story strip, Check fit section, receipts with Basescan links, accrued vs paid-out split, scenario picker.
 - [ ] Feature freeze 07:30; security negatives; full rehearsal in Zen; recording refresh; submission notes

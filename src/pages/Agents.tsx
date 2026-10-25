@@ -109,6 +109,7 @@ export default function Agents() {
   const reviewerSlug = session.slugForRole("reviewer");
   const reviewerOrg = session.orgs?.find((x) => x.slug === reviewerSlug);
   const [starting, setStarting] = useState(false);
+  const [scenario, setScenario] = useState<"dedupe" | "tenant">("dedupe");
   const [error, setError] = useState<string | null>(null);
   if (!o) return <Loading />;
   const job = o.jobs[0];
@@ -121,7 +122,7 @@ export default function Agents() {
     setError(null);
     setStarting(true);
     try {
-      const res = await fetch(`${RUNNER_URL}/agent-demo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: runActor, simulatePayment }) });
+      const res = await fetch(`${RUNNER_URL}/agent-demo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: runActor, simulatePayment, scenario }) });
       if (!res.ok) setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The local runner refused the request (HTTP ${res.status}).`);
     } catch {
       setError(["localhost", "127.0.0.1"].includes(window.location.hostname) ? "The local runner is offline. Start it with `npm run dev`." : "Agent runs start from the presenter’s machine (local runner), not from the hosted site. Results appear here when they run.");
@@ -153,6 +154,13 @@ export default function Agents() {
       <PageHeader eyebrow="Agents" title="Agents sharing fixes" sub={STORY_SENTENCE}>
         {!recorded && session.operator && (
           <>
+            <label className="scenario-pick">
+              <span className="sr-only">Scenario</span>
+              <select value={scenario} onChange={(e) => setScenario(e.target.value as "dedupe" | "tenant")} disabled={starting || running} aria-label="Scenario">
+                <option value="dedupe">Duplicate deliveries (repo-a → repo-b)</option>
+                <option value="tenant">Cross-tenant access (repo-c → repo-d)</option>
+              </select>
+            </label>
             <button className="btn primary" disabled={starting || running} onClick={() => void start(false)}>
               {running ? "Running…" : "Run demo"}
             </button>
