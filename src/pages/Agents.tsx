@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
+import { Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import { formatAtomic } from "../../convex/lib/money";
 import { useSession } from "../session";
 import { ErrorBox, Loading, PageHeader, formatDate } from "../components/ui";
 import { Icon } from "../components/icons";
+import { STORY_SENTENCE, StoryStrip } from "../components/StoryStrip";
 import recordingFile from "../recordings/two-agent-run.json";
 
 const RUNNER_URL = (import.meta.env.VITE_FACTORY_RUNNER_URL as string | undefined) ?? "http://127.0.0.1:3299";
 
 type Overview = NonNullable<ReturnType<typeof useOverview>>;
+type Check = Overview["applicabilityChecks"][number];
 function useOverview(actor: string) {
   return useQuery(api.agentsConsole.overview, { actor });
 }
@@ -18,20 +21,77 @@ function useOverview(actor: string) {
 const recording = recordingFile as unknown as { recordedAt: number; run: { startedAt: number; finishedAt: number; durationMs: number }; source: { deployment: string; commit: string }; overview: Overview };
 const REPLAY_SPEED = 2;
 
+/** Applicability checks, if this overview has them (recordings and older deployments don't). */
+const checksOf = (o: Overview): Check[] => (o as Partial<Overview>).applicabilityChecks ?? [];
+
 /** Recorded data up to a point in the run's own timeline (for replay). */
 function recordedUntil(t: number): Overview {
   const o = recording.overview;
-  return { ...o, events: o.events.filter((e) => e.at <= t), runs: o.runs.filter((r) => r.at <= t), outcomes: o.outcomes.filter((x) => x.at <= t), purchases: t >= recording.run.finishedAt ? o.purchases : o.purchases.filter((p) => o.events.some((e) => e.at <= t && e.refs.includes(p._id))) };
+  return { ...o, events: o.events.filter((e) => e.at <= t), runs: o.runs.filter((r) => r.at <= t), outcomes: o.outcomes.filter((x) => x.at <= t), purchases: t >= recording.run.finishedAt ? o.purchases : o.purchases.filter((p) => o.events.some((e) => e.at <= t && e.refs.includes(p._id))), applicabilityChecks: checksOf(o).filter((c) => c.at <= t) };
 }
 
-const STORY = [
-  { key: "a_fixed", label: "A fixed a duplicate-delivery bug", test: (o: Overview) => o.runs.some((r) => r.repo === "repo-a" && r.stage === "candidate" && r.passed) },
-  { key: "shared", label: "Shared an approved, sanitized lesson", test: (o: Overview) => o.submissions.some((s) => s.status === "published") },
-  { key: "found", label: "B found an applicable guide via MCP", test: (o: Overview) => o.events.some((e) => e.kind === "quote_resolution" || e.kind === "search_resolutions") },
-  { key: "paid", label: "Paid within budget (or reused an earlier purchase)", test: (o: Overview) => o.purchases.some((p) => p.status === "test_success" || p.status === "simulated_success") || o.events.some((e) => e.kind === "entitlement_reused") },
-  { key: "adapted", label: "Factory Droid adapted the fix in B", test: (o: Overview) => o.runs.some((r) => r.repo === "repo-b" && r.stage === "candidate") },
-  { key: "passed", label: "B's protected tests passed", test: (o: Overview) => o.runs.some((r) => r.repo === "repo-b" && r.stage === "candidate" && r.passed) },
+/** Which agent is the contributor and which the buyer, by their operator-granted scopes. */
+function roles(o: Overview) {
+  const sellers = new Set(o.principals.filter((p) => p.scopes.includes("submit")).map((p) => p.name));
+  const buyers = new Set(o.principals.filter((p) => p.scopes.includes("acquire")).map((p) => p.name));
+  const isSellerRun = (r: Overview["runs"][number]) => sellers.has(r.principalName) || (!sellers.size && r.repo === "repo-a");
+  const isBuyerRun = (r: Overview["runs"][number]) => buyers.has(r.principalName) || (!buyers.size && r.repo === "repo-b");
+  return { sellers, buyers, isSellerRun, isBuyerRun };
+}
+
+const fitEvent = (o: Overview) => o.events.find((e) => e.kind === "applicability_checked" || e.kind === "check_applicability");
+
+type StepState = boolean | "declined";
+const STORY: { key: string; label: string; test: (o: Overview) => StepState }[] = [
+  { key: "a_fixed", label: "A fixed a bug; its protected tests passed", test: (o) => o.runs.some((r) => roles(o).isSellerRun(r) && r.stage === "candidate" && r.passed) },
+  { key: "shared", label: "Shared an approved, sanitized lesson", test: (o) => o.submissions.some((s) => s.status === "published") },
+  { key: "found", label: "B found a candidate guide via MCP", test: (o) => o.events.some((e) => e.kind === "quote_resolution" || e.kind === "search_resolutions") },
+  {
+    key: "fit",
+    label: "Checked fit against B’s environment",
+    test: (o) => {
+      const c = checksOf(o)[0];
+      if (c) return c.recommendation === "decline" ? "declined" : true;
+      // Older console data: only the event exists.
+      const e = fitEvent(o);
+      return !e ? false : /declin/i.test(e.summary) || e.status === "denied" ? "declined" : true;
+    },
+  },
+  { key: "paid", label: "Paid within budget (or reused an earlier purchase)", test: (o) => o.purchases.some((p) => p.status === "test_success" || p.status === "simulated_success") || o.events.some((e) => e.kind === "entitlement_reused") },
+  { key: "adapted", label: "Factory Droid adapted the fix in B’s code", test: (o) => o.runs.some((r) => roles(o).isBuyerRun(r) && r.stage === "candidate") },
+  { key: "passed", label: "B’s protected tests passed", test: (o) => o.runs.some((r) => roles(o).isBuyerRun(r) && r.stage === "candidate" && r.passed) },
 ];
+
+const KIND_LABEL: Record<string, string> = {
+  search_resolutions: "Search",
+  quote_resolution: "Quote",
+  check_applicability: "Fit check",
+  applicability_checked: "Fit check",
+  get_my_access: "Access check",
+  acquire_resolution: "Purchase",
+  acquire_denied: "Purchase denied",
+  budget_exceeded: "Over budget",
+  entitlement_granted: "Access granted",
+  entitlement_reused: "Earlier purchase reused",
+  retrieve_resolution: "Retrieve",
+  record_outcome: "Outcome",
+  submit_resolution: "Submit",
+  submit_denied: "Submit denied",
+  needs_approval: "Waiting for developer",
+  developer_approval: "Developer approved",
+  submission_quarantined: "Quarantined",
+  sensitive_content_detected: "Sensitive content",
+  local_disclosure_gate: "Local privacy gate",
+  baseline_tests: "Tests before",
+  candidate_tests: "Tests after",
+  factory_repair_started: "Adapting",
+  repair_run_rejected: "Repair rejected",
+};
+const kindLabel = (k: string) => KIND_LABEL[k] ?? k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+const MODE_LABEL: Record<string, string> = { live: "live", local: "local", testnet: "testnet", simulated: "simulated", recorded: "recorded" };
+
+const REC_TEXT = { recommend: "Recommend", verify_first: "Verify first", decline: "Declined" } as const;
+const REC_CLASS = { recommend: "ok", verify_first: "warn", decline: "sev-high" } as const;
 
 export default function Agents() {
   const session = useSession();
@@ -60,10 +120,9 @@ export default function Agents() {
   const start = async (simulatePayment: boolean) => {
     setError(null);
     setStarting(true);
-    setError(null);
     try {
       const res = await fetch(`${RUNNER_URL}/agent-demo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: runActor, simulatePayment }) });
-      if (!res.ok) setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `Runner responded ${res.status}`);
+      if (!res.ok) setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The local runner refused the request (HTTP ${res.status}).`);
     } catch {
       setError(["localhost", "127.0.0.1"].includes(window.location.hostname) ? "The local runner is offline. Start it with `npm run dev`." : "Agent runs start from the presenter’s machine (local runner), not from the hosted site. Results appear here when they run.");
     } finally {
@@ -71,14 +130,27 @@ export default function Agents() {
     }
   };
 
+  const { sellers, buyers, isBuyerRun } = roles(o);
+  const orgName = (slug: string) => session.orgs?.find((x) => x.slug === slug)?.displayName ?? slug;
+  const laneMeta = (name: "contributor" | "consumer") => {
+    const all = name === "contributor" ? sellers : buyers;
+    const active = new Set(o.events.filter((e) => e.lane === name && all.has(e.actor)).map((e) => e.actor));
+    const names = active.size ? active : all;
+    const repos = [...new Set(o.runs.filter((r) => names.has(r.principalName)).map((r) => r.repo))];
+    const orgs = [...new Set(o.principals.filter((p) => names.has(p.name)).map((p) => orgName(p.orgSlug)))];
+    return [...repos, ...orgs].join(" · ");
+  };
   const lane = (name: "contributor" | "consumer") => o.events.filter((e) => e.lane === name).slice(0, 14);
   const security = o.events.filter((e) => e.lane === "security").slice(0, 10);
-  const latest = (repo: string, stage: string) => o.runs.find((r) => r.repo === repo && r.stage === stage);
-  const bCand = latest("repo-b", "candidate");
+  const buyerRuns = o.runs.filter(isBuyerRun);
+  const bCand = buyerRuns.find((r) => r.stage === "candidate");
+  const bBase = bCand ? buyerRuns.find((r) => r.stage === "baseline" && r.repo === bCand.repo) : undefined;
+  const checks = checksOf(o);
+  const latestCheck = checks[0];
 
   return (
     <div className="agents">
-      <PageHeader eyebrow="Agents" title="Agents sharing fixes" sub="Agent A shares a verified fix. Agent B finds it, pays, adapts it, and proves it with tests.">
+      <PageHeader eyebrow="Agents" title="Agents sharing fixes" sub={STORY_SENTENCE}>
         {!recorded && session.operator && (
           <>
             <button className="btn primary" disabled={starting || running} onClick={() => void start(false)}>
@@ -95,6 +167,7 @@ export default function Agents() {
           </button>
         )}
       </PageHeader>
+      <StoryStrip sentence={false} />
       <div className="mode-tabs" role="tablist" aria-label="Live or recorded">
         <button role="tab" aria-selected={!recorded} className={!recorded ? "active" : ""} onClick={() => setMode("live")}>
           Live
@@ -124,20 +197,27 @@ export default function Agents() {
       )}
       {!recorded && <ErrorBox message={error} />}
       {job && !recorded && (
-        <p className="run-meta">
-          Last run · {job.status}
-          {job.stage ? ` · ${job.stage}` : ""} · {formatDate(job.startedAt)}
-          {job.error ? ` · ${job.error}` : ""}
+        <p className="stage-line" aria-live="polite">
+          <span className={`badge ${job.status === "succeeded" ? "ok" : job.status === "failed" ? "sev-high" : job.status === "running" ? "" : "warn"}`}>
+            {job.status === "running" ? "Running" : job.status === "succeeded" ? "Last run finished" : job.status === "failed" ? "Last run failed" : `Last run ${job.status}`}
+          </span>
+          {job.stage && <span className="stage-text">{job.stage}</span>}
+          <span>
+            started {formatDate(job.startedAt)}
+            {job.finishedAt ? ` · took ${Math.max(1, Math.round((job.finishedAt - job.startedAt) / 1000))} s` : ""}
+          </span>
+          {job.error && <span className="warn-text">What went wrong: {job.error}</span>}
         </p>
       )}
 
+      <h2 className="section-title story-title">{recorded ? "In this recording" : "This run"}</h2>
       <ol className="story" aria-label="What happened">
         {STORY.map((s) => {
-          const done = s.test(o);
+          const state = s.test(o);
           return (
-            <li key={s.key} className={done ? "done" : ""}>
-              <span className="story-dot" aria-hidden>{done ? <Icon name="check" size={14} /> : null}</span>
-              {s.label}
+            <li key={s.key} className={state === "declined" ? "declined" : state ? "done" : ""}>
+              <span className="story-dot" aria-hidden>{state === true ? <Icon name="check" size={14} /> : null}</span>
+              {state === "declined" ? "Fit check: declined (a condition conflicts)" : s.label}
             </li>
           );
         })}
@@ -148,7 +228,7 @@ export default function Agents() {
           <section key={name} className="card lane" aria-label={name === "contributor" ? "Contributor agent" : "Buyer agent"}>
             <div className="lane-head">
               <h2>{name === "contributor" ? "Agent A · contributor" : "Agent B · buyer"}</h2>
-              <span className="small muted">{name === "contributor" ? "repo-a · Northstar Cloud" : "repo-b · Harbor Analytics"}</span>
+              <span className="small muted">{laneMeta(name)}</span>
             </div>
             {lane(name).length === 0 ? (
               <p className="muted small">No activity yet.</p>
@@ -158,10 +238,13 @@ export default function Agents() {
                   <li key={e._id} className={`event ev-${e.status}`}>
                     <span className="dot-s" aria-hidden />
                     <div>
-                      <div className="small">
-                        <code>{e.kind}</code> · {e.actor} · <span className="muted">{new Date(e.at).toLocaleTimeString()}</span> · <span className="mode">{e.mode}</span>
+                      <div>
+                        <strong className="ev-kind">{kindLabel(e.kind)}</strong> {e.summary}
                       </div>
-                      <div>{e.summary}</div>
+                      <div className="small">
+                        {e.status !== "ok" && <>{e.status} · </>}
+                        {e.actor} · {new Date(e.at).toLocaleTimeString()} · <span className="mode">{MODE_LABEL[e.mode] ?? e.mode}</span>
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -171,8 +254,35 @@ export default function Agents() {
         ))}
       </div>
 
+      <section className="card" aria-labelledby="fit-h">
+        <h2 id="fit-h">Check fit</h2>
+        {!latestCheck && fitEvent(o) ? (
+          <p className="small">
+            {fitEvent(o)!.summary} <span className="muted">({fitEvent(o)!.actor} · {formatDate(fitEvent(o)!.at)}; the full condition lists appear once this deployment’s console is updated.)</span>
+          </p>
+        ) : !latestCheck ? (
+          <p className="muted small">
+            {recorded ? "This recording was captured before fit checks existed." : "No fit check yet. The buyer’s agent calls check_applicability with facts its connector established before buying."}
+          </p>
+        ) : (
+          <FitCheck c={latestCheck} />
+        )}
+        {checks.length > 1 && (
+          <details className="small">
+            <summary>Earlier checks ({checks.length - 1})</summary>
+            <ul className="plain-list">
+              {checks.slice(1).map((c) => (
+                <li key={c._id}>
+                  <span className={`badge ${REC_CLASS[c.recommendation]}`}>{REC_TEXT[c.recommendation]}</span> {c.title} · {c.principalName} · {formatDate(c.at)}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </section>
+
       <section className="card">
-        <h2>Repair in repo B</h2>
+        <h2>Repair in the buyer’s code{bCand ? ` (${bCand.repo})` : ""}</h2>
         {!bCand ? (
           <p className="muted small">No candidate patch yet.</p>
         ) : (
@@ -180,11 +290,11 @@ export default function Agents() {
             <div className="row gap wrap">
               <span className={`badge ${bCand.passed ? "ok" : "sev-high"}`}>{bCand.passed ? "Accepted" : "Rejected"}</span>
               <span className="small">
-                Protected tests: before {latest("repo-b", "baseline")?.passedCount ?? "?"}/{latest("repo-b", "baseline")?.total ?? "?"} → after {bCand.passedCount}/{bCand.total}
+                Protected tests: before {bBase?.passedCount ?? "?"}/{bBase?.total ?? "?"} → after {bCand.passedCount}/{bCand.total}
               </span>
-              <span className="small muted">Allowed file: {bCand.changedFiles.join(", ") || "src/consumer/messageConsumer.mjs"}</span>
+              {bCand.changedFiles.length > 0 && <span className="small muted">Changed: {bCand.changedFiles.join(", ")}</span>}
             </div>
-            <p className="small muted">{bCand.note} · checked by {bCand.toolName} · suite {bCand.protectedSuiteHash.slice(0, 18)}… · {formatDate(bCand.at)}</p>
+            <p className="small muted">{bCand.note ? `${bCand.note} · ` : ""}checked by {bCand.toolName} · suite {bCand.protectedSuiteHash.slice(0, 18)}… · {formatDate(bCand.at)}</p>
             <div className="grid-2">
               <ul className="plain-list small">
                 {bCand.tests.map((t) => (
@@ -195,7 +305,7 @@ export default function Agents() {
               </ul>
               {bCand.diff && <pre className="diff-view" aria-label="Proposed diff">{bCand.diff}</pre>}
             </div>
-            <p className="small muted">Factory Droid patched an isolated copy; protected tests decided. Repo B itself is never modified.</p>
+            <p className="small muted">Factory Droid patched an isolated copy; protected tests decided. The buyer’s repository itself is never modified.</p>
           </>
         )}
       </section>
@@ -224,7 +334,7 @@ export default function Agents() {
               <tr>
                 <th>Agent</th>
                 <th>Scopes</th>
-                <th>Budget</th>
+                <th>Budget (test USDC)</th>
               </tr>
             </thead>
             <tbody>
@@ -233,7 +343,7 @@ export default function Agents() {
                   <td>
                     {p.name}
                     <div className="small muted">
-                      {p.orgSlug} · {p.revoked ? "revoked" : `expires ${new Date(p.expiresAt).toLocaleDateString()}`}
+                      {orgName(p.orgSlug)} · {p.revoked ? "revoked" : `expires ${new Date(p.expiresAt).toLocaleDateString()}`}
                     </div>
                   </td>
                   <td className="small">{p.scopes.join(", ")}</td>
@@ -245,7 +355,9 @@ export default function Agents() {
             </tbody>
           </table>
           </div>
-          <p className="small muted">Set by an operator. Retrieved content can’t change them.</p>
+          <p className="small muted">
+            Set by an operator. Retrieved content can’t change them. <Link to="/connect">Connect your own agent</Link>
+          </p>
         </section>
       </div>
 
@@ -258,38 +370,116 @@ export default function Agents() {
           <table className="table">
             <thead>
               <tr>
-                <th>Status</th>
+                <th>Payment</th>
                 <th>Amount</th>
-                <th>Contributor (accrued)</th>
+                <th>Contributor share</th>
                 <th>Platform</th>
                 <th>Settlement</th>
               </tr>
             </thead>
             <tbody>
-              {o.purchases.map((p) => (
-                <tr key={p._id}>
-                  <td>{p.status.replace("_", " ")}</td>
-                  <td>{formatAtomic(p.amountAtomic)} USDC</td>
-                  <td>{formatAtomic(p.contributorShareAtomic)}</td>
-                  <td>{formatAtomic(p.platformShareAtomic)}</td>
-                  <td className="small">
-                    {p.txHash ? (
-                      <a href={`https://sepolia.basescan.org/tx/${p.txHash}`} target="_blank" rel="noreferrer noopener">
-                        Base Sepolia tx ↗
-                      </a>
-                    ) : p.provider === "demo_simulator" ? (
-                      "simulator (no funds)"
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {o.purchases.map((p) => {
+                const sim = p.provider === "demo_simulator";
+                return (
+                  <tr key={p._id}>
+                    <td>
+                      <span className={`badge ${p.status.endsWith("success") ? "ok" : p.status === "pending" ? "warn" : ""}`}>
+                        {p.status === "test_success" ? "Settled · x402 testnet" : p.status === "simulated_success" ? "Simulated" : p.status === "pending" ? "Pending" : "Cancelled"}
+                      </span>
+                      <div className="small muted">revision {p.revision}</div>
+                    </td>
+                    <td>{formatAtomic(p.amountAtomic)} {sim ? "USDC (simulated)" : "test USDC"}</td>
+                    <td className="small">
+                      {formatAtomic(p.contributorShareAtomic)}
+                      <div className="muted">{p.status === "test_success" ? "accrued, not paid out" : sim ? "not counted" : "—"}</div>
+                    </td>
+                    <td className="small">{formatAtomic(p.platformShareAtomic)}</td>
+                    <td className="small">
+                      {p.txHash ? (
+                        <a href={`https://sepolia.basescan.org/tx/${p.txHash}`} target="_blank" rel="noreferrer noopener">
+                          Base Sepolia tx <code>{p.txHash.slice(0, 10)}…</code> ↗
+                        </a>
+                      ) : sim ? (
+                        "simulated, no funds moved"
+                      ) : p.status === "pending" ? (
+                        "not settled yet"
+                      ) : (
+                        "no transaction"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           </div>
         )}
       </section>
     </div>
+  );
+}
+
+function FitCheck({ c }: { c: Check }) {
+  return (
+    <>
+      <div className="fit-verdict">
+        <span className={`badge ${REC_CLASS[c.recommendation]}`}>{REC_TEXT[c.recommendation]}</span>
+        <strong>{c.title}</strong>
+        <span className="small muted">
+          revision {c.revision} · {c.principalName} · {formatDate(c.at)}
+        </span>
+      </div>
+      <p className="small">{c.reason}</p>
+      <div className="fit-lists">
+        <div>
+          <h3>Matches ({c.matched.length})</h3>
+          {c.matched.length === 0 ? (
+            <p className="small muted">None.</p>
+          ) : (
+            <ul>
+              {c.matched.map((m) => (
+                <li key={m.fact}>
+                  {m.label}: {m.observed ? "yes" : "no"}
+                  <span className="src">{m.source}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div>
+          <h3>Conflicts ({c.conflicts.length})</h3>
+          {c.conflicts.length === 0 ? (
+            <p className="small muted">None.</p>
+          ) : (
+            <ul>
+              {c.conflicts.map((m) => (
+                <li key={m.fact}>
+                  {m.label}
+                  <div className="small">
+                    guide expects <strong>{m.expected ? "yes" : "no"}</strong>, observed <strong>{m.observed ? "yes" : "no"}</strong>
+                  </div>
+                  <span className="src">{m.source}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div>
+          <h3>Needs verification ({c.needsVerification.length})</h3>
+          {c.needsVerification.length === 0 ? (
+            <p className="small muted">None.</p>
+          ) : (
+            <ul>
+              {c.needsVerification.map((m, i) => (
+                <li key={m.fact ?? `free-${i}`}>
+                  {m.label}
+                  {m.expected !== null && <span className="src">guide expects {m.expected ? "yes" : "no"}; not established</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

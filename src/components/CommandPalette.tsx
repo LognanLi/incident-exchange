@@ -49,6 +49,7 @@ export function CommandPalette() {
       { label: "My incidents", hint: "Contributor", icon: "folder", run: as("contributor", "/contribute") },
       { label: "Review queue", hint: "Reviewer", icon: "shield", run: as("reviewer", "/review") },
       { label: "Agents", hint: "Agents", icon: "spark", run: () => navigate("/agents") },
+      { label: "Connect your agent", hint: "Developers", icon: "spark", run: () => navigate("/connect") },
       { label: "Audit log", hint: "Reviewer", icon: "list", run: as("reviewer", "/review/audit") },
       { label: "How it works", hint: "Learn", icon: "spark", run: () => navigate("/how-it-works") },
       { label: "Trust", hint: "Learn", icon: "lock", run: () => navigate("/trust") },

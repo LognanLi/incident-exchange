@@ -6,7 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import { EVIDENCE_INFO, EVIDENCE_LEVELS, SYSTEM_CATEGORIES, type EvidenceLevel } from "../../../convex/lib/domain";
 import { useSession } from "../../session";
 import { TLP_INFO } from "../../../convex/lib/license";
-import { Empty, EvidenceBadge, Money, PageHeader, RoleGate } from "../../components/ui";
+import { Empty, ErrorBox, EvidenceBadge, Money, PageHeader, RoleGate, errorMessage } from "../../components/ui";
 import { Icon } from "../../components/icons";
 
 const SCENARIOS = [
@@ -40,21 +40,22 @@ function Search() {
   // Browsing (no query) stays a live query; a symptom query goes through Moss semantic search.
   const browse = useQuery(api.playbooks.search, q.trim() ? "skip" : args);
   const semanticSearch = useAction(api.semanticSearch.buyerSearch);
-  const [found, setFound] = useState<{ key: string; data: FunctionReturnType<typeof api.semanticSearch.buyerSearch> } | null>(null);
+  const [found, setFound] = useState<{ key: string; data: FunctionReturnType<typeof api.semanticSearch.buyerSearch>; failed?: string } | null>(null);
   const key = JSON.stringify(args);
   useEffect(() => {
     if (!q.trim()) return;
     let live = true;
     semanticSearch(JSON.parse(key))
       .then((data) => live && setFound({ key, data }))
-      .catch(() => live && setFound({ key, data: { retrieval: { engine: "keyword_fallback", index: "", fallbackReason: "Search failed" }, results: [] } }));
+      .catch((e) => live && setFound({ key, data: { retrieval: { engine: "keyword_fallback", index: "", fallbackReason: "Search failed" }, results: [] }, failed: errorMessage(e) }));
     return () => {
       live = false;
     };
   }, [key, q, semanticSearch]);
   const current = q.trim() ? (found?.key === key ? found.data : undefined) : undefined;
   const results = q.trim() ? current?.results : browse;
-  const retrieval = current?.retrieval;
+  const failed = q.trim() && found?.key === key ? found.failed : undefined;
+  const retrieval = failed ? undefined : current?.retrieval;
 
   const update = (patch: Record<string, string>) => {
     const next = new URLSearchParams(params);
@@ -148,13 +149,15 @@ function Search() {
         {retrieval?.engine === "moss_semantic" && <span className="badge ok">Semantic search · Moss</span>}
         {retrieval?.engine === "keyword_fallback" && (
           <span className="badge warn" title={retrieval.fallbackReason}>
-            Keyword matching (Moss unavailable: {retrieval.fallbackReason})
+            Keyword fallback (Moss unavailable: {retrieval.fallbackReason})
           </span>
         )}
         <span>Ranked by fit, never by price</span>
       </div>
 
-      {results === undefined ? (
+      {failed ? (
+        <ErrorBox message={`The search didn’t complete (${failed}). Try again in a moment; your filters are kept.`} />
+      ) : results === undefined ? (
         <div className="results" aria-busy="true">
           {[0, 1].map((i) => (
             <div key={i} className="skeleton-card" />
@@ -189,22 +192,38 @@ function Search() {
                       <span style={{ width: `${Math.min(100, Math.round(((r.keyClueCount - r.match.missingChecks.length) / Math.max(1, r.keyClueCount)) * 100))}%` }} />
                     </div>
                     <span className="small muted">
-                      {r.keyClueCount - r.match.missingChecks.length}/{r.keyClueCount} signs match
+                      {r.keyClueCount - r.match.missingChecks.length}/{r.keyClueCount} key signs match
                     </span>
                   </div>
-                  {r.match.matchedClues.length > 0 && (
+                  <div className="match-cols">
                     <div>
-                      <strong>Why this may match:</strong>
-                      <ul className="clue-list ok-list">
-                        {r.match.matchedClues.slice(0, 3).map((c) => (
-                          <li key={c}>{c}</li>
-                        ))}
-                      </ul>
+                      <h4>Matches your description ({r.match.matchedClues.length})</h4>
+                      {r.match.matchedClues.length > 0 ? (
+                        <ul className="clue-list ok-list">
+                          {r.match.matchedClues.slice(0, 4).map((c) => (
+                            <li key={c}>{c}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="small muted">None of the guide’s signs yet.</p>
+                      )}
                     </div>
-                  )}
+                    <div>
+                      <h4>Key signs to confirm ({r.match.missingChecks.length})</h4>
+                      {r.match.missingChecks.length > 0 ? (
+                        <ul className="clue-list open-list">
+                          {r.match.missingChecks.slice(0, 4).map((c) => (
+                            <li key={c}>{c}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="small muted">Nothing missing.</p>
+                      )}
+                    </div>
+                  </div>
                   {r.match.conflictingClues.length > 0 && (
                     <div>
-                      <strong>May not apply:</strong>
+                      <h4 className="conflict-h">May not apply</h4>
                       <ul className="clue-list warn-list">
                         {r.match.conflictingClues.map((c) => (
                           <li key={c.label}>
@@ -213,9 +232,6 @@ function Search() {
                         ))}
                       </ul>
                     </div>
-                  )}
-                  {r.match.missingChecks.length > 0 && r.match.conflictingClues.length === 0 && (
-                    <div className="small muted">Check first: {r.match.missingChecks.slice(0, 2).join("; ")}</div>
                   )}
                 </div>
               )}

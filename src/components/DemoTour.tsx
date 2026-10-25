@@ -20,7 +20,7 @@ const STEPS: Step[] = [
   { who: "buyer", title: "The buyer is alerted and searches", click: "Watch the alert pop up, then read why the top result is a “Strong overlap”.", say: "The team that needed this is told instantly — and sees honestly whether it fits.", path: () => `/playbooks?q=${encodeURIComponent(PRIMARY_QUERY)}` },
   { who: "buyer", title: "Unlock with test money", click: "“Unlock guide” → agree to the license → “Start x402 test checkout” → “Pay”.", say: "Software can buy knowledge right inside the response workflow. This is test money on a practice network.", path: (i) => (i.playbookId ? `/playbooks/${i.playbookId}/checkout` : null) },
   { who: "buyer", title: "Use it and report back", click: "Read “What they tried that did not work”, tick a step, then “Report your outcome”.", say: "It tells you what failed, what worked, and how to confirm it — and buyers rate whether it helped.", path: (i) => (i.playbookId ? `/playbooks/${i.playbookId}` : null) },
-  { who: "contributor", title: "Everyone wins", click: "Look at “Earnings accrued”.", say: "The contributor earns 80% (0.40 of 0.50), the platform 20%. Useful knowledge gets rewarded.", path: () => "/contribute" },
+  { who: "contributor", title: "Everyone wins", click: "Look at “Accrued (owed, not paid out)”.", say: "80% of each settled test sale accrues to the contributor, 20% to the platform. Payouts are not implemented; simulated sales are not counted.", path: () => "/contribute" },
 ];
 
 const WHO: Record<Step["who"], string> = { contributor: "Northstar Cloud", reviewer: "Review Desk", buyer: "Harbor Analytics" };

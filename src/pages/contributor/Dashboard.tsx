@@ -5,6 +5,7 @@ import { useSession } from "../../session";
 import { Empty, EvidenceBadge, Loading, Money, PageHeader, RoleGate, StatusBadge, formatDate } from "../../components/ui";
 import { Icon } from "../../components/icons";
 import { CountUp } from "../../components/motion";
+import { CONTRIBUTOR_SHARE_PERCENT } from "../../../convex/lib/domain";
 
 export default function ContributorDashboard() {
   return (
@@ -31,6 +32,9 @@ function Dashboard() {
   };
 
   const simulated = BigInt(data.simulatedAccruedAtomic ?? "0");
+  const allStats = [...data.drafts.map((d) => d.stats), ...data.catalog.map((c) => c.stats)].filter((x): x is NonNullable<typeof x> => !!x);
+  const testnetSales = allStats.reduce((n, x) => n + x.testnetSales, 0);
+  const simulatedSales = Math.max(0, data.sales - testnetSales);
 
   return (
     <div>
@@ -59,21 +63,38 @@ function Dashboard() {
             <CountUp to={counts.published} />
           </span>
         </div>
-        <div className="stat earnings">
-          <span className="stat-label">Earned</span>
+      </div>
+      <section className="earn-split" aria-label="Earnings">
+        <div>
+          <span className="stat-label">Accrued (owed, not paid out)</span>
           <span className="stat-value">
             <Money atomic={data.accruedAtomic} currency={data.currency} />
           </span>
-          <span className="small muted" title="Accrued from settled test payments; nothing is paid out in this prototype.">
-            {data.sales} sale{data.sales === 1 ? "" : "s"} · 80% share · not paid out
+          <span className="small muted">
+            Your {CONTRIBUTOR_SHARE_PERCENT}% share of {testnetSales} settled x402 testnet sale{testnetSales === 1 ? "" : "s"} (test USDC)
           </span>
-          {simulated > 0n && (
-            <span className="small muted">
-              +<Money atomic={data.simulatedAccruedAtomic} currency={data.currency} /> simulated, not counted
-            </span>
-          )}
         </div>
-      </div>
+        <div>
+          <span className="stat-label">Paid out</span>
+          <span className="stat-value">
+            <Money atomic={data.paidOutAtomic} currency={data.currency} />
+          </span>
+          <span className="small muted">Payouts are not implemented in this prototype.</span>
+        </div>
+        <div>
+          <span className="stat-label">Simulated sales (not counted)</span>
+          <span className="stat-value">{simulatedSales}</span>
+          <span className="small muted">
+            {simulated > 0n ? (
+              <>
+                <Money atomic={data.simulatedAccruedAtomic} currency={data.currency} /> share, no funds moved
+              </>
+            ) : (
+              "No funds move in simulated sales."
+            )}
+          </span>
+        </div>
+      </section>
 
       <section className="card">
         <h2>Incidents</h2>
@@ -89,7 +110,7 @@ function Dashboard() {
                   <th>Incident</th>
                   <th>Status</th>
                   <th>Evidence</th>
-                  <th>Sales</th>
+                  <th>Testnet sales · accrued</th>
                   <th>Updated</th>
                   <th />
                 </tr>
@@ -109,7 +130,8 @@ function Dashboard() {
                     <td>
                       {d.stats ? (
                         <>
-                          {d.stats.sales} · <Money atomic={d.stats.accruedAtomic} />
+                          {d.stats.testnetSales} · <Money atomic={d.stats.accruedAtomic} /> accrued
+                          {d.stats.sales > d.stats.testnetSales && <div className="small muted">+{d.stats.sales - d.stats.testnetSales} simulated, not counted</div>}
                           {d.stats.outcomes.count > 0 && (
                             <div className="small muted">
                               {d.stats.outcomes.resolved}/{d.stats.outcomes.count} resolved
@@ -142,7 +164,7 @@ function Dashboard() {
               <li key={c._id} className="row gap wrap">
                 <Link className="grow" to={`/playbooks/${c._id}`}>{c.publicTitle}</Link>
                 <span className="muted small">
-                  {c.stats.sales} {c.stats.sales === 1 ? "sale" : "sales"}{c.stats.testnetSales < c.stats.sales ? ` (${c.stats.sales - c.stats.testnetSales} simulated)` : ""} · <Money atomic={c.stats.accruedAtomic} />
+                  {c.stats.testnetSales} testnet {c.stats.testnetSales === 1 ? "sale" : "sales"} · <Money atomic={c.stats.accruedAtomic} /> accrued{c.stats.testnetSales < c.stats.sales ? ` · ${c.stats.sales - c.stats.testnetSales} simulated, not counted` : ""}
                 </span>
               </li>
             ))}
