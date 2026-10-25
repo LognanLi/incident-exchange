@@ -56,6 +56,8 @@ const policy = {
   repos: {
     "repo-a": { root: "sample-repos/repo-a", editable: ["src/handler.mjs"] },
     "repo-b": { root: "sample-repos/repo-b", editable: ["src/consumer/messageConsumer.mjs"] },
+    "repo-c": { root: "sample-repos/repo-c", editable: ["src/invoices.mjs"] },
+    "repo-d": { root: "sample-repos/repo-d", editable: ["src/routes/exports.mjs"] },
   },
   sharing: { allowedFields: ["summary", "symptoms", "environmentCategories", "rootCauseEvidence", "unsuccessfulApproaches", "fixPattern", "verificationEvidence", "applicability", "limitations"], publication: "requires_developer_approval" },
   namedTasks: { protected_tests: "sample-repos/run-protected-tests.mjs" },

@@ -89,6 +89,7 @@ const SESSION_SECRET = process.env.DEMO_SESSION_SECRET ?? secrets.DEMO_SESSION_S
 const ready = Boolean(FACTORY_API_KEY && RUNNER_SECRET && CONVEX_URL && existsSync(DROID));
 let busy = false;
 let demoChild = null;
+const DEMO_SCENARIOS = ["dedupe", "tenant"]; // connector/lib/scenarios.mjs SCENARIO_IDS
 
 function runDroid(cwd, prompt) {
   return new Promise((resolvePromise) => {
@@ -351,18 +352,21 @@ const server = http.createServer(async (req, res) => {
     return send(200, { tokens });
   }
   if (req.method === "POST" && req.url === "/agent-demo") {
-    // Presenter control: start the real two-agent demo (connector/demo.mjs). One at a time; fixed script, no arguments from the browser.
+    // Presenter control: start the real two-agent demo (connector/demo.mjs). One at a time; fixed script. The only
+    // browser inputs are the simulate-payment flag and a scenario id from a fixed allowlist (never free text).
     let raw = "";
     for await (const chunk of req) { raw += chunk; if (raw.length > 500) return send(413, { error: "Request too large" }); }
     let body; try { body = JSON.parse(raw || "{}"); } catch { return send(400, { error: "Invalid JSON" }); }
     if (typeof body.actor !== "string") return send(400, { error: "actor required" });
-    console.log(`[agent-demo] run requested from ${origin}${body.simulatePayment === true ? " (simulated payment)" : ""}`);
+    const scenario = body.scenario === undefined ? "dedupe" : body.scenario;
+    if (!DEMO_SCENARIOS.includes(scenario)) return send(400, { error: `scenario must be one of: ${DEMO_SCENARIOS.join(", ")}` });
+    console.log(`[agent-demo] run requested from ${origin} (scenario: ${scenario})${body.simulatePayment === true ? " (simulated payment)" : ""}`);
     if (demoChild) return send(409, { error: "A demo run is already in progress." });
     const convex = new ConvexHttpClient(CONVEX_URL);
     const ok = await convex.query(anyApi.agentsConsole.canRunDemo, { actor: body.actor }).catch(() => ({ ok: false }));
     if (!ok.ok) console.log("[agent-demo] refused: not the Review Desk operator, or a run is in progress");
     if (!ok.ok) return send(403, { error: "Switch to the Review Desk role to run the agent demo, or wait for the current run to finish." });
-    demoChild = spawn(process.execPath, [join(ROOT, "connector", "demo.mjs"), ...(body.simulatePayment === true ? ["--simulate-payment"] : [])], { cwd: ROOT, stdio: "ignore", env: { PATH: process.env.PATH, HOME: process.env.HOME } });
+    demoChild = spawn(process.execPath, [join(ROOT, "connector", "demo.mjs"), ...(scenario === "dedupe" ? [] : ["--scenario", scenario]), ...(body.simulatePayment === true ? ["--simulate-payment"] : [])], { cwd: ROOT, stdio: "ignore", env: { PATH: process.env.PATH, HOME: process.env.HOME } });
     const started = Date.now();
     console.log(`[agent-demo] started (pid ${demoChild.pid})`);
     demoChild.on("close", (code) => {

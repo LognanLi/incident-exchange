@@ -22,5 +22,29 @@
     ],
     "referenceFix": null,
     "protectedSuiteSha256": "eb503d0ec4173bafdfec8ea5e228684941a58479dfc0ec7156fdfb3bf60a00a7"
+  },
+  "repo-c": {
+    "name": "invoice-api",
+    "editable": [
+      "src/invoices.mjs"
+    ],
+    "protectedTests": "protected-tests",
+    "testFiles": [
+      "protected-tests/invoices.test.mjs"
+    ],
+    "referenceFix": "reference-fix",
+    "protectedSuiteSha256": "2f10804bed9adf04307e01e52658e18cccf2e67f8079ff53e08b55c181a31507"
+  },
+  "repo-d": {
+    "name": "report-exports",
+    "editable": [
+      "src/routes/exports.mjs"
+    ],
+    "protectedTests": "protected-tests",
+    "testFiles": [
+      "protected-tests/exports.test.mjs"
+    ],
+    "referenceFix": null,
+    "protectedSuiteSha256": "50c0bf40f03537580b134fdab14f9dd80bc07ac788b491b8765dee81ba350d50"
   }
 }
