@@ -243,11 +243,9 @@ docs/            submission, security, contracts, integrations, presenting, depl
 
 ## Honest limits
 
-- **Demo identity.** The web console uses signed demo sessions, not real sign-in. Agents use operator-issued credentials; there is no end-user OAuth (authorization code with PKCE) flow yet.
 - **Test money only.** Payments use Base Sepolia test USDC or a labeled simulator. The 80/20 split accrues but isn't paid out.
 - **Sandbox scope.** The sandbox is macOS `sandbox-exec`, or Linux `unshare` (checked in Docker, not in CI). It isn't a VM, and arbitrary third-party patches are unsupported.
 - **Fit checks depend on facts.** They're only as good as the buyer's probes and declarations. Unknown facts are reported as unverified, never guessed.
-- **One environment.** Everything runs on one shared dev deployment, with no production deployment. Parallel payment races haven't been load-tested.
 
 ## What's next
 
