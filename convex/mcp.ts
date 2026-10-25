@@ -113,16 +113,6 @@ export const capabilities = query({
   },
 });
 
-/** Public preview text for the MCP service's shared Moss index (approved + active only; never paid or private text). */
-export const publicPreviews = query({
-  args: { svc: v.string() },
-  handler: async (ctx, { svc }) => {
-    if (!process.env.MCP_SERVICE_SECRET || svc !== process.env.MCP_SERVICE_SECRET) fail("AUTH_REQUIRED", "Unrecognized MCP service.");
-    const active = await ctx.db.query("playbooks").withIndex("by_active", (x) => x.eq("active", true)).collect();
-    return active.map((pb) => ({ id: pb._id, revision: pb.revision, text: [pb.publicTitle, pb.publicSummary, pb.previewRecognize, pb.environment.join(", ")].join("\n").slice(0, 2000) }));
-  },
-});
-
 const TIER = { strong_overlap: 3, some_overlap: 2, needs_evidence: 1 } as const;
 
 /**

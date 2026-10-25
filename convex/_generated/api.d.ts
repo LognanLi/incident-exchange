@@ -43,6 +43,7 @@ import type * as mossState from "../mossState.js";
 import type * as oauth from "../oauth.js";
 import type * as playbooks from "../playbooks.js";
 import type * as purchases from "../purchases.js";
+import type * as rateLimit from "../rateLimit.js";
 import type * as references from "../references.js";
 import type * as reviews from "../reviews.js";
 import type * as searchIndex from "../searchIndex.js";
@@ -94,6 +95,7 @@ declare const fullApi: ApiFromModules<{
   oauth: typeof oauth;
   playbooks: typeof playbooks;
   purchases: typeof purchases;
+  rateLimit: typeof rateLimit;
   references: typeof references;
   reviews: typeof reviews;
   searchIndex: typeof searchIndex;
