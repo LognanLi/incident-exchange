@@ -1,6 +1,6 @@
 # Presenting the demo
 
-## 0. Presenter quick start (verified 2026-10-24 19:01 PDT in Zen)
+## 0. Presenter quick start (Zen at localhost:5173; first verified 2026-10-24 19:01 PDT)
 
 **Present from `http://localhost:5173` on your Mac.** The page and the runner are both local, so no browser local-network permission is involved. The console still uses the shared cloud backend (same data, Moss, x402, Factory). Remote viewers use the hosted link (§2) and see the same run live.
 
@@ -12,15 +12,19 @@ npm run dev:mcp        # MCP :8787 — wait for "Incident Exchange MCP (Streamab
 npm run dev:frontend   # console :5173 — wait for "Local: http://localhost:5173/"
 ```
 
-**Live path (rehearsed):**
+**20-second pitch:** "One developer's agent shares a verified lesson. Another finds it through MCP, checks it fits, buys access, adapts it, and its tests prove the result." The strip at the top of Home and Agents shows exactly that.
+
+**Live path (rehearse before presenting; update the time below):**
 1. Open `http://localhost:5173/`. The runner prints `[session] operator session minted for http://localhost:5173 (5 orgs)`.
-2. Go to **Agents** (Live tab) and click **Run demo**. It starts as the Review Desk from any role. The runner prints `[agent-demo] run requested…` and then `[agent-demo] started`. The button reads *Running…*.
-3. About 90 s later (rehearsal: 91 s) the runner prints `[agent-demo] finished with exit code 0`. The **Last run** line under the tabs shows *succeeded · Done* with the current time. The run goes: A 3/5 → 5/5 → disclosure gate → submit → B 2/5 → Moss search → x402 purchase (or reuse of the earlier purchase) → Factory Droid repair → 5/5 → `runner_verified`.
-4. Show the story checklist, the lanes, the diff, the receipt and the security lane.
+2. **Agents** → Live tab. The scenario picker defaults to **Duplicate deliveries (repo-a → repo-b)**. Click **Run demo** (works from any role; it runs as the Review Desk). The runner prints `[agent-demo] run requested from http://localhost:5173 (scenario: dedupe)`, then `[agent-demo] started`.
+3. About 60–90 s later the runner prints `[agent-demo] finished with exit code 0`, and **Last run** shows *succeeded · Done* with the current time. Walk through: A 3/5 → 5/5 → disclosure gate (credential dropped) → submit (reused) → B 2/5 → Moss search → **Check fit: recommend, 4 matches** (each with its evidence) → existing purchase reused (no new payment) → Factory Droid repair → 5/5 → `runner_verified`.
+4. Show the **Check fit** section, the diff and test list, the receipts (Basescan link, "accrued, not paid out") and the security lane, which includes the **declined** fit check for the tenant guide.
+5. Optional second scenario: picker → **Cross-tenant access (repo-c → repo-d)** → Run demo. B checks fit (5 matches), reuses its purchase, Factory adapts the ownership check to repo-d's code, and the 6 protected tests prove cross-workspace access is denied **and** owners still work.
+6. Optional: **Connect your agent** shows how an outside developer plugs in their own agent, with the live "last verified connection" for Juniper Ledger's agent.
 
-Before you start, confirm the **Last run** time changes when you click. An old *succeeded* line from an earlier run looks the same otherwise.
+Before you click, note the **Last run** time. An old *succeeded* line looks the same otherwise.
 
-**Recorded fallback (clearly labeled):** Agents → **Recorded run** → **Replay**. The banner reads *Recording — not live*. It is the 19:01 PDT run started from Zen (89 s, x402 settlement `0x0ab34ed0…`). Use it if the runner, Factory or network fails. It runs no code and moves no money.
+**Recorded fallback (clearly labeled):** Agents → **Recorded run** → **Replay**. The banner reads *Recording — not live*, with its date, duration, deployment and commit. Use it if the runner, Factory or the network fails. It runs no code and moves no money.
 
 **Never click Demo → Reset demo data during a talk.** It wipes every guide, purchase and run on the shared deployment. It now asks for confirmation (an accidental reset at 18:59 PDT on 2026-10-24 removed the earlier records).
 

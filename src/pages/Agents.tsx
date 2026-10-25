@@ -270,7 +270,7 @@ export default function Agents() {
           </p>
         ) : !latestCheck ? (
           <p className="muted small">
-            {recorded ? "This recording was captured before fit checks existed." : "No fit check yet. The buyer’s agent calls check_applicability with facts its connector established before buying."}
+            {recorded ? (checksOf(recording.overview).length ? "The replay hasn’t reached the fit check yet." : "This recording was captured before fit checks existed.") : "No fit check yet. The buyer’s agent calls check_applicability with facts its connector established before buying."}
           </p>
         ) : (
           <FitCheck c={latestCheck} />
