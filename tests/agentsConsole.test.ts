@@ -34,3 +34,26 @@ describe("agentsConsole.overview applicabilityChecks", () => {
     expect(o.applicabilityChecks[0].matched[0].source).toBe("probe: package.json");
   });
 });
+
+describe("agentsConsole.overview evidence privacy", () => {
+  it("shows fit-check evidence sources only to the operator and the buyer's own organization", async () => {
+    const { mintSession } = await import("../shared/session.mjs");
+    process.env.DEMO_SESSION_SECRET = "test-session-secret-0000000000000000";
+    const t = convexTest(schema, modules);
+    await t.mutation(api.demo.reset, { actor: "review-desk" });
+    await t.run(async (ctx) => {
+      const pb = (await ctx.db.query("playbooks").first())!;
+      await ctx.db.insert("applicabilityChecks", {
+        principalName: "juniper-agent", orgSlug: "juniper", playbookId: pb._id, revision: 1, title: "t", recommendation: "recommend", reason: "r",
+        matched: [{ fact: "store.atomic_claim", label: "Atomic claim", expected: true, observed: true, source: "processed_events.addIfAbsent in src/stores.mjs" }],
+        conflicts: [], needsVerification: [], at: 1, isDemo: true,
+      });
+    });
+    const sourceFor = async (slug: string, kind: "operator" | "viewer") =>
+      (await t.query(api.agentsConsole.overview, { actor: await mintSession(process.env.DEMO_SESSION_SECRET!, slug, 60_000, kind) })).applicabilityChecks[0].matched[0].source;
+    expect(await sourceFor("harbor", "viewer")).toMatch(/hidden/);
+    expect(await sourceFor("juniper", "viewer")).toContain("addIfAbsent");
+    expect(await sourceFor("review-desk", "operator")).toContain("addIfAbsent");
+    delete process.env.DEMO_SESSION_SECRET;
+  });
+});

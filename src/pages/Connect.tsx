@@ -41,9 +41,22 @@ export default function Connect() {
     `# optional: -d "scope=search preview"  (space-separated, within what you were granted)`,
     `# → {"access_token":"<ACCESS_TOKEN>","token_type":"Bearer","expires_in":900,"scope":"…"}`,
   ].join("\n");
+  const credFile = [
+    `# <agent>.credentials.local — issued by the operator; keep it out of git and prompts`,
+    `IX_MCP_ENDPOINT=${mcp}`,
+    `IX_TOKEN_ENDPOINT=${site}/oauth/token`,
+    `IX_CLIENT_ID=<CLIENT_ID>`,
+    `IX_CLIENT_SECRET=<CLIENT_SECRET>`,
+  ].join("\n");
+  const helperCmd = [
+    `curl -O ${site}/ix-token-header.sh && chmod +x ix-token-header.sh`,
+    `set -a; . ./<agent>.credentials.local; set +a   # the helper reads IX_* from the environment`,
+    `claude mcp add-json incident-exchange \\`,
+    `  '{"type":"http","url":"${mcp}","headersHelper":"'"$PWD"'/ix-token-header.sh"}'`,
+  ].join("\n");
   const claudeCmd = `claude mcp add --transport http incident-exchange ${mcp} \\\n  --header "Authorization: Bearer <ACCESS_TOKEN>"`;
   const jsonCfg = JSON.stringify({ mcpServers: { "incident-exchange": { type: "http", url: mcp, headers: { Authorization: "Bearer <ACCESS_TOKEN>" } } } }, null, 2);
-  const checkCmd = `IX_CLIENT_ID=<CLIENT_ID> IX_CLIENT_SECRET=<CLIENT_SECRET> \\\n  node connector/connect-check.mjs --endpoint ${mcp}`;
+  const checkCmd = [`curl -O ${site}/connect-check.mjs && npm i @modelcontextprotocol/sdk`, `set -a; . ./<agent>.credentials.local; set +a`, `node connect-check.mjs`].join("\n");
 
   return (
     <div className="connect">
@@ -72,6 +85,8 @@ export default function Connect() {
           Exchange them for a short-lived access token with OAuth 2.1 <code>client_credentials</code>. The token is valid for 15 minutes and bound to this
           endpoint. The long-lived client secret is refused as a bearer token, so never put it in an MCP client config.
         </p>
+        <div className="code-label">Your credential file</div>
+        <CodeBlock text={credFile} />
         <div className="code-label">Get an access token</div>
         <CodeBlock text={tokenCurl} />
         <p className="small muted">
@@ -81,7 +96,14 @@ export default function Connect() {
 
       <section className="card">
         <h2>3 · Configure your client</h2>
-        <div className="code-label">Claude Code</div>
+        <div className="code-label">Claude Code · auto-refreshing token (recommended)</div>
+        <CodeBlock text={helperCmd} />
+        <p className="small muted">
+          The helper fetches a fresh 15-minute token each time Claude Code connects. Claude Code runs headers helpers only in folders you have trusted
+          (interactive sessions ask once); headless <code>claude -p --mcp-config</code> with the same JSON works directly. Verified 2026-10-24 with a fresh
+          Claude Code session.
+        </p>
+        <div className="code-label">Claude Code · static token (quick test, expires in 15 minutes)</div>
         <CodeBlock text={claudeCmd} />
         <div className="code-label">Other MCP clients (JSON config)</div>
         <CodeBlock text={jsonCfg} />
@@ -103,7 +125,7 @@ export default function Connect() {
             <strong>Try <code>search_resolutions</code></strong> with a plain-language description of a bug.
           </li>
         </ol>
-        <div className="code-label">Or run all three (from the repo)</div>
+        <div className="code-label">Or run all three with the connection check script</div>
         <CodeBlock text={checkCmd} />
       </section>
 

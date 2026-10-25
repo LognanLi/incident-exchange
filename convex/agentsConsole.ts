@@ -3,11 +3,14 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getActor, requireRole, requireOperator } from "./lib/access";
+import { verifySessionInfo } from "../shared/session.mjs";
 
 export const overview = query({
   args: { actor: v.string() },
   handler: async (ctx, { actor }) => {
-    await getActor(ctx, actor);
+    const viewer = await getActor(ctx, actor);
+    const info = await verifySessionInfo(process.env.DEMO_SESSION_SECRET, actor);
+    const fullDetail = info?.operator === true || (!info && process.env.DEMO_OPEN_IDENTITY === "on");
     const events = await ctx.db.query("agentEvents").withIndex("by_at").order("desc").take(80);
     const runs = await ctx.db.query("repairRuns").withIndex("by_at").order("desc").take(12);
     const principals = (await ctx.db.query("agentPrincipals").collect()).map((p) => ({
@@ -24,10 +27,17 @@ export const overview = query({
       _id: p._id, amountAtomic: p.amountAtomic, status: p.paymentStatus, provider: p.provider, contributorShareAtomic: p.contributorShareAtomic, platformShareAtomic: p.platformShareAtomic, txHash: p.x402?.txHash, revision: p.revision,
     }));
     // Latest check_applicability results, newest first. Lists of named conditions with evidence; no scores.
-    const applicabilityChecks = (await ctx.db.query("applicabilityChecks").withIndex("by_at").order("desc").take(5)).map((c) => ({
-      _id: c._id, principalName: c.principalName, orgSlug: c.orgSlug, playbookId: c.playbookId, revision: c.revision, title: c.title,
-      recommendation: c.recommendation, reason: c.reason, matched: c.matched, conflicts: c.conflicts, needsVerification: c.needsVerification, at: c.at,
-    }));
+    // Evidence sources describe the buyer's own system: only the operator and the buyer's organization see them.
+    const hidden = "hidden (another organization's evidence)";
+    const applicabilityChecks = (await ctx.db.query("applicabilityChecks").withIndex("by_at").order("desc").take(5)).map((c) => {
+      const own = fullDetail || c.orgSlug === viewer.slug;
+      const redact = (xs: typeof c.matched) => (own ? xs : xs.map((x) => ({ ...x, source: hidden })));
+      return {
+        _id: c._id, principalName: c.principalName, orgSlug: c.orgSlug, playbookId: c.playbookId, revision: c.revision, title: c.title,
+        recommendation: c.recommendation, reason: c.reason, matched: redact(c.matched), conflicts: redact(c.conflicts), needsVerification: c.needsVerification, at: c.at,
+        sourcesHidden: !own,
+      };
+    });
     return { events, runs, principals, submissions, outcomes, jobs, purchases, applicabilityChecks };
   },
 });

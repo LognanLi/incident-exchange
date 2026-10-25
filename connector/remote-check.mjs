@@ -44,7 +44,7 @@ check("client_credentials → access token", b.status === 200 && b.body.token_ty
 // MCP over HTTPS with the access token
 const c = await connect(b.body.access_token);
 const tools = (await c.listTools()).tools.map((t) => t.name);
-check("initialize + tools/list over HTTPS", tools.length === 9, `${tools.length} tools, protocol ${c.getServerVersion()?.name}`);
+check("initialize + tools/list over HTTPS", tools.length === 11 && ["check_applicability", "get_my_access"].every((n) => tools.includes(n)), `${tools.length} tools, protocol ${c.getServerVersion()?.name}`);
 const s = await c.callTool({ name: "search_resolutions", arguments: { symptoms: "messages get processed twice when the broker redelivers them", environment: [] } });
 check("search_resolutions (remote)", !s.isError, (s.content[0]?.text ?? "").slice(0, 90));
 const irrelevant = await c.callTool({ name: "search_resolutions", arguments: { symptoms: "how do I bake sourdough bread at home", environment: [] } });

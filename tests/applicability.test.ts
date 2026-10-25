@@ -103,6 +103,7 @@ describe("check_applicability", () => {
     expect(await errCode(t.mutation(api.mcp.checkApplicability, { svc: SVC, token: TOKENS.n, resolutionId: id, facts: [] }))).toBe("FORBIDDEN");
     expect(await errCode(t.mutation(api.mcp.checkApplicability, { ...B, resolutionId: id, facts: [{ fact: "exec", value: true, source: "x" }] }))).toBe("INVALID_INPUT");
     expect(await errCode(publishTenantGuide(t, [{ fact: "exec.command", expected: true }]))).toBe("INVALID_INPUT");
+    expect(await errCode(t.mutation(api.mcp.checkApplicability, { ...B, resolutionId: id, facts: [{ fact: "runtime.node", value: true, source: "deploy key sk_live_abcdefghijklmnop in .env" }] }))).toBe("SENSITIVE_CONTENT_DETECTED");
   });
   it("submissions without conditions keep their old content hash", async () => {
     const base = { summary: "s", priceAtomic: "10000" };

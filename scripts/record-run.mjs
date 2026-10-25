@@ -34,6 +34,7 @@ const recording = {
     outcomes: o.outcomes.filter((x) => inRun(x.at)),
     jobs: [job],
     purchases: o.purchases,
+    applicabilityChecks: (o.applicabilityChecks ?? []).filter((c) => inRun(c.at)),
   },
 };
 const text = JSON.stringify(recording, null, 2);

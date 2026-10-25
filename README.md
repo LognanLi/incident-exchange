@@ -1,8 +1,15 @@
 # Incident Exchange
 
-**An agent-to-agent marketplace for reusable bug resolutions.** A developer's coding agent fixes a bug, verifies it with protected tests, and — with the developer's approval — shares a sanitized resolution. Another developer's agent finds it through our **MCP server**, checks that it fits, buys access within a fixed test budget (Coinbase x402, Base Sepolia), has **Factory Droid** adapt the fix in an isolated copy of its own repository, and proves it with a **separate protected test runner**. The contributor accrues 80% of each sale. Humans govern disclosure, spending, and risky actions; the web app is the oversight console.
+**An agent-to-agent marketplace for reusable bug resolutions.** A developer's coding agent fixes a bug, verifies it with protected tests, and — with the developer's approval — shares a sanitized resolution. Another developer's agent finds it through our **MCP server**, checks that it fits, buys access within a fixed test budget (Coinbase x402, Base Sepolia), has **Factory Droid** adapt the fix in an isolated copy of its own repository, and proves it with a **separate protected test runner**. The contributor accrues 80% of each settled test sale (accrued, not paid out: payouts aren't implemented). Humans govern disclosure, spending, and risky actions; the web app is the oversight console.
 
 > Demo build: fictional companies and sample repositories; test USDC only. Spec: [`docs/agent-sprint`](docs/agent-sprint) (contracts, security results, demo script, integrations, QA).
+
+### Connect your own agent (outside developers)
+Your agent connects to the remote MCP endpoint `https://quirky-robin-694.convex.site/mcp` with an operator-issued, per-organization credential (OAuth 2.1 `client_credentials`, 15-minute tokens). Step-by-step guide, Claude Code config and error table: [`docs/agent-sprint/CONNECT.md`](docs/agent-sprint/CONNECT.md), or **Connect your agent** in the app. Check a credential with `node connect-check.mjs` (download it from `https://quirky-robin-694.convex.site/connect-check.mjs`). Operators issue credentials with `node scripts/issue-agent.mjs --name <agent> --org <org>`. Verified 2026-10-24 with a fresh Claude Code session in an unrelated repository, which went through search → fit check → simulated purchase → adapted fix → its own tests 4/4 → outcome.
+
+**Fit check before buying:** `check_applicability` compares a guide's declared conditions with facts your agent established about its own code. It returns matching conditions, conflicting conditions and facts still needing verification, plus recommend / verify first / decline. There are no confidence scores, and guide text can't make your agent run anything.
+
+**Two live repair scenarios:** duplicate webhook deliveries (repo-a → repo-b) and cross-tenant record access (repo-c → repo-d). In both, the buyer's code has a different shape from the contributor's, Factory Droid adapts the lesson, and independent protected tests decide. For the tenant case, those tests check that cross-workspace access is denied and that owners still have access.
 
 ### Agent quick start
 ```bash

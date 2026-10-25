@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as agentAccess from "../agentAccess.js";
 import type * as agentsConsole from "../agentsConsole.js";
 import type * as business from "../business.js";
 import type * as crons from "../crons.js";
@@ -61,6 +62,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  agentAccess: typeof agentAccess;
   agentsConsole: typeof agentsConsole;
   business: typeof business;
   crons: typeof crons;

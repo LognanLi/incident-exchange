@@ -129,6 +129,7 @@ const DEMO_TABLES = [
   "repairRuns",
   "agentOutcomes",
   "agentEvents",
+  "applicabilityChecks",
   "jobs",
   "alerts",
   "watches",

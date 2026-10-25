@@ -177,6 +177,9 @@ export const checkApplicability = mutation({
     } catch (e) {
       fail("INVALID_INPUT", e instanceof Error ? e.message : "Invalid facts.");
     }
+    // Sources are free text from the buyer: never store credential formats (categories only, no echo).
+    const leaked = scanSecrets(facts.map((f) => f.source).join("\n"));
+    if (leaked.length) fail("SENSITIVE_CONTENT_DETECTED", `A fact source matched sensitive pattern categories (${leaked.join(", ")}); describe how you know the fact without credentials or personal data.`);
     const conditions = pb.applicability.conditions ?? [];
     const result = evaluateApplicability(conditions, facts, { freeTextChecks: conditions.length ? [] : pb.applicability.checksBeforeUse });
     await ctx.db.insert("applicabilityChecks", {

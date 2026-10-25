@@ -31,8 +31,12 @@ const search = await b.tool("search_resolutions", { symptoms: "same message deli
 const target = search.envelope.data.find((r) => r.relevance === "strong_overlap");
 const q = (await b.tool("quote_resolution", { resolutionId: target.resolutionId })).envelope.data;
 check("payee redirect", "FORBIDDEN", (await b.tool("acquire_resolution", { quoteId: q.quoteId, clientRequestId: `atk-${randomUUID().slice(0, 8)}`, approved: { payTo: "0x000000000000000000000000000000000000bEEF", maxAmountAtomic: "10000", network: P.payment.network }, paymentMode: "simulator" })).text);
-// 5. Over-budget guide (catalog guides cost ≥ 0.10 USDC > 0.01 policy).
-const pricey = (await b.tool("search_resolutions", { symptoms: "a signed-in customer can see export data outside their workspace", environment: [] })).envelope.data[0];
+// 5. Over-budget guide: explicitly pick a result priced above the buyer's per-purchase policy (seeded catalog
+// guides cost ≥ 0.10 USDC > 0.01), never one the buyer already owns, so the check can't pass or fail by accident.
+const results = (await b.tool("search_resolutions", { symptoms: "a signed-in customer can see export data outside their workspace", environment: [] })).envelope.data;
+const pricey = results.find((r) => BigInt(r.price.amountAtomic) > BigInt(P.payment.maxPerPurchaseAtomic));
+if (!pricey) throw new Error("attack-check setup: no over-budget guide in search results");
+if (!(await b.tool("get_resolution", { resolutionId: pricey.resolutionId })).isError) throw new Error("attack-check setup: buyer already owns the over-budget guide");
 const q2 = (await b.tool("quote_resolution", { resolutionId: pricey.resolutionId })).envelope.data;
 check("over budget", "BUDGET_EXCEEDED", (await b.tool("acquire_resolution", { quoteId: q2.quoteId, clientRequestId: `atk-${randomUUID().slice(0, 8)}`, approved: { payTo: P.payment.payTo, maxAmountAtomic: q2.price.amountAtomic, network: P.payment.network }, paymentMode: "simulator" })).text);
 // 6. Paywall bypass: retrieve a guide never purchased.
