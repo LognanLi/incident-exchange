@@ -54,11 +54,15 @@ export default function Agents() {
   const job = o.jobs[0];
   const running = !recorded && job && job.status === "running";
 
+  // Runs are a reviewer action. The presenter's operator session holds every org's token, so start as the
+  // Review Desk whichever role is on screen; the backend still checks the reviewer role and operator session.
+  const runActor = (reviewerSlug && session.actorFor(reviewerSlug)) || actor;
   const start = async (simulatePayment: boolean) => {
+    setError(null);
     setStarting(true);
     setError(null);
     try {
-      const res = await fetch(`${RUNNER_URL}/agent-demo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor, simulatePayment }) });
+      const res = await fetch(`${RUNNER_URL}/agent-demo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: runActor, simulatePayment }) });
       if (!res.ok) setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `Runner responded ${res.status}`);
     } catch {
       setError(["localhost", "127.0.0.1"].includes(window.location.hostname) ? "The local runner is offline. Start it with `npm run dev`." : "Agent runs start from the presenter’s machine (local runner), not from the hosted site. Results appear here when they run.");
@@ -112,7 +116,7 @@ export default function Agents() {
       )}
       {!recorded && session.operator && session.role !== "reviewer" && reviewerOrg && (
         <div className="role-note">
-          <span>Runs are started by the reviewer.</span>
+          <span>Run demo starts as the reviewer ({reviewerOrg.displayName}).</span>
           <button className="btn sm" onClick={() => session.setActor(reviewerOrg.slug)}>
             Switch to {reviewerOrg.displayName}
           </button>

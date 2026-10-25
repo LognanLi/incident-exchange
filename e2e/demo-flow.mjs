@@ -32,6 +32,7 @@ try {
   step("Home loads");
 
   await page.goto(`${BASE}/demo`);
+  page.once("dialog", (d) => d.accept()); // reset asks for confirmation
   await page.getByRole("button", { name: "Reset demo data" }).click();
   await page.getByText("Demo data restored").waitFor();
   await shot("demo-menu");
