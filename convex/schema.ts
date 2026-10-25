@@ -543,6 +543,7 @@ export default defineSchema({
     .index("by_startedAt", ["startedAt"])
     .index("by_isDemo", ["isDemo"]),
 
+  rateLimits: defineTable({ key: v.string(), windowStart: v.number(), count: v.number() }).index("by_key", ["key"]),
   meta: defineTable({ key: v.string(), value: v.number() }).index("by_key", ["key"]),
 
   integrationEvents: defineTable({

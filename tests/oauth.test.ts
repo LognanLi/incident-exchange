@@ -60,4 +60,32 @@ describe("remote MCP OAuth", () => {
     await t.mutation(internal.mcp.revokePrincipal, { name: "agent-b", revoked: true });
     await expect(t.query(api.mcp.search, { svc, token: fresh.access_token, symptoms: "duplicate jobs after webhook retries", environment: [] })).rejects.toThrow(/AUTH_REQUIRED/);
   });
+  it("rate-limits token issuance per client and locks out after repeated auth failures", async () => {
+    const t = await setup();
+    for (let i = 0; i < 20; i++) expect((await t.fetch("/oauth/token", grant())).status).toBe(200);
+    const limited = await t.fetch("/oauth/token", grant());
+    expect(limited.status).toBe(429);
+    expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect(await t.run((ctx) => ctx.db.query("oauthTokens").collect())).toHaveLength(20);
+
+    const t2 = await setup();
+    for (let i = 0; i < 30; i++) expect((await t2.fetch("/oauth/token", grant({ client_secret: "ixa_wrong_wrong_wrong_wrong_wrong" }))).status).toBe(401);
+    expect((await t2.fetch("/oauth/token", grant())).status).toBe(429);
+    expect((await t2.fetch("/mcp", { method: "POST", headers: { Authorization: "Bearer ixat_whatever" }, body: "{}" })).status).toBe(429);
+    // Only the shared failure bucket exists: unknown clients add no keys.
+    expect((await t2.run((ctx) => ctx.db.query("rateLimits").collect())).map((r) => r.key)).toEqual(["auth-failures"]);
+  });
+  it("rate-limits authenticated remote MCP requests per principal", async () => {
+    const t = await setup();
+    const tok = await (await t.fetch("/oauth/token", grant())).json();
+    const call = () => t.fetch("/mcp", { method: "POST", headers: { Authorization: `Bearer ${tok.access_token}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) });
+    expect((await call()).status).toBe(200);
+    await t.run(async (ctx) => {
+      const row = (await ctx.db.query("rateLimits").collect()).find((r) => r.key === "mcp:agent-b")!;
+      await ctx.db.patch(row._id, { count: 120 });
+    });
+    const res = await call();
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({ error: "rate_limited" });
+  });
 });

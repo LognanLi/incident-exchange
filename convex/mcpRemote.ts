@@ -6,12 +6,14 @@ import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { buildServer } from "../mcp/tools.mjs";
 import { SCOPES } from "./mcp";
+import { AUTH_FAILURE_KEY } from "./rateLimit";
 
 const MAX_BODY = 64 * 1024;
 const site = () => (process.env.CONVEX_SITE_URL ?? "").replace(/\/$/, "");
 const resource = () => `${site()}/mcp`;
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...headers } });
+const tooMany = (retryAfter: number) => json(429, { error: "rate_limited" }, { "Retry-After": String(retryAfter) });
 const challenge = (error?: string) =>
   `Bearer resource_metadata="${site()}/.well-known/oauth-protected-resource"${error ? `, error="${error}"` : ""}`;
 
@@ -62,6 +64,8 @@ export function registerRemoteMcp(http: HttpRouter) {
         clientId = decodeURIComponent(id ?? "");
         clientSecret = decodeURIComponent(secret ?? "");
       }
+      const blocked = await ctx.runQuery(internal.rateLimit.authFailureBlock, {});
+      if (blocked) return tooMany(blocked);
       if (form.get("grant_type") !== "client_credentials") return json(400, { error: "unsupported_grant_type" });
       // RFC 8707: tokens are bound to this resource; another audience is refused.
       const audience = form.get("resource") ?? resource();
@@ -69,7 +73,10 @@ export function registerRemoteMcp(http: HttpRouter) {
       if (!clientId || clientSecret.length < 20) return json(401, { error: "invalid_client" }, { "WWW-Authenticate": 'Basic realm="incident-exchange"' });
       const accessToken = randomToken("ixat_");
       const r = await ctx.runMutation(internal.oauth.issue, { clientId, clientSecret, accessTokenHash: await sha256(accessToken), audience, scope: form.get("scope") ?? undefined });
-      if ("error" in r) return json(r.error === "invalid_client" ? 401 : 400, { error: r.error });
+      if ("error" in r) {
+        if (r.error === "rate_limited") return tooMany(r.retryAfter);
+        return json(r.error === "invalid_client" ? 401 : 400, { error: r.error });
+      }
       return json(200, { access_token: accessToken, token_type: "Bearer", expires_in: r.expiresIn, scope: r.scopes.join(" ") });
     }),
   });
@@ -81,8 +88,16 @@ export function registerRemoteMcp(http: HttpRouter) {
       const auth = req.headers.get("authorization") ?? "";
       const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
       if (!token) return json(401, { error: "unauthorized" }, { "WWW-Authenticate": challenge() });
+      const blocked = await ctx.runQuery(internal.rateLimit.authFailureBlock, {});
+      if (blocked) return tooMany(blocked);
       const ok = await ctx.runQuery(internal.oauth.validate, { accessToken: token, audience: resource() });
-      if (!ok.ok) return json(401, { error: "invalid_token" }, { "WWW-Authenticate": challenge("invalid_token") });
+      if (!ok.ok) {
+        await ctx.runMutation(internal.rateLimit.hit, { key: AUTH_FAILURE_KEY, limit: "authFailures" });
+        return json(401, { error: "invalid_token" }, { "WWW-Authenticate": challenge("invalid_token") });
+      }
+      // The per-principal limit applies only after authentication, so unknown tokens add no keys.
+      const limited = await ctx.runMutation(internal.rateLimit.hit, { key: `mcp:${ok.principal}`, limit: "mcp" });
+      if (!limited.ok) return tooMany(limited.retryAfter);
       const len = Number(req.headers.get("content-length") ?? 0);
       if (len > MAX_BODY) return json(413, { error: "Request too large." });
       const svc = process.env.MCP_SERVICE_SECRET ?? "";

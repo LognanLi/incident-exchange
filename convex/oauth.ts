@@ -4,6 +4,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { sha256Hex } from "../shared/bundle.mjs";
+import { AUTH_FAILURE_KEY, LIMITS, consume } from "./rateLimit";
 
 export const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
 
@@ -13,7 +14,12 @@ export const issue = internalMutation({
   handler: async (ctx, a) => {
     const p = await ctx.db.query("agentPrincipals").withIndex("by_name", (q) => q.eq("name", a.clientId)).unique();
     const secretHash = await sha256Hex(a.clientSecret);
-    if (!p || p.tokenHash !== secretHash || p.revoked || p.expiresAt < Date.now()) return { error: "invalid_client" as const };
+    if (!p || p.tokenHash !== secretHash || p.revoked || p.expiresAt < Date.now()) {
+      await consume(ctx, AUTH_FAILURE_KEY, LIMITS.authFailures);
+      return { error: "invalid_client" as const };
+    }
+    const limited = await consume(ctx, `token:${p._id}`, LIMITS.token);
+    if (!limited.ok) return { error: "rate_limited" as const, retryAfter: limited.retryAfter };
     const requested = a.scope ? a.scope.split(" ").filter(Boolean) : p.scopes;
     if (requested.some((s) => !p.scopes.includes(s))) return { error: "invalid_scope" as const };
     const expiresAt = Math.min(Date.now() + ACCESS_TOKEN_TTL_MS, p.expiresAt);
