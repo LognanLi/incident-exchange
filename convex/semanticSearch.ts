@@ -2,6 +2,12 @@
 // Semantic search over the shared Moss index of public previews. Used by buyer web search and MCP search.
 // Moss failures never block search: results fall back to keyword clue matching, labeled with the reason.
 import { v } from "convex/values";
+import { spawn, type ChildProcess } from "node:child_process";
+import { mkdirSync } from "node:fs";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { SearchResults } from "./playbooks";
 import { MossClient } from "@moss-js/moss";
 import { action, internalAction } from "./_generated/server";
@@ -12,21 +18,20 @@ import { evidenceLevelV } from "./schema";
 
 // Overridable so isolated test backends never touch the shared index.
 const INDEX = process.env.MOSS_SEARCH_INDEX || PUBLIC_INDEX_NAME;
-const QUERY_TIMEOUT_MS = 15_000;
+// The first query in a fresh process downloads and loads the embedding model (~6 s on Convex).
+const QUERY_TIMEOUT_MS = 20_000;
 // A hung Moss step must not leave a rebuild pending forever.
 const STEP_MS = { getDocs: 30_000, deleteIndex: 30_000, createIndex: 180_000 };
 const RELOAD_AFTER_MS = 60_000;
+const CACHE_DIR = join(tmpdir(), "moss");
 
-// Node action processes are reused between calls, so keep the loaded index warm.
+// Index management runs on the Moss service, so it works in-process.
 let client: MossClient | null = null;
-let loaded: { at: number; promise: Promise<unknown> } | null = null;
 
 function getClient(): MossClient | null {
   const creds = mossCredentials();
   if (!creds) return null;
-  // The Convex Node runtime can only write to /tmp; Moss downloads its embedding model and device id there.
-  process.env.MOSS_MODEL_CACHE_DIR ??= "/tmp/moss-models";
-  client ??= new MossClient(creds.projectId, creds.projectKey, { cachePath: "/tmp/moss" });
+  client ??= new MossClient(creds.projectId, creds.projectKey, { cachePath: CACHE_DIR });
   return client;
 }
 
@@ -36,27 +41,96 @@ function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
 
 const reason = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 160);
 
+// Queries embed the text locally, and the Moss core caches its embedding model under $MOSS_MODEL_CACHE_DIR,
+// else under the home directory. On Convex, `process.env` changes never reach the OS environment the native
+// core reads, HOME is unset, and the passwd home is read-only, so in-process loading fails with
+// "The embedding model could not be loaded." A child process gets a real environment pointing at /tmp.
+// It stays alive between calls, because Node action processes are reused, so the index stays warm.
+const WORKER = `
+const { MossClient } = await import(process.env.MOSS_SDK_URL);
+const client = new MossClient(process.env.MOSS_PROJECT_ID, process.env.MOSS_PROJECT_KEY, { cachePath: process.env.MOSS_CACHE });
+const loadedAt = new Map();
+process.on("message", async ({ id, op, index, text, topK, reloadAfterMs }) => {
+  try {
+    if (op === "invalidate") { loadedAt.delete(index); return process.send({ id, ok: true }); }
+    if (!loadedAt.has(index) || Date.now() - loadedAt.get(index) > reloadAfterMs) {
+      await client.loadIndex(index);
+      loadedAt.set(index, Date.now());
+    }
+    const res = await client.query(index, text, { topK });
+    process.send({ id, ok: true, docs: (res.docs ?? []).map((d) => ({ id: String(d.id), score: Number(d.score ?? 0) })) });
+  } catch (e) {
+    loadedAt.delete(index);
+    process.send({ id, ok: false, error: String(e?.detail ?? e?.message ?? e) });
+  }
+});
+`;
+
+type WorkerReply = { id: number; ok: boolean; docs?: SemanticCandidate[]; error?: string };
+let worker: { proc: ChildProcess; pending: Map<number, (r: WorkerReply) => void> } | null = null;
+let nextId = 1;
+
+function getWorker(creds: { projectId: string; projectKey: string }) {
+  if (worker && worker.proc.exitCode === null && worker.proc.connected) return worker;
+  mkdirSync(join(CACHE_DIR, "models"), { recursive: true });
+  const sdk = pathToFileURL(createRequire(import.meta.url).resolve("@moss-js/moss")).href;
+  const proc = spawn(process.execPath, ["--input-type=module", "-e", WORKER], {
+    stdio: ["ignore", "ignore", "ignore", "ipc"],
+    env: {
+      PATH: process.env.PATH ?? "/usr/bin:/bin",
+      HOME: tmpdir(),
+      MOSS_MODEL_CACHE_DIR: join(CACHE_DIR, "models"),
+      MOSS_CACHE: CACHE_DIR,
+      MOSS_SDK_URL: sdk,
+      MOSS_PROJECT_ID: creds.projectId,
+      MOSS_PROJECT_KEY: creds.projectKey,
+    },
+  });
+  const w = { proc, pending: new Map<number, (r: WorkerReply) => void>() };
+  proc.on("message", (r: WorkerReply) => {
+    w.pending.get(r.id)?.(r);
+    w.pending.delete(r.id);
+  });
+  proc.on("exit", () => {
+    for (const [id, done] of w.pending) done({ id, ok: false, error: "The Moss query worker exited" });
+    w.pending.clear();
+    if (worker === w) worker = null;
+  });
+  proc.on("error", () => proc.kill());
+  // An idle worker must not keep the action process alive.
+  proc.unref();
+  proc.channel?.unref();
+  worker = w;
+  return w;
+}
+
+function ask(creds: { projectId: string; projectKey: string }, msg: Record<string, unknown>): Promise<WorkerReply> {
+  const w = getWorker(creds);
+  const id = nextId++;
+  return new Promise<WorkerReply>((resolve) => {
+    w.pending.set(id, resolve);
+    w.proc.send({ id, ...msg });
+  });
+}
+
 type Semantic = { candidates: SemanticCandidate[]; latencyMs: number } | { error: string };
 
 async function semanticCandidates(text: string): Promise<Semantic> {
-  const c = getClient();
-  if (!c) return { error: "Moss is not configured" };
+  const creds = mossCredentials();
+  if (!creds) return { error: "Moss is not configured" };
   try {
-    if (!loaded || Date.now() - loaded.at > RELOAD_AFTER_MS) {
-      const promise = c.loadIndex(INDEX);
-      loaded = { at: Date.now(), promise };
-      promise.catch(() => (loaded = null));
-    }
-    await withTimeout(loaded.promise, QUERY_TIMEOUT_MS, "Loading the Moss index");
     const t0 = performance.now();
-    const res = await withTimeout(c.query(INDEX, text.slice(0, 1000), { topK: SEMANTIC_TOP_K }), QUERY_TIMEOUT_MS, "Moss query");
+    const msg = { op: "query", index: INDEX, text: text.slice(0, 1000), topK: SEMANTIC_TOP_K, reloadAfterMs: RELOAD_AFTER_MS };
+    const res = await withTimeout(ask(creds, msg), QUERY_TIMEOUT_MS, "Moss query");
+    if (!res.ok) throw new Error(res.error ?? "Moss query failed");
     return {
       latencyMs: Math.round(performance.now() - t0),
       // Weak neighbours are dropped so an unrelated query still gets "no relevant match".
-      candidates: (res.docs ?? []).map((d) => ({ id: String(d.id), score: Number(d.score ?? 0) })).filter((d) => d.score >= MIN_SEMANTIC_SCORE),
+      candidates: (res.docs ?? []).filter((d) => d.score >= MIN_SEMANTIC_SCORE),
     };
   } catch (e) {
-    loaded = null;
+    // A worker that timed out may be wedged; start a fresh one next time.
+    if (reason(e).endsWith("timed out")) worker?.proc.kill();
     return { error: reason(e) };
   }
 }
@@ -81,7 +155,8 @@ export const rebuildPublicIndex = internalAction({
       // deleteIndex resolves false when the index does not exist; a real failure stops the rebuild.
       await withTimeout(c.deleteIndex(INDEX), STEP_MS.deleteIndex, "deleteIndex");
       await withTimeout(c.createIndex(INDEX, docs), STEP_MS.createIndex, "createIndex");
-      loaded = null;
+      const creds = mossCredentials();
+      if (worker && creds) await withTimeout(ask(creds, { op: "invalidate", index: INDEX }), 5_000, "invalidate").catch(() => {});
       await ctx.runMutation(internal.searchIndex.recordEvent, { outcome: "success", message: `Rebuilt the Moss public-preview index (${docs.length} guides).` });
       return { ok: true, rebuilt: true, docs: docs.length };
     } catch (e) {
