@@ -5,6 +5,7 @@ import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { audit } from "./lib/audit";
+import { validateConditions } from "../shared/applicability.mjs";
 
 const WEBHOOK_TITLE = "Duplicate jobs when a webhook provider retries the same event";
 
@@ -73,6 +74,30 @@ export const dedupeWebhookGuides = internalMutation({
     await audit(ctx, null, "maintenance.dedupe", WEBHOOK_TITLE, `kept 1, deactivated ${toDeactivate.length}, deleted ${toDelete.length} quarantined drafts`);
     // Search only returns active guides; the shared index catches up too.
     await ctx.scheduler.runAfter(0, internal.semanticSearch.rebuildPublicIndex, {});
+    return plan;
+  },
+});
+
+/**
+ * Reviewer curation: attach structured applicability conditions to a published guide that predates them,
+ * translated from the guide's own stated applicability and limitations. Public preview metadata only:
+ * the paid revision, its hash, and existing entitlements are unchanged. Dry run unless `apply`.
+ */
+export const setGuideConditions = internalMutation({
+  args: {
+    apply: v.optional(v.boolean()),
+    playbook: v.string(),
+    conditions: v.array(v.object({ fact: v.string(), expected: v.boolean(), note: v.optional(v.string()) })),
+  },
+  handler: async (ctx, a) => {
+    const hits = (await ctx.db.query("playbooks").collect()).filter((pb) => pb._id.endsWith(a.playbook) && pb.active);
+    if (hits.length !== 1) throw new Error(`playbook suffix ${a.playbook} matched ${hits.length} active guides`);
+    const pb = hits[0];
+    const conditions = validateConditions(a.conditions);
+    const plan = { apply: !!a.apply, id: pb._id, title: pb.publicTitle, revision: pb.revision, before: pb.applicability.conditions ?? null, after: conditions, sourceText: pb.applicability.checksBeforeUse };
+    if (!a.apply) return plan;
+    await ctx.db.patch(pb._id, { applicability: { ...pb.applicability, conditions } });
+    await audit(ctx, null, "guide.conditions_set", pb.publicTitle, `${conditions.length} structured conditions from the guide's stated applicability and limitations (revision ${pb.revision} unchanged)`);
     return plan;
   },
 });

@@ -12,3 +12,4 @@ toy-apps/artifacts/*.json
 .agent-tokens.local
 connector/policy.local.json
 connector/.staging/
+.claude/worktrees/

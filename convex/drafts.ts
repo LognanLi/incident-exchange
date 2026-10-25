@@ -473,6 +473,7 @@ export async function publishApprovedDraft(ctx: MutationCtx, draftId: Id<"incide
     clues: draft.applicability?.clues ?? [],
     mismatchSignals: draft.applicability?.mismatchSignals ?? [],
     checksBeforeUse: draft.applicability?.checksBeforeUse ?? [],
+    ...(draft.applicability?.conditions ? { conditions: draft.applicability.conditions } : {}),
     evidenceScope: draft.evidenceScope,
     evidenceLevel: draft.evidenceLevel,
     toyCase: draft.toyCase,

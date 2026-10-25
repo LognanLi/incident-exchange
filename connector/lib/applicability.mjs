@@ -24,9 +24,10 @@ export async function applicabilityGate({ c, resolutionId, repoRoot, gen, actor,
   const a = r.envelope.data;
   const counts = `${a.matched.length} match, ${a.conflicts.length} conflict, ${a.needsVerification.length} to verify`;
   say(`applicability → ${a.recommendation} (${counts})`);
-  for (const m of a.matched) say(`  ✓ ${m.label} — ${m.source}`);
-  for (const x of a.conflicts) say(`  ✗ ${x.label}: guide needs ${x.expected}, observed ${x.observed} — ${x.source}`);
-  for (const n of a.needsVerification) say(`  ? ${n.label}`);
+  const yn = (b) => (b ? "yes" : "no");
+  for (const m of a.matched) say(`  ✓ ${m.label}? guide needs ${yn(m.expected)}, observed ${yn(m.observed)} — ${m.source}`);
+  for (const x of a.conflicts) say(`  ✗ ${x.label}? guide needs ${yn(x.expected)}, observed ${yn(x.observed)} — ${x.source}`);
+  for (const n of a.needsVerification) say(`  ? ${n.label}${n.expected === null ? "" : `? guide needs ${yn(n.expected)}`} — not established`);
   if (a.recommendation === "decline") {
     say(`declining “${a.title}”: ${a.reason}`);
     return { proceed: false, result: a };

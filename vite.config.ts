@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     environment: "edge-runtime",
     // toy-apps has its own node:test suite (npm run test:toys).
-    exclude: ["**/node_modules/**", "toy-apps/**", "e2e/**", "sample-repos/**"],
+    exclude: ["**/node_modules/**", "toy-apps/**", "e2e/**", "sample-repos/**", ".claude/**"],
     server: { deps: { inline: ["convex-test"] } },
     setupFiles: ["tests/setup-env.ts"],
   },

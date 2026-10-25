@@ -35,8 +35,8 @@ describe("remote MCP OAuth", () => {
   it("issues short-lived, audience-bound tokens only for valid clients", async () => {
     const t = await setup();
     expect((await t.fetch("/oauth/token", grant({ client_secret: "ixa_wrong_wrong_wrong_wrong_wrong" }))).status).toBe(401);
-    expect(await (await t.fetch("/oauth/token", grant({ resource: "https://evil.example/mcp" }))).json()).toEqual({ error: "invalid_target" });
-    expect(await (await t.fetch("/oauth/token", grant({ scope: "acquire" }))).json()).toEqual({ error: "invalid_scope" });
+    expect(await (await t.fetch("/oauth/token", grant({ resource: "https://evil.example/mcp" }))).json()).toMatchObject({ error: "invalid_target" });
+    expect(await (await t.fetch("/oauth/token", grant({ scope: "acquire" }))).json()).toMatchObject({ error: "invalid_scope" });
     const ok = await (await t.fetch("/oauth/token", grant())).json();
     expect(ok.token_type).toBe("Bearer");
     expect(ok.expires_in).toBeLessThanOrEqual(900);
@@ -86,6 +86,20 @@ describe("remote MCP OAuth", () => {
     });
     const res = await call();
     expect(res.status).toBe(429);
-    expect(await res.json()).toEqual({ error: "rate_limited" });
+    expect(await res.json()).toMatchObject({ error: "rate_limited" });
+  });
+  it("explains common connection mistakes", async () => {
+    const t = await setup();
+    const wrongPath = await t.fetch("/mcp/", { method: "POST", body: "{}" });
+    expect(wrongPath.status).toBe(404);
+    expect((await wrongPath.json()).error_description).toContain(`${SITE}/mcp`);
+    const noToken = await (await t.fetch("/mcp", { method: "POST", body: "{}" })).json();
+    expect(noToken.error_description).toContain("/oauth/token");
+    const longLived = await (await t.fetch("/mcp", { method: "POST", headers: { Authorization: `Bearer ${SECRET}` }, body: "{}" })).json();
+    expect(longLived).toMatchObject({ error: "invalid_token" });
+    expect(longLived.error_description).toMatch(/long-lived client secret/);
+    const badClient = await (await t.fetch("/oauth/token", grant({ client_secret: "ixa_wrong_wrong_wrong_wrong_wrong" }))).json();
+    expect(badClient).toMatchObject({ error: "invalid_client" });
+    expect(badClient.error_description).toMatch(/operator/);
   });
 });

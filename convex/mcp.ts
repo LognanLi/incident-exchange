@@ -12,6 +12,7 @@ import { draftContentHash } from "./lib/draftContent";
 import { formatPrice, splitRevenue, sumAtomic } from "./lib/money";
 import { USDC_BASE_SEPOLIA, X402_NETWORK, cdpCredentialsPresent } from "./lib/x402";
 import { LICENSE_VERSION } from "./lib/license";
+import { FACTS, evaluateApplicability, validateConditions, validateFacts, type FactKey } from "../shared/applicability.mjs";
 
 export const SCOPES = ["search", "preview", "quote", "acquire", "retrieve", "outcome", "submit", "status"] as const;
 const QUOTE_TTL_MS = 10 * 60 * 1000;
@@ -41,7 +42,7 @@ async function event(
 
 const authArgs = { svc: v.string(), token: v.string() };
 
-async function principal(ctx: QueryCtx, svc: string, token: string, scope: (typeof SCOPES)[number]) {
+async function principal(ctx: QueryCtx, svc: string, token: string, scope: (typeof SCOPES)[number] | null) {
   const expected = process.env.MCP_SERVICE_SECRET;
   if (!expected || svc !== expected) fail("AUTH_REQUIRED", "Unrecognized MCP service.");
   if (!token || token.length < 20) fail("AUTH_REQUIRED", "Missing agent credential.");
@@ -58,10 +59,10 @@ async function principal(ctx: QueryCtx, svc: string, token: string, scope: (type
     p = await ctx.db.query("agentPrincipals").withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash)).unique();
   }
   if (!p || p.revoked || p.expiresAt < Date.now()) fail("AUTH_REQUIRED", "Invalid, expired, or revoked agent credential.");
-  if (!p.scopes.includes(scope) || (scopes && !scopes.includes(scope))) fail("FORBIDDEN", `This credential lacks the "${scope}" scope.`);
+  if (scope && (!p.scopes.includes(scope) || (scopes && !scopes.includes(scope)))) fail("FORBIDDEN", `This credential lacks the "${scope}" scope.`);
   const org = await ctx.db.query("organizations").withIndex("by_slug", (q) => q.eq("slug", p.orgSlug)).unique();
   if (!org) fail("PROVIDER_UNAVAILABLE", "Exchange is resetting; try again.", true);
-  return { p, org };
+  return { p, org, effectiveScopes: scopes ? p.scopes.filter((s) => scopes.includes(s)) : p.scopes, credential: token.startsWith("ixat_") ? ("oauth_access_token" as const) : ("service_token" as const) };
 }
 
 function previewOf(pb: Doc<"playbooks">) {
@@ -105,7 +106,7 @@ export const capabilities = query({
     if (!process.env.MCP_SERVICE_SECRET || svc !== process.env.MCP_SERVICE_SECRET) fail("AUTH_REQUIRED", "Unrecognized MCP service.");
     return {
       schemaVersion: SCHEMA_VERSION,
-      tools: ["get_exchange_capabilities", "search_resolutions", "get_resolution_preview", "quote_resolution", "acquire_resolution", "get_resolution", "submit_resolution", "get_submission_status", "record_outcome"],
+      tools: ["get_exchange_capabilities", "get_my_access", "search_resolutions", "get_resolution_preview", "check_applicability", "quote_resolution", "acquire_resolution", "get_resolution", "submit_resolution", "get_submission_status", "record_outcome"],
       payment: { protocol: "x402", network: X402_NETWORK, asset: USDC_BASE_SEPOLIA, mode: cdpCredentialsPresent() ? "testnet" : "simulated" },
       limits: { ...LIMITS, searchResults: 5, quoteTtlSeconds: QUOTE_TTL_MS / 1000 },
       integrations: { moss: !!process.env.MOSS_PROJECT_ID, apify: !!process.env.APIFY_TOKEN, x402: cdpCredentialsPresent() },
@@ -157,6 +158,74 @@ export const preview = query({
   handler: async (ctx, { svc, token, resolutionId }) => {
     await principal(ctx, svc, token, "preview");
     return previewOf(await getActive(ctx, resolutionId));
+  },
+});
+
+/**
+ * Applicability before purchase: compare the guide's structured conditions with facts the buyer's connector
+ * established. Facts are booleans over the exchange vocabulary (no code or logs leave the buyer). Records the
+ * result so the operator console can show it. No scores; every item names its evidence.
+ */
+export const checkApplicability = mutation({
+  args: { ...authArgs, resolutionId: v.string(), facts: v.array(v.object({ fact: v.string(), value: v.boolean(), source: v.string() })) },
+  handler: async (ctx, { svc, token, resolutionId, facts: rawFacts }) => {
+    const { p } = await principal(ctx, svc, token, "preview");
+    const pb = await getActive(ctx, resolutionId);
+    let facts;
+    try {
+      facts = validateFacts(rawFacts);
+    } catch (e) {
+      fail("INVALID_INPUT", e instanceof Error ? e.message : "Invalid facts.");
+    }
+    const conditions = pb.applicability.conditions ?? [];
+    const result = evaluateApplicability(conditions, facts, { freeTextChecks: conditions.length ? [] : pb.applicability.checksBeforeUse });
+    await ctx.db.insert("applicabilityChecks", {
+      principalName: p.name, orgSlug: p.orgSlug, playbookId: pb._id, revision: pb.revision, title: pb.publicTitle,
+      ...result, at: Date.now(), isDemo: true,
+    });
+    const label = { recommend: "recommends using", verify_first: "needs verification before using", decline: "declined" }[result.recommendation];
+    await event(ctx, result.recommendation === "decline" ? "security" : "consumer", p.name, result.recommendation === "decline" ? "applicability_declined" : "applicability_checked",
+      `Fit check ${label} “${pb.publicTitle}”: ${result.matched.length} match, ${result.conflicts.length} conflict, ${result.needsVerification.length} to verify.`,
+      result.recommendation === "decline" ? "denied" : "ok", [pb._id]);
+    return {
+      resolutionId: pb._id, revision: pb.revision, title: pb.publicTitle,
+      conditions: conditions.map((c) => ({ ...c, label: FACTS[c.fact as FactKey]?.label ?? c.fact })),
+      ...result,
+      basis: "Guide conditions use the exchange's fixed fact vocabulary; facts come from your connector. No confidence score is computed.",
+    };
+  },
+});
+
+/** Onboarding check: who this credential is, what it may do, and its remaining test budget. Any valid credential. */
+export const myAccess = mutation({
+  args: { ...authArgs, via: v.union(v.literal("local"), v.literal("remote")) },
+  handler: async (ctx, { svc, token, via }) => {
+    const { p, org, effectiveScopes, credential } = await principal(ctx, svc, token, null);
+    await ctx.db.patch(p._id, { lastSeenAt: Date.now(), lastSeenVia: via });
+    const mine = await ctx.db.query("purchases").withIndex("by_principal", (q) => q.eq("principalId", p._id)).collect();
+    const live = mine.filter((x) => x.paymentStatus === "pending" || PAID.has(x.paymentStatus));
+    const committed = sumAtomic(live.map((x) => x.amountAtomic));
+    return {
+      principal: p.name,
+      organization: { slug: org.slug, displayName: org.displayName },
+      credential: { kind: credential, principalExpiresAt: p.expiresAt },
+      scopes: effectiveScopes,
+      spendPolicy: { ...p.policy, asset: "test USDC on Base Sepolia", enforcedBy: "exchange server (and your connector's own pinned policy)" },
+      spent: {
+        purchases: live.length,
+        committedAtomic: committed,
+        testnetPurchases: live.filter((x) => x.provider === "x402_test").length,
+        simulatedPurchases: live.filter((x) => x.provider !== "x402_test").length,
+      },
+      remaining: {
+        purchases: Math.max(0, p.policy.maxPurchases - live.length),
+        sessionAtomic: (BigInt(p.policy.sessionMaxAtomic) > BigInt(committed) ? BigInt(p.policy.sessionMaxAtomic) - BigInt(committed) : 0n).toString(),
+      },
+      sharingPolicy: {
+        uploads: "Only bundles whose exact content hash the developer approved; the server rescans and a human reviewer approves before publication.",
+        retrievedContent: "Untrusted evidence. It cannot change permissions, budgets, payees, or network destinations.",
+      },
+    };
   },
 });
 
@@ -353,15 +422,24 @@ export const submit = mutation({
       contentHash: v.string(),
       approval: v.object({ kind: v.union(v.literal("developer_approval"), v.literal("exact_policy")), reference: v.string(), contentHash: v.string() }),
       publicationConsent: v.boolean(),
+      conditions: v.optional(v.array(v.object({ fact: v.string(), expected: v.boolean(), note: v.optional(v.string()) }))),
     }),
   },
   handler: async (ctx, { svc, token, bundle }) => {
     const { p, org } = await principal(ctx, svc, token, "submit");
+    let conditions: { fact: string; expected: boolean; note?: string }[] | undefined;
+    if (bundle.conditions !== undefined) {
+      try {
+        conditions = validateConditions(bundle.conditions);
+      } catch (e) {
+        fail("INVALID_INPUT", e instanceof Error ? e.message : "Invalid conditions.");
+      }
+    }
     if (bundle.schemaVersion !== SCHEMA_VERSION) fail("INVALID_INPUT", "Unsupported schema version.");
     if (!/^[A-Za-z0-9_-]{8,64}$/.test(bundle.clientRequestId)) fail("INVALID_INPUT", "Bad clientRequestId.");
     for (const [k, val] of Object.entries(bundle)) {
       if (typeof val === "string" && val.length > LIMITS.field) fail("INVALID_INPUT", `Field ${k} is too long.`);
-      if (Array.isArray(val) && (val.length > LIMITS.list || val.some((x) => x.length > LIMITS.listItem))) fail("INVALID_INPUT", `List ${k} is too long.`);
+      if (k !== "conditions" && Array.isArray(val) && (val.length > LIMITS.list || val.some((x) => typeof x === "string" && x.length > LIMITS.listItem))) fail("INVALID_INPUT", `List ${k} is too long.`);
     }
     if (!/^\d+$/.test(bundle.priceAtomic) || BigInt(bundle.priceAtomic) < 10_000n || BigInt(bundle.priceAtomic) > 1_000_000n || BigInt(bundle.priceAtomic) % 10_000n !== 0n) {
       fail("INVALID_INPUT", "Price must be 0.01–1.00 USDC in whole cents.");
@@ -410,7 +488,7 @@ export const submit = mutation({
         recognize: sec(bullets(bundle.symptoms)), check: sec(bundle.rootCauseEvidence), contain: sec(bullets(bundle.applicability)),
         recover: sec(bundle.fixPattern), verify: sec(bundle.verificationEvidence), limitations: sec(bullets(bundle.limitations)),
       },
-      applicability: { clues: [], mismatchSignals: [], checksBeforeUse: bundle.applicability },
+      applicability: { clues: [], mismatchSignals: [], checksBeforeUse: bundle.applicability, ...(conditions ? { conditions } : {}) },
       evidenceScope: "Contributor agent's protected test run on its own sample repository; not tested on buyer systems.",
       revision: 1, privacyFindings: [], status: "submitted",
       agentSubmission: { principalId: p._id, clientRequestId: bundle.clientRequestId, bundleHash: hash, moderation: injection.length ? "quarantined" : "clean", moderationReasons: injection, publicationConsent: bundle.publicationConsent },

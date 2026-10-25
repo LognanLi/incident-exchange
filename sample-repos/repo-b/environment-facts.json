@@ -1,0 +1,7 @@
+{
+  "_note": "Developer-declared facts about order-sync, read by the buyer's own connector (connector/lib/facts.mjs) for applicability checks. Keys come from the exchange's fixed vocabulary; anything else is ignored.",
+  "facts": {
+    "delivery.stable_message_ids": true,
+    "duplicates.distinct_ids": false
+  }
+}
