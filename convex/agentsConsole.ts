@@ -23,7 +23,12 @@ export const overview = query({
     const purchases = (await ctx.db.query("purchases").collect()).filter((p) => p.principalId).map((p) => ({
       _id: p._id, amountAtomic: p.amountAtomic, status: p.paymentStatus, provider: p.provider, contributorShareAtomic: p.contributorShareAtomic, platformShareAtomic: p.platformShareAtomic, txHash: p.x402?.txHash, revision: p.revision,
     }));
-    return { events, runs, principals, submissions, outcomes, jobs, purchases };
+    // Latest check_applicability results, newest first. Lists of named conditions with evidence; no scores.
+    const applicabilityChecks = (await ctx.db.query("applicabilityChecks").withIndex("by_at").order("desc").take(5)).map((c) => ({
+      _id: c._id, principalName: c.principalName, orgSlug: c.orgSlug, playbookId: c.playbookId, revision: c.revision, title: c.title,
+      recommendation: c.recommendation, reason: c.reason, matched: c.matched, conflicts: c.conflicts, needsVerification: c.needsVerification, at: c.at,
+    }));
+    return { events, runs, principals, submissions, outcomes, jobs, purchases, applicabilityChecks };
   },
 });
 

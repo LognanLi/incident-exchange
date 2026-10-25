@@ -6,12 +6,13 @@ import { URGENT_SAFETY_ADVICE } from "../../convex/lib/domain";
 import { Icon } from "../components/icons";
 import { Term } from "../components/PageGuide";
 import { CountUp } from "../components/motion";
+import { StoryStrip } from "../components/StoryStrip";
 
 type Role = "buyer" | "contributor" | "reviewer";
 
 const PATHS: { role: Role; title: string; body: string; to: string; cta: string }[] = [
   { role: "buyer", title: "Something is broken", body: "Describe what you see. Get fixes from teams who solved it.", to: "/playbooks", cta: "Find a fix" },
-  { role: "contributor", title: "We fixed something hard", body: "Turn your notes into a private, sellable guide. Keep 80%.", to: "/contribute", cta: "Share an incident" },
+  { role: "contributor", title: "We fixed something hard", body: "Turn your notes into a private, sellable guide. 80% of each sale accrues to you.", to: "/contribute", cta: "Share an incident" },
   { role: "reviewer", title: "I check quality", body: "Test each fix on a sample app before it’s sold.", to: "/review", cta: "Review queue" },
 ];
 
@@ -78,6 +79,18 @@ export default function Home() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="home-story" aria-label="Agents sharing fixes">
+        <StoryStrip />
+        <p className="home-story-links">
+          <Link className="arrow-link" to="/connect">
+            Connect your agent <Icon name="arrow" size={14} />
+          </Link>
+          <Link className="arrow-link" to="/agents">
+            Watch two agents do it <Icon name="arrow" size={14} />
+          </Link>
+        </p>
       </section>
 
       {stats && (

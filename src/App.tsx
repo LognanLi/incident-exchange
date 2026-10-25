@@ -10,6 +10,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { DemoTour } from "./components/DemoTour";
 import Home from "./pages/Home";
 import Agents from "./pages/Agents";
+import Connect from "./pages/Connect";
 import HowItWorks from "./pages/HowItWorks";
 import Pricing from "./pages/Pricing";
 import Trust from "./pages/Trust";
@@ -105,6 +106,9 @@ export default function App() {
             <NavLink to="/agents" className="nav-link">
               Agents
             </NavLink>
+            <NavLink to="/connect" className="nav-link">
+              Connect your agent
+            </NavLink>
           </nav>
 
           <div className="topbar-right">
@@ -138,7 +142,7 @@ export default function App() {
         <div className="sheet" id="mobile-menu">
           <nav className="sheet-group" aria-label="Main">
             <div className="eyebrow">{role ? roleLabel(role) : "Menu"}</div>
-            {[...nav, { to: "/agents", label: "Agents" }].map((n) => (
+            {[...nav, { to: "/agents", label: "Agents" }, { to: "/connect", label: "Connect your agent" }].map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end} className="sheet-link">
                 {n.label} <Icon name="arrow" size={16} />
               </NavLink>
@@ -173,6 +177,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/agents" element={<Agents />} />
+              <Route path="/connect" element={<Connect />} />
               <Route path="/how-it-works" element={<HowItWorks />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/trust" element={<Trust />} />

@@ -33,7 +33,7 @@ const TIERS = [
 export default function Pricing() {
   return (
     <div>
-      <PageHeader eyebrow="Pricing" title="Pay for what fits." sub="Contributors earn 80% of every sale." />
+      <PageHeader eyebrow="Pricing" title="Pay for what fits." sub="80% of every sale accrues to the contributor." />
       <div className="tiers stagger">
         {TIERS.map((t) => (
           <section key={t.name} className="tier">

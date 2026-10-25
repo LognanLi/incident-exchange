@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { Link } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { useSession } from "../../session";
+import { explorerTxUrl } from "../../../convex/lib/x402";
 import { Empty, Loading, Money, PageHeader, RoleGate, formatDate } from "../../components/ui";
 
 export default function PurchasesPage() {
@@ -31,6 +32,7 @@ function Purchases() {
                 <th>Guide</th>
                 <th>Amount</th>
                 <th>Status</th>
+                <th>Settlement</th>
                 <th>Date</th>
                 <th />
               </tr>
@@ -46,8 +48,22 @@ function Purchases() {
                   </td>
                   <td>
                     <span className={`badge ${p.paymentStatus.endsWith("success") ? "ok" : p.paymentStatus === "pending" ? "warn" : ""}`}>
-                      {p.paymentStatus === "simulated_success" ? "Simulated" : p.paymentStatus === "test_success" ? "Paid · x402" : p.paymentStatus.charAt(0).toUpperCase() + p.paymentStatus.slice(1).replace(/_/g, " ")}
+                      {p.paymentStatus === "simulated_success" ? "Simulated" : p.paymentStatus === "test_success" ? "Paid · x402 testnet" : p.paymentStatus.charAt(0).toUpperCase() + p.paymentStatus.slice(1).replace(/_/g, " ")}
                     </span>
+                  </td>
+                  <td className="small">
+                    {p.x402?.txHash ? (
+                      <a href={explorerTxUrl(p.x402.txHash)} target="_blank" rel="noreferrer noopener">
+                        Base Sepolia tx <code>{p.x402.txHash.slice(0, 10)}…</code> ↗
+                      </a>
+                    ) : p.provider === "demo_simulator" ? (
+                      <span className="muted">simulated, no funds moved</span>
+                    ) : p.paymentStatus === "pending" ? (
+                      <span className="muted">not settled yet</span>
+                    ) : (
+                      <span className="muted">no transaction</span>
+                    )}
+                    {p.principalId && <div className="muted">bought by your agent</div>}
                   </td>
                   <td className="small">{formatDate(p.createdAt)}</td>
                   <td>

@@ -61,7 +61,7 @@ function PurchaseConfirmation() {
               </td>
             </tr>
             <tr>
-              <td>Contributor ({CONTRIBUTOR_SHARE_PERCENT}%{p.paymentStatus === "test_success" ? ", accrued" : p.paymentStatus === "simulated_success" ? ", simulated — not counted" : ""})</td>
+              <td>Contributor ({CONTRIBUTOR_SHARE_PERCENT}%{p.paymentStatus === "test_success" ? ", accrued, not paid out" : p.paymentStatus === "simulated_success" ? ", simulated — not counted" : ""})</td>
               <td>
                 <Money atomic={p.contributorShareAtomic} /> to {p.contributorAlias}
               </td>

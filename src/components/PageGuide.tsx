@@ -35,7 +35,8 @@ type Guide = { title: string; body: string; terms?: string[] };
 
 const GUIDES: [string, Guide][] = [
   ["/", { title: "Incident Exchange", body: "Buy a tested fix from a team that already solved your problem — or sell yours.", terms: ["guide"] }],
-  ["/agents", { title: "Agents", body: "One coding agent shares a verified fix; another finds it, pays a test amount, adapts it, and proves it with tests.", terms: ["x402"] }],
+  ["/agents", { title: "Agents", body: "One coding agent shares a verified fix; another finds it, checks it fits, pays a test amount, adapts it, and proves it with tests.", terms: ["x402"] }],
+  ["/connect", { title: "Connect your agent", body: "Point your own MCP client at the exchange: endpoint, operator-issued credentials, a connection check, and what your agent may share.", terms: [] }],
   ["/how-it-works", { title: "How it works", body: "The full loop, from private incident to paid, tested guide.", terms: [] }],
   ["/pricing", { title: "Pricing", body: "What buyers pay and contributors earn.", terms: ["accrual"] }],
   ["/trust", { title: "Trust", body: "How identities, payments, and testing are kept safe.", terms: ["tlp", "privacy scan"] }],

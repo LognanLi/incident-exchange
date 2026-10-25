@@ -9,7 +9,7 @@ const STEPS: { who: string; title: string; body: string }[] = [
   { who: "Reviewer", title: "Check the evidence", body: "Where possible, the fix is tested on a sample app: fails before, passes after." },
   { who: "Buyer", title: "Describe the problem", body: "Plain words. Each match says why it may or may not fit." },
   { who: "Buyer", title: "Unlock the guide", body: "A small payment (test money here) unlocks the full fix and checklist." },
-  { who: "Everyone", title: "Report the outcome", body: "Buyers say if it helped. Contributors earn 80% of each sale." },
+  { who: "Everyone", title: "Report the outcome", body: "Buyers say if it helped. 80% of each sale accrues to the contributor (payouts not implemented yet)." },
 ];
 
 export default function HowItWorks() {
@@ -53,6 +53,9 @@ export default function HowItWorks() {
         </Link>
         <Link className="btn lg" to="/contribute/new">
           Share an incident
+        </Link>
+        <Link className="arrow-link" to="/connect">
+          Or connect your own agent over MCP <Icon name="arrow" size={14} />
         </Link>
       </div>
     </div>
