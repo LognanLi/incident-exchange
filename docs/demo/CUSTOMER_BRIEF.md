@@ -1,3 +1,5 @@
+> Historical planning/QA snapshot. Current submission behavior and dated verification: [SUBMISSION_AUDIT.md](../agent-sprint/SUBMISSION_AUDIT.md). Older commands, counts and connection claims below are not current release instructions.
+
 # Incident Exchange: Customer Brief
 
 All organizations and cases in the demo are fictional. Everything below is a working hypothesis. None of it comes from customer interviews or measured results.

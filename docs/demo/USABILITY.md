@@ -1,3 +1,5 @@
+> Historical planning/QA snapshot. Current submission behavior and dated verification: [SUBMISSION_AUDIT.md](../agent-sprint/SUBMISSION_AUDIT.md). Older commands, counts and connection claims below are not current release instructions.
+
 # Usability review (2026-10-24)
 
 **What this is:** an expert heuristic review (Nielsen's 10 heuristics) by the builder, an automated accessibility audit, and readability scoring. **What it is not:** a study with real users — no participants were tested. A ready-to-run 5-person test script is at the bottom.

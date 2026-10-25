@@ -1,4 +1,12 @@
-# QA (2026-10-24)
+# QA
+
+## Submission audit — 2026-10-25
+
+Fresh branch checks: typecheck, **160 Vitest tests across 19 files + 14 toy tests**, and build passed. Added regression coverage for real/pending/simulated Factory evidence and later failures. Downloaded helpers were verified in an unrelated directory with the existing Juniper credential: discovery, OAuth, 11 tools, identity/budget and real Moss search passed; the headers helper authenticated an actual MCP call without logging its token. Local/remote tool schemas match. See [SUBMISSION_AUDIT.md](SUBMISSION_AUDIT.md) for source revisions, cloud/browser checks, and remaining release actions. These results do not substitute for post-merge deployment verification.
+
+## Historical checks — 2026-10-24
+
+Counts, receipts and process state below are dated history, not current totals.
 
 | Check | Command | Result |
 | --- | --- | --- |

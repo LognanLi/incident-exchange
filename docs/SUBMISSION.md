@@ -15,20 +15,24 @@ An MCP server where coding agents trade **verified bug resolutions**:
 
 Humans approve disclosure, publish guides, set budgets and scopes, and watch everything in the web console.
 
-## Verified (2026-10-24, shared Convex deployment, Base Sepolia testnet)
+## Evidence
+
+The dated [submission audit](agent-sprint/SUBMISSION_AUDIT.md) is the current synchronization record. The scenario and independent full-agent repair evidence below was captured 2026-10-24; fresh verification is listed separately so it is not mistaken for a later run.
+
+### Scenario evidence (2026-10-24, shared Convex deployment, Base Sepolia testnet)
 - **Scenario 1, duplicate webhook deliveries (repo-a → repo-b):** A 3/5 → 5/5; fit check **recommend**, 4/4 conditions matched; x402 settlement `0x0ab34ed0…` (later runs reuse the purchase); Factory repair 5/5, `runner_verified`. Run from the browser console in Zen and from the terminal.
 - **Scenario 2, cross-tenant record access (repo-c → repo-d):** A 2/5 → 5/5; fit check **recommend**, 5/5; x402 `0x385e800e…`; Factory adapted the ownership check to repo-d's different code (workspace naming, response handlers); 6/6 protected tests, covering both **cross-workspace reads and deletes denied** and **owners still allowed**.
 - **Decline:** the scenario-1 buyer checking the tenant guide gets 2 conflicts (its own code has no tenant field and no authenticated tenant), so it doesn't buy.
 - **Independent onboarding:** a fresh Claude Code session in an unrelated repository (Juniper Ledger's own app), given only `CONNECT.md` and an operator-issued credential, ran `get_my_access` → search → preview → fit check (recommend, from facts it read in its own repo) → simulated purchase → retrieved guide treated as untrusted → adapted fix → its own `npm test` 2/4 → 4/4 → `record_outcome`.
 - **Security checks:** 9/9 live adversarial MCP checks (prompt injection quarantined, canary credential rejected, payee redirect refused, over-budget refused, paywall holds, cross-tenant reads denied, unverified claims labeled). Remote OAuth checks 13/13. Rate limits on the remote endpoint and the token endpoint.
-- **Tests:** 111 Vitest + 14 toy tests; typecheck and build pass.
+- **Fresh checks (2026-10-25):** 160 Vitest + 14 toy tests; typecheck and build pass. Downloaded helpers in an unrelated directory pass discovery, OAuth, 11 tools, identity/budget and actual Moss search with an existing credential; the headers helper authenticates a real MCP request. This fresh connection/configuration check is separate from the earlier full Claude repair session.
 
 ## Sponsor technology
 - **Convex:** backend, database, file storage, hosted console, remote MCP over HTTPS, OAuth 2.1 server, crons.
 - **Coinbase CDP / x402:** test-USDC payments on Base Sepolia for agent and web purchases, with spend controls.
 - **Factory Droid:** the buyer's repair agent (`droid exec`, restricted tools, isolated workspace).
-- **Moss:** semantic search over public previews, drafting, and grounded Q&A.
-- **Apify:** public reference retrieval from an allowlist.
+- **Moss:** live semantic search over public previews; drafting and grounded Q&A adapters are implemented but were not re-exercised in the submission audit.
+- **Apify:** allowlisted public-reference adapter, configured; earlier crawl success is historical. No successful invocation exists in the current database, and no credit-consuming crawl was repeated for the audit.
 
 ## Honest limits
 - Demo build: fictional companies, synthetic repositories, test USDC or a labeled simulator. Contributor earnings accrue but aren't paid out.
@@ -38,6 +42,6 @@ Humans approve disclosure, publish guides, set budgets and scopes, and watch eve
 - One shared dev deployment; no production deployment.
 
 ## Try it
-- Console: `https://quirky-robin-694.convex.site/` (access code from the team), or the presenter path in `docs/agent-sprint/PRESENTING.md`.
+- Console: `https://quirky-robin-694.convex.site/agents` (access code gives viewer mode; Enable presenter mode connects the local runner for Run demo), or the presenter path in `docs/agent-sprint/PRESENTING.md`.
 - Connect an agent: `docs/agent-sprint/CONNECT.md`.
 - Recorded run: Agents → Recorded run (labeled "Recording — not live").

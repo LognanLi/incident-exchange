@@ -1,3 +1,5 @@
+> Historical planning/QA snapshot. Current submission behavior and dated verification: [SUBMISSION_AUDIT.md](../agent-sprint/SUBMISSION_AUDIT.md). Older commands, counts and connection claims below are not current release instructions.
+
 # Polish sprint status
 
 - **Start:** 2026-10-24 03:11 PDT · **Target end:** ~04:41 PDT (user shortened to ~90 min, token-conscious) · **Feature freeze:** ~04:20 PDT

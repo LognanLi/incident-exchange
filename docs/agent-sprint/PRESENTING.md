@@ -1,6 +1,8 @@
 # Presenting the demo
 
-## 0. Presenter quick start (Zen at localhost:5173; first verified 2026-10-24 19:01 PDT)
+**Submission synchronization:** see [SUBMISSION_AUDIT.md](SUBMISSION_AUDIT.md) for fresh checks and exact revisions. The hosted access code opens **viewer mode**, so it intentionally does not show Run demo. On Agents, choose **Enable presenter mode**, or open `/agents#presenter` on the Mac with the local services running. The access gate also offers a presenter entry point. Recorded run has Replay instead of Run demo.
+
+## 0. Presenter quick start
 
 **Present from `http://localhost:5173` on your Mac.** The page and the runner are both local, so no browser local-network permission is involved. The console still uses the shared cloud backend (same data, Moss, x402, Factory). Remote viewers use the hosted link (§2) and see the same run live.
 
@@ -17,7 +19,7 @@ npm run dev:frontend   # console :5173 — wait for "Local: http://localhost:517
 **Live path (rehearse before presenting; update the time below):**
 1. Open `http://localhost:5173/`. The runner prints `[session] operator session minted for http://localhost:5173 (5 orgs)`.
 2. **Agents** → Live tab. The scenario picker defaults to **Duplicate deliveries (repo-a → repo-b)**. Click **Run demo** (works from any role; it runs as the Review Desk). The runner prints `[agent-demo] run requested from http://localhost:5173 (scenario: dedupe)`, then `[agent-demo] started`.
-3. About 60–90 s later the runner prints `[agent-demo] finished with exit code 0`, and **Last run** shows *succeeded · Done* with the current time. Walk through: A 3/5 → 5/5 → disclosure gate (credential dropped) → submit (reused) → B 2/5 → Moss search → **Check fit: recommend, 4 matches** (each with its evidence) → existing purchase reused (no new payment) → Factory Droid repair → 5/5 → `runner_verified`.
+3. Usually 30–90 s later the runner prints `[agent-demo] finished with exit code 0`, and **Last run** shows *succeeded · Done* with the current time. Walk through: A 3/5 → 5/5 → disclosure gate (credential dropped) → submit (reused) → B 2/5 → Moss search → **Check fit: recommend, 4 matches** (each with its evidence) → existing purchase reused (no new payment) → Factory Droid repair → 5/5 → `runner_verified`.
 4. Show the **Check fit** section, the diff and test list, the receipts (Basescan link, "accrued, not paid out") and the security lane, which includes the **declined** fit check for the tenant guide.
 5. Optional second scenario: picker → **Cross-tenant access (repo-c → repo-d)** → Run demo. B checks fit (5 matches), reuses its purchase, Factory adapts the ownership check to repo-d's code, and the 6 protected tests prove cross-workspace access is denied **and** owners still work.
 6. Optional: **Connect your agent** shows how an outside developer plugs in their own agent, with the live "last verified connection" for Juniper Ledger's agent.
@@ -63,11 +65,13 @@ Avoid `npm run dev` while presenting from the hosted site: it also starts `conve
 2. The browser asks whether this site may access your **local network**. Click **Allow**.
 3. The runner terminal should print:
    `[session] operator session minted for https://quirky-robin-694.convex.site (5 orgs)`
-4. In the app, Demo controls shows *Presenter mode*. On Agents, **Run demo** appears (switch to the Review Desk role first).
+4. In the app, Demo controls shows *Presenter mode*. On Agents → **Live**, **Run demo** appears. It works from any role and sends the Review Desk operator session automatically.
 
 To hand the screen to a viewer session, go to Demo controls → *Switch to viewer mode*.
 
-### Browser check (2026-10-24, this Mac)
+### Historical browser checks (2026-10-24, this Mac)
+
+These checks are historical evidence, not proof of the currently loaded bundle. The submission audit records fresh browser results separately.
 
 | Browser | Result | How it was checked |
 | --- | --- | --- |
@@ -82,10 +86,12 @@ To hand the screen to a viewer session, go to Demo controls → *Switch to viewe
 - **Live** (Agents → *Live*): the operator clicks **Run demo**. This executes Agent A's fix, the disclosure gate, MCP submission or reuse, Agent B's search, the payment or reused purchase, Factory Droid's repair in the sandbox, and the protected tests. Everyone watching the hosted site sees events stream in through Convex subscriptions.
 - **Recorded** (Agents → *Recorded run*): a capture of a real earlier run, marked *Recording — not live* with its date, duration, deployment and commit. **Replay** steps through its real timeline at 2×. Viewing or replaying runs no code and moves no money. Use it for remote viewers when your runner isn't available.
 
-Refresh the recording after a good live run:
+Refresh the recording only if it materially misrepresents the current product, after a successful live run. The current capture is the real tenant scenario from 2026-10-24 21:33 PDT (28 seconds), with truthful pre-commit provenance. Viewing it performs no new payment. If a refresh is needed:
 
 ```bash
-node connector/demo.mjs && node scripts/record-run.mjs && npm run deploy:web
+node connector/demo.mjs --scenario tenant
+node scripts/record-run.mjs
+# Review the redacted JSON and get the recording change merged, then deploy from main (docs/DEPLOY.md).
 ```
 
 `scripts/record-run.mjs` keeps only the redacted data the live console already shows, and refuses to write if anything matches a secret pattern.
@@ -100,5 +106,6 @@ Agent A's bundle has no run ids or timestamps, and its request id is derived fro
 | --- | --- |
 | Runner log shows no `[session]` line after opening the page | The page isn't in presenter mode (on the hosted site the URL needs `#presenter`; `localhost:5173` always uses the runner), or the runner isn't running. 2026-10-24 diagnosis: Zen's saved site data had no presenter flag at all, so the earlier hosted check never ran presenter mode. |
 | "Presenter mode can't reach your local runner" | Runner not running, browser permission denied, or the site isn't in the runner's origins (`IX_ALLOWED_ORIGINS`). Retry, or *Continue as viewer*. |
+| Run demo is absent | Check **Live** versus **Recorded run**, and **viewer** versus **presenter** mode. Use Enable presenter mode; start the local services. Changing a URL hash in an already-open tab now reinitializes the session. |
 | Run demo shows "Switch to the Review Desk role…" | Fixed 2026-10-24: Run demo now sends the Review Desk session from any role. If you still see it, a run is already in progress (wait for *Last run* to finish), or the console is an old build (reload). |
 | Viewer sees "Only the demo operator can do this" | Expected: reset and live runs are operator-only. |

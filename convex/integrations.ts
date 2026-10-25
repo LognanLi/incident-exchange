@@ -75,7 +75,7 @@ export const status = query({
       {
         key: "moss",
         name: "Moss",
-        role: "Playbook drafting & grounded Q&A",
+        role: "Semantic search, drafting & grounded Q&A",
         state: mossState,
         detail: !mossConfigured
           ? "MOSS_PROJECT_ID/KEY not set — deterministic fallback drafts sections and answers only from approved sections."
@@ -98,12 +98,12 @@ export const status = query({
       {
         key: "factory",
         name: "Factory Droid",
-        role: "Defensive patch workflow",
+        role: "Local agent repair & reviewer patch workflow",
         state: factoryState,
         detail: !factoryConfigured
           ? "FACTORY_RUNNER_SECRET not set — patches are applied by the “Local demo adapter”."
           : factoryState === "configured"
-            ? "Runner configured; not yet verified by a successful patch. Requires the local runner (npm run dev)."
+            ? "Runner secret configured; no completed real invocation recorded yet. Start npm run dev:factory and npm run dev:mcp locally."
             : (factoryRealEvent?.message ?? ""),
       },
       { key: "armadin", name: "Armadin", role: "Authorized validation", state: "unavailable" as IntegrationState, detail: "Not connected — the local validator runs the known check against the toy target." },

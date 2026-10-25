@@ -78,6 +78,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [useRunner] = useState<boolean>(() => takePresenterMode());
   const [code, setCode] = useState<string>(() => takeAccessCode());
   const [codeRejected, setCodeRejected] = useState(false);
+  useEffect(() => {
+    // Entering a shared presenter/access link in an already-open tab only changes its hash.
+    // Re-bootstrap the session just as a fresh visit would; the initializers strip the hash.
+    const changed = () => {
+      if (/(?:^#|&)(?:presenter(?:&|$)|access=)/.test(window.location.hash)) window.location.reload();
+    };
+    window.addEventListener("hashchange", changed);
+    return () => window.removeEventListener("hashchange", changed);
+  }, []);
   const slugKey = orgs?.map((o) => o.slug).join(",");
   useEffect(() => {
     if (!slugKey || (!useRunner && !code)) return;
@@ -155,6 +164,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           </div>
           {codeRejected && <p className="small warn-text" role="alert">That code didn’t work.</p>}
           <p className="small muted">Fictional companies, test money only.</p>
+          <button className="btn" type="button" onClick={() => setPresenterMode(true)}>I’m the presenter — connect my local runner</button>
+          <p className="small muted">For Run demo, start <code>npm run dev:factory</code> and <code>npm run dev:mcp</code> on this machine. The access code opens viewer mode.</p>
         </form>
       </div>
     );
@@ -181,7 +192,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           <p>Can’t start a demo session right now. Reload to try again.</p>
         ) : offline ? (
           <p>
-            Can’t start a demo session. Start the local services with <code>npm run dev</code>, then reload.
+            Can’t start a demo session. Start <code>npm run dev:factory</code> and <code>npm run dev:mcp</code>, then reload.
           </p>
         ) : (
           <p className="muted">Connecting…</p>

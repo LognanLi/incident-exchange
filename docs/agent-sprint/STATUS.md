@@ -1,5 +1,15 @@
 # Agent-to-agent MCP sprint — status
 
+## Submission synchronization — 2026-10-25
+
+Current state and mismatches are in [SUBMISSION_AUDIT.md](SUBMISSION_AUDIT.md). Audit baseline `main` is `f1388f9`, with no open PRs or uncommitted work. The synchronization changes expose presenter mode on hosted Agents/access gate, handle presenter links in an already-open tab, connect real agent Factory invocations to sponsor status, and correct stale operational/sponsor claims. The owner merges PRs manually; release only merged `main` using [DEPLOY.md](../DEPLOY.md).
+
+The main product has 11 MCP tools and two published repair scenarios. Viewer mode intentionally has no Run demo; live execution requires the local runner and an operator session. No shared reset, new credentials, production target or unnecessary payment is part of this work.
+
+## Historical sprint log — 2026-10-24
+
+Earlier branches, “in progress” rows and next tasks below are retained history.
+
 - **Start:** 2026-10-24 13:41 PDT · **Target end:** ~16:41 PDT (spec: 3 h; working token-efficiently) · **Freeze:** ~16:11
 - **Branch:** `agent-sprint` (from `main` @ 0ca6dd8)
 - **Backend:** Convex Cloud dev deployment `quirky-robin-694` (deploy key in `.env.local`), synced 13:55 with existing data preserved.

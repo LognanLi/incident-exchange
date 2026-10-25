@@ -1,4 +1,22 @@
-# Integrations (verified 2026-10-24 against Convex `quirky-robin-694`)
+# Integrations
+
+## Submission audit — 2026-10-25
+
+Use [SUBMISSION_AUDIT.md](SUBMISSION_AUDIT.md) for exact revisions, fresh results and release actions. Stored “connected” means an invocation record, not continuous availability.
+
+| Sponsor | Actual location | Fresh evidence / limit |
+| --- | --- | --- |
+| Convex | Shared cloud dev `quirky-robin-694` | Hosted bytes, API queries, 127-function metadata export, remote MCP/OAuth. No production target. |
+| Moss | Convex action + child semantic-query worker | Real public-preview semantic search from fresh onboarding. Drafting and grounded Q&A were not re-exercised; their older successes are historical. Labeled keyword fallback remains. |
+| Factory Droid | Presenter’s Mac | Agent events and protected test records contain real repair evidence. The synchronization change records completed real agent invocations in sponsor status too; proposed candidate and accepted repair remain different facts. CLI/key/runner required. |
+| Coinbase CDP / x402 | Convex Node actions; Base Sepolia testnet | Current scenario receipts `0x0ab34ed0…d54da1` and `0x385e800e…fcac5a`, each 10000 atomic test USDC. Existing entitlements reused for rehearsals; simulator excluded from accrual; no payouts. |
+| Apify | Convex allowlisted public-reference action | Configured, no successful invocation in the current database. Historical crawl not repeated to consume credits. |
+| Armadin | No connected interface | Unavailable; local validators are not Armadin. |
+
+## Historical integration evidence — 2026-10-24
+
+The table below preserves implementation background and earlier calls. Its receipts, runtime health and “live” labels do not establish the current release state; the dated audit above supersedes them.
+
 
 | Sponsor | Role | Runtime | Mode | Key names | Evidence |
 | --- | --- | --- | --- | --- | --- |

@@ -1,69 +1,16 @@
-# Sponsor integration handoff
+# Sponsor integration evidence
 
-Every sponsor sits behind a server-side adapter with a labeled local fallback. To turn one on, the builder (you or Claude) needs the items below. Put the details in this file (in the section for that sponsor) or paste them into a chat. **Never commit secrets.** Keys go in `npx convex env set NAME value`.
+Use the dated [submission audit](agent-sprint/SUBMISSION_AUDIT.md) and [integration notes](agent-sprint/INTEGRATIONS.md). Earlier morning “connected” claims and old transaction examples are not proof of the current database or process state.
 
-For each sponsor, the most useful items are:
+| Sponsor | Actual integration | Submission status |
+| --- | --- | --- |
+| Convex | Cloud dev backend, database, files, hosted console, remote MCP/OAuth and crons | Live on `quirky-robin-694`; no production deployment. |
+| Moss | Public-preview semantic retrieval; drafting and grounded Q&A adapters | Semantic retrieval verified with real MCP requests. Drafting/Q&A are implemented but not freshly exercised by this audit. Failures use labeled fallbacks. |
+| Factory Droid | Local restricted repair agent and reviewer patch adapter | Real agent invocation evidence lives in agent events and protected-runner records. The sponsor panel also records completed live agent invocations; a proposed patch is not yet a verified repair. |
+| Coinbase CDP / x402 | Backend signer, fixed quote terms and spend controls, Base Sepolia settlement | Two current 0.01 test-USDC scenario receipts; contributor 80/20 accrual is application accounting, not payout or an on-chain split. |
+| Apify | Allowlisted public-reference crawler from a Convex action | Configured; no current-database successful invocation. Historical three-reference crawl was not repeated because it consumes crawl credits. |
+| Armadin | No connected interface | Unavailable. Local toy validation is not an Armadin integration. |
 
-1. **Official docs link** for the exact API/SDK version the event supports (quickstart + API reference).
-2. **Credentials**: their names only here. Set the values with `npx convex env set`.
-3. **Event-specific rules**: test networks, allowed targets, rate limits, required attribution.
-4. **A working sample request/response** (curl or code), if the sponsor gave one.
+Credential **names**: `MOSS_PROJECT_ID`, `MOSS_PROJECT_KEY`, `APIFY_TOKEN`, `FACTORY_API_KEY`, `FACTORY_RUNNER_SECRET`, `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`. Values belong only in the existing gitignored files / Convex env, never this document or chat. Do not rotate or run wallet setup as a submission check.
 
----
-
-## Moss: playbook drafting and grounded Q&A
-- ✅ **Connected and verified.** Drafting uses Moss Inference (`drafts.draftPlaybook`). Q&A uses per-guide preview/full indexes built at publish (`convex/mossIndex.ts`) and retrieved through Moss Inference (`playbooks.askPlaybook`).
-- Plan limit hit during testing: index builds beyond three per project are rejected. Q&A then uses Moss Inference with sections passed in directly, labeled in the UI.
-
-KEYS:
-
-MOSS_PROJECT_ID=<set in .secrets.local / Convex env>
-MOSS_PROJECT_KEY=<set in .secrets.local / Convex env>
-
-DOCS: 
-https://docs.moss.dev/docs
-
-
-## Apify: public reference retrieval
-- ✅ **Connected and verified.** A live crawl returned three allowlisted references.
-- Needed: `APIFY_TOKEN`, plus confirmation of the Actor to use (default `apify~website-content-crawler`) and whether the event provides credits
-- To verify: `npx convex env set APIFY_TOKEN …`, then click **Fetch references** in the reviewer console. The badge must change to *Connected*.
-GET
-https://api.apify.com/v2/actors?token=$APIFY_TOKEN
-
-
-Creates a new Actor. The POST payload must be a JSON object with Actor properties.
-POST
-https://api.apify.com/v2/actors?token=$APIFY_TOKEN
-
-
-
-## Coinbase x402: paid access
-- ✅ **Connected and verified.** A test purchase settled on Base Sepolia (tx `0xc8e960624a59d41c13bae5f372607bc0b62e26a3f1d4feb65bae793633c0991c`). Buyer: `0x2d6C…5d4F`, receiver: `0x2220…5527`.
-- Secrets go on the **Convex deployment environment**, the only backend that runs payment code: `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`. Set them with `npx convex env set` in your own terminal.
-- Then run `npm run x402:setup` to create and fund the wallets, and buy a guide as Harbor Analytics.
-- Code: `convex/x402Node.ts` (setup, seller endpoint logic, buyer payment), `convex/http.ts` (`POST /x402/purchases/<id>`), `convex/x402State.ts`.
-
-## Factory Droid: defensive patch workflow
-- ✅ **Connected and verified** through `scripts/factory-runner.mjs` (started by `npm run dev`). `droid` is a project dev dependency.
-- Needed: install method (CLI/SDK), API key name, and a confirmed way to restrict it to an allowlist: inspect `convex/lib/toyAuth.ts`, apply a patch, run `npm test -- tests/domain.test.ts`. No arbitrary shell, network, or deployment access.
-
-API key: FACTORY_API_KEY (value in .secrets.local)
-
-## Armadin: authorized validation
-- Currently: local validator. It is never attributed to Armadin.
-- Needed: the event-supported interface, plus proof that the target can be locked to the local toy app only. No public scanning.
-
-
-
-Here are my keys: 
-
-GET
-https://api.apify.com/v2/actors?token=$APIFY_TOKEN
-
-
-Creates a new Actor. The POST payload must be a JSON object with Actor properties.
-POST
-https://api.apify.com/v2/actors?token=$APIFY_TOKEN
-
-
+The latest recorded successful invocation may precede the current session. Check actual calls, timestamps, receipts and process health; do not infer availability from a configured key or sponsor logo. No new paid transaction or crawl is needed to prove existing evidence.
