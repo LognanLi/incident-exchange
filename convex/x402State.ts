@@ -3,6 +3,8 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { requireRole } from "./lib/access";
 import { recordIntegrationEvent } from "./lib/integrations";
 import { audit } from "./lib/audit";
+import { recordAgentEvent } from "./lib/agentEvents";
+import { sanitizeEventText } from "../shared/eventDetail.mjs";
 
 export const getWallets = internalQuery({
   args: {},
@@ -64,6 +66,18 @@ export const recordSuccess = internalMutation({
     const buyer = await ctx.db.get(p.buyerOrgId);
     const pb = await ctx.db.get(p.playbookId);
     await audit(ctx, buyer, "purchase.settled", pb?.publicTitle ?? "guide", `x402 Base Sepolia ${txHash ? txHash.slice(0, 12) + "…" : ""}`);
+    if (p.principalId) {
+      const agent = await ctx.db.get(p.principalId);
+      await recordAgentEvent(ctx, {
+        lane: "consumer", actor: agent?.name ?? "agent", kind: "payment_settled", status: "ok", mode: "testnet", refs: [purchaseId],
+        summary: `Test payment settled on Base Sepolia${txHash ? ` (tx ${txHash.slice(0, 10)}…)` : ""}; access granted to rev ${p.revision}.`,
+        detail: {
+          tool: "acquire_resolution", resolutionId: p.playbookId, revision: p.revision,
+          result: "test_success: settled on-chain; entitlement granted",
+          evidence: [{ k: "network", v: network }, { k: "transaction", v: txHash ?? "not reported" }, { k: "payer (public address)", v: payer ?? "unknown" }, { k: "payee (public address)", v: p.x402.payTo }, { k: "amount (atomic)", v: p.x402.atomicAmount }],
+        },
+      });
+    }
     await recordIntegrationEvent(ctx, "x402", "success", `x402 test payment settled on Base Sepolia${txHash ? ` (${txHash.slice(0, 10)}…)` : ""}.`);
   },
 });
@@ -78,7 +92,15 @@ export const markSettling = internalMutation({
     const p = await ctx.db.get(purchaseId);
     if (!p || !p.x402 || p.paymentStatus !== "pending") return { ok: false, reason: "not_pending" as const };
     if (p.x402.nonce && p.x402.nonce !== nonce) return { ok: false, reason: "other_authorization_pending" as const };
-    await ctx.db.patch(purchaseId, { x402: { ...p.x402, payer, nonce, settlingAt: Date.now(), error: undefined } });
+    await ctx.db.patch(purchaseId, { x402: { ...p.x402, payer, nonce, settlingAt: p.x402.settlingAt ?? Date.now(), error: undefined } });
+    if (p.principalId && !p.x402.nonce) {
+      const agent = await ctx.db.get(p.principalId);
+      await recordAgentEvent(ctx, {
+        lane: "consumer", actor: agent?.name ?? "agent", kind: "payment_pending", status: "pending", mode: "testnet", refs: [purchaseId],
+        summary: "Test wallet authorization recorded; waiting for settlement on Base Sepolia.",
+        detail: { tool: "acquire_resolution", resolutionId: p.playbookId, revision: p.revision, result: "pending settlement; allowance remains reserved", evidence: [{ k: "purchase", v: purchaseId }, { k: "network", v: p.x402.network }] },
+      });
+    }
     return { ok: true as const };
   },
 });
@@ -95,10 +117,26 @@ export const clearSettling = internalMutation({
 
 export const recordFailure = internalMutation({
   args: { purchaseId: v.optional(v.id("purchases")), message: v.string() },
-  handler: async (ctx, { purchaseId, message }) => {
+  handler: async (ctx, { purchaseId, message: rawMessage }) => {
+    const message = sanitizeEventText(rawMessage, 300);
     if (purchaseId) {
       const p = await ctx.db.get(purchaseId);
-      if (p?.x402 && p.paymentStatus === "pending") await ctx.db.patch(purchaseId, { x402: { ...p.x402, error: message.slice(0, 300) } });
+      if (p?.x402 && p.paymentStatus === "pending") {
+        // No authorization was ever recorded → nothing can settle later: mark failed (frees the reservation, allows a
+        // retry with a new request id). With a recorded authorization it stays pending until reconciled on-chain.
+        const settledLater = !!p.x402.nonce;
+        await ctx.db.patch(purchaseId, { x402: { ...p.x402, error: message.slice(0, 300) }, ...(settledLater ? {} : { paymentStatus: "failed" as const, completedAt: Date.now() }) });
+        if (p.principalId) {
+          const agent = await ctx.db.get(p.principalId);
+          await recordAgentEvent(ctx, {
+            lane: "consumer", actor: agent?.name ?? "agent", kind: settledLater ? "payment_unconfirmed" : "payment_failed", status: "error", mode: "testnet", refs: [purchaseId],
+            summary: settledLater
+              ? "Payment error after the authorization was signed; kept pending until it is reconciled on-chain (no double charge)."
+              : "Test payment failed before settlement could start; no funds moved and the budget reservation was released.",
+            detail: { tool: "acquire_resolution", resolutionId: p.playbookId, revision: p.revision, result: settledLater ? "pending (reconcile)" : "failed", evidence: [{ k: "error", v: message.slice(0, 200) }, { k: "purchase", v: purchaseId }] },
+          });
+        }
+      }
     }
     await recordIntegrationEvent(ctx, "x402", "failure", message);
   },

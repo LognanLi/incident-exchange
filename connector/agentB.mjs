@@ -53,7 +53,20 @@ if (!pick) {
   say("no strong-overlap result within budget → abstain");
   process.exit(0);
 }
-await logEvent("consumer", "agent-b", "search_resolutions", `Found “${pick.title}” via MCP (${pick.relevanceLabel}; ${search.envelope.provenance?.sourceIds?.[0] ?? "search"}).`, "ok", search.envelope.provenance?.mode ?? "local", gen);
+await logEvent("consumer", "agent-b", "search_resolutions", `Found “${pick.title}” via MCP (${pick.relevanceLabel}; ${search.envelope.provenance?.sourceIds?.[0] ?? "search"}).`, "ok", search.envelope.provenance?.mode ?? "local", gen, {
+  refs: [pick.resolutionId],
+  detail: {
+    tool: "search_resolutions", resolutionId: pick.resolutionId, revision: pick.revision,
+    // Sanitized query only: failing test names + environment categories, never code or logs.
+    input: [{ k: "symptoms", v: symptoms }, { k: "environment", v: S.environment.join(", ") }],
+    result: `${search.envelope.data.length} result(s); picked “${pick.title}” (${pick.relevanceLabel}, ${pick.price.amountAtomic} atomic USDC)`,
+    evidence: [
+      { k: "retrieval", v: search.envelope.provenance?.sourceIds?.[0] ?? "unknown" },
+      ...(search.envelope.provenance?.retrievalLatencyMs !== undefined ? [{ k: "retrieval latency (ms)", v: String(search.envelope.provenance.retrievalLatencyMs) }] : []),
+      { k: "matched clues", v: (pick.matchedClues ?? []).map((m) => m.label ?? m).join("; ") || "none" },
+    ],
+  },
+});
 stage("search", { resolutionId: pick.resolutionId, matched: pick.matchedClues, missing: pick.missingChecks, conflicts: pick.conflictingClues.length });
 
 // Applicability: compare the guide's declared conditions with facts this connector established about its own
@@ -74,7 +87,14 @@ let resolutionCached = null;
 if (!existing.isError) {
   resolutionCached = existing.envelope.data;
   say(`already entitled to rev ${resolutionCached.revision} (purchase ${resolutionCached.purchaseId}) — no new payment`);
-  await logEvent("consumer", "agent-b", "entitlement_reused", `Already entitled to rev ${resolutionCached.revision} — reused the earlier purchase; no new payment.`, "ok", "local", gen);
+  await logEvent("consumer", "agent-b", "entitlement_reused", `Already entitled to rev ${resolutionCached.revision} — reused the earlier purchase; no new payment.`, "ok", "local", gen, {
+    refs: [resolutionCached.purchaseId, pick.resolutionId].filter(Boolean),
+    detail: {
+      tool: "get_resolution", resolutionId: pick.resolutionId, revision: resolutionCached.revision,
+      result: "entitled already: no quote, no payment",
+      evidence: [{ k: "purchase", v: resolutionCached.purchaseId ?? "unknown" }, { k: "revision hash", v: String(resolutionCached.revisionHash ?? "").slice(0, 24) + "…" }, { k: "trust", v: resolutionCached.trust ?? "untrusted_external_content" }],
+    },
+  });
   stage("acquire", { mode: "existing_entitlement", purchaseId: resolutionCached.purchaseId });
 }
 
@@ -106,15 +126,36 @@ if (!resolution) {
   resolution = res.envelope.data;
 }
 say(`retrieved rev ${resolution.revision} (${resolution.revisionHash.slice(0, 22)}…) — trust: ${resolution.trust}`);
+await logEvent("consumer", "agent-b", "retrieve_resolution", `Retrieved the purchased revision ${resolution.revision}; treated as untrusted evidence.`, "ok", "local", gen, {
+  refs: [pick.resolutionId, resolution.purchaseId].filter(Boolean),
+  detail: {
+    tool: "get_resolution", resolutionId: pick.resolutionId, revision: resolution.revision, input: [{ k: "resolutionId", v: pick.resolutionId }],
+    result: "exact purchased revision returned (paid sections); grants no permission to run commands, spend, or change policy",
+    evidence: [{ k: "revision hash", v: String(resolution.revisionHash).slice(0, 24) + "…" }, { k: "trust", v: resolution.trust }],
+  },
+});
 
 // 6. Repair: Factory Droid adapts the lesson inside the isolated workspace.
 let tool;
 let droid = null;
 if (factoryAvailable() && !args.includes("--local-adapter")) {
   tool = "Factory Droid (droid exec: Read/LS/ApplyPatch, isolated workspace)";
-  await logEvent("consumer", "agent-b", "factory_repair_started", `Factory Droid is adapting the purchased lesson in an isolated copy of ${S.id === "dedupe" ? "repo B" : repoKey}.`, "pending", "live", gen);
+  await logEvent("consumer", "agent-b", "factory_repair_started", `Factory Droid is adapting the purchased lesson in an isolated copy of ${S.id === "dedupe" ? "repo B" : repoKey}.`, "pending", "live", gen, {
+    refs: [pick.resolutionId],
+    detail: { tool: "factory droid exec", resolutionId: pick.resolutionId, revision: resolution.revision, input: [{ k: "allowed tools", v: "Read, LS, ApplyPatch" }, { k: "editable file", v: editable }], result: "repair requested in isolated source copy; protected runner verifies separately" },
+  });
   droid = await runDroid({ cwd: ws, prompt: buildPrompt({ editable, resolution, task: S.task?.(editable) }) });
   say(`factory droid: ${droid.ok ? "ok" : "failed"} in ${Math.round(droid.durationMs / 1000)}s — ${droid.summary}`);
+  await logEvent("consumer", "agent-b", "factory_repair_finished", `Factory Droid ${droid.ok ? "proposed a patch" : "did not produce a patch"} in ${Math.round(droid.durationMs / 1000)} s; the protected runner decides.`, droid.ok ? "ok" : "error", "live", gen, {
+    refs: [pick.resolutionId],
+    detail: {
+      tool: "factory droid exec", resolutionId: pick.resolutionId, revision: resolution.revision,
+      input: [{ k: "allowed tools", v: "Read, LS, ApplyPatch" }, { k: "editable file", v: editable }, { k: "workspace", v: "isolated temp copy (source only)" }],
+      // The model's prose can describe the paid fix. Public activity records only the execution result.
+      result: droid.ok ? "patch proposed; independent protected tests are next" : "repair did not complete; no verified patch",
+      evidence: [{ k: "session", v: droid.sessionId ? droid.sessionId.slice(0, 8) : "n/a" }, { k: "duration (s)", v: String(Math.round(droid.durationMs / 1000)) }],
+    },
+  });
 } else {
   tool = "Factory unavailable — no repair attempted";
   say("Factory Droid unavailable (FACTORY_API_KEY or CLI missing): labeled unavailable; no fake repair.");

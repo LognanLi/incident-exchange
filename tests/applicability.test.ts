@@ -15,8 +15,8 @@ beforeAll(() => {
 });
 const errCode = async (p: Promise<unknown>) => {
   try {
-    await p;
-    return "NO_ERROR";
+    const r = (await p) as { __denied?: { code: string } } | null;
+    return r?.__denied ? r.__denied.code : "NO_ERROR";
   } catch (e) {
     return (e as { data?: { code?: string } }).data?.code ?? String(e);
   }

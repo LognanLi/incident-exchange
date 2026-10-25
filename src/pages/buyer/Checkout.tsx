@@ -199,7 +199,7 @@ function Checkout() {
             <p className="small muted">The guide unlocks once the payment settles on-chain.</p>
             {purchase.x402.error && <ErrorBox message={purchase.x402.error} />}
             <ErrorBox message={payX402.error ?? reconcile.error} />
-            {purchase.x402.nonce && (
+            {purchase.x402.awaitingConfirmation && (
               <div className="state state-info small">
                 A payment is already being confirmed. Check its status instead of paying again.{" "}
                 <button
@@ -220,7 +220,7 @@ function Checkout() {
             <div className="row gap wrap">
               <button
                 className="btn primary"
-                disabled={payX402.pending || !!purchase.x402.nonce}
+                disabled={payX402.pending || purchase.x402.awaitingConfirmation}
                 onClick={async () => {
                   if (await payX402.run({ actor, purchaseId })) navigate(`/purchases/${purchaseId}`);
                 }}

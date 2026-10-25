@@ -7,6 +7,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { anyApi } from "convex/server";
 import { runProtectedTests } from "../../sample-repos/run-protected-tests.mjs";
 import { ROOT, readEnv } from "./mcpClient.mjs";
+import { sanitizeEventDetail } from "../../shared/eventDetail.mjs";
 
 const secrets = readEnv(join(ROOT, ".secrets.local"));
 const local = readEnv(join(ROOT, ".env.local"));
@@ -35,9 +36,12 @@ export async function protectedRun({ repo, candidateDir, stage, principalName, r
     passed: r.passed, total: r.total, passedCount: r.passedCount, tests: r.tests.slice(0, 20), diff, changedFiles,
     candidateHash: hashDir(candidateDir), protectedSuiteHash: hashDir(suite), resolutionId, mode, note,
   });
+  if (rec.__denied) throw new Error(`${rec.__denied.code}: ${rec.__denied.message}`);
   return { ...r, runId: rec.runId };
 }
 
-export async function logEvent(lane, actor, kind, summary, status = "ok", mode = "local", gen) {
-  await convex.mutation(anyApi.mcp.logConnectorEvent, { runnerSecret: RUNNER_SECRET, generation: gen, lane, actor, kind, summary, status, mode });
+/** extra: { detail?: { tool, input, result, resolutionId, revision, evidence }, refs?: string[] }. Sanitized here and again server-side. */
+export async function logEvent(lane, actor, kind, summary, status = "ok", mode = "local", gen, extra = {}) {
+  const detail = sanitizeEventDetail(extra.detail);
+  await convex.mutation(anyApi.mcp.logConnectorEvent, { runnerSecret: RUNNER_SECRET, generation: gen, lane, actor, kind, summary, status, mode, ...(detail ? { detail } : {}), ...(extra.refs?.length ? { refs: extra.refs } : {}) });
 }

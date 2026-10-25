@@ -46,7 +46,8 @@ export const startCheckout = mutation({
     // Reuse a pending checkout with the same provider; cancel pending ones with another provider.
     for (const p of existing.filter((p) => p.paymentStatus === "pending")) {
       if (p.provider === provider) return p._id;
-      await ctx.db.patch(p._id, { paymentStatus: "cancelled" });
+      if (p.x402?.nonce) throw new ConvexError("An earlier payment is still being confirmed. Check its status before changing providers.");
+      await ctx.db.patch(p._id, { paymentStatus: "cancelled", completedAt: Date.now() });
     }
 
     // Bound to the exact revision, amount, network, and beneficiary at checkout time.
@@ -101,7 +102,7 @@ export const get = query({
     if (!p || p.buyerOrgId !== buyer._id) return null;
     const pb = await ctx.db.get(p.playbookId);
     return {
-      ...p,
+      ...publicPurchase(p),
       playbookTitle: pb?.publicTitle ?? "(removed)",
       contributorAlias: pb?.contributorAlias ?? "",
       evidenceLevel: pb?.evidenceLevel,
@@ -134,7 +135,8 @@ export const cancel = mutation({
     const p = await ctx.db.get(purchaseId);
     if (!p || p.buyerOrgId !== buyer._id) throw new ConvexError("Purchase not found.");
     if (p.paymentStatus !== "pending") throw new ConvexError("Only pending checkouts can be cancelled.");
-    await ctx.db.patch(purchaseId, { paymentStatus: "cancelled" });
+    if (p.x402?.nonce) throw new ConvexError("A payment is still being confirmed. Check its status before cancelling.");
+    await ctx.db.patch(purchaseId, { paymentStatus: "cancelled", completedAt: Date.now() });
     return { ok: true };
   },
 });
@@ -145,7 +147,15 @@ export const listMine = query({
     const buyer = await requireRole(ctx, actor, "buyer");
     const all = await ctx.db.query("purchases").withIndex("by_buyer", (q) => q.eq("buyerOrgId", buyer._id)).order("desc").collect();
     return await Promise.all(
-      all.map(async (p) => ({ ...p, playbookTitle: (await ctx.db.get(p.playbookId))?.publicTitle ?? "(removed)" })),
+      all.map(async (p) => ({ ...publicPurchase(p), playbookTitle: (await ctx.db.get(p.playbookId))?.publicTitle ?? "(removed)" })),
     );
   },
 });
+
+/** Public receipt only. Authorization tracking stays server-side. */
+function publicPurchase(p: import("./_generated/dataModel").Doc<"purchases">) {
+  const { x402, ...receipt } = p;
+  if (!x402) return { ...receipt, x402: undefined };
+  const { nonce: _nonce, ...publicPayment } = x402;
+  return { ...receipt, x402: { ...publicPayment, awaitingConfirmation: !!_nonce } };
+}

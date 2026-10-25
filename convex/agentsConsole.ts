@@ -4,6 +4,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getActor, requireRole, requireOperator } from "./lib/access";
 import { verifySessionInfo } from "../shared/session.mjs";
+import { loadPayments } from "./lib/payments";
 
 export const overview = query({
   args: { actor: v.string() },
@@ -11,9 +12,21 @@ export const overview = query({
     const viewer = await getActor(ctx, actor);
     const info = await verifySessionInfo(process.env.DEMO_SESSION_SECRET, actor);
     const fullDetail = info?.operator === true || (!info && process.env.DEMO_OPEN_IDENTITY === "on");
-    const events = await ctx.db.query("agentEvents").withIndex("by_at").order("desc").take(80);
-    const runs = await ctx.db.query("repairRuns").withIndex("by_at").order("desc").take(12);
-    const principals = (await ctx.db.query("agentPrincipals").collect()).map((p) => ({
+    const rawEvents = await ctx.db.query("agentEvents").withIndex("by_at").order("desc").take(300);
+    const agentPrincipals = await ctx.db.query("agentPrincipals").collect();
+    // Raw patches and local notes are not approved public previews. Only the operator or the
+    // owning organization may inspect them; the public activity still shows test counts/hashes.
+    const owned = new Set(agentPrincipals.filter((p) => p.orgSlug === viewer.slug).map((p) => p.name));
+    const events = rawEvents.map((e) => {
+      if (fullDetail || owned.has(e.actor) || !e.detail || !["factory_repair_finished", "record_outcome"].includes(e.kind)) return e;
+      return { ...e, detail: { ...e.detail, result: e.kind === "factory_repair_finished" ? "Local repair summary hidden for this organization; protected test results are public." : e.detail.result, input: e.detail.input?.filter((x) => x.k !== "summary") } };
+    });
+    const runs = (await ctx.db.query("repairRuns").withIndex("by_at").order("desc").take(40)).map((r) => ({
+      ...r, diff: fullDetail || owned.has(r.principalName) ? r.diff : undefined,
+      note: fullDetail || owned.has(r.principalName) ? r.note : undefined,
+      detailsHidden: !fullDetail && !owned.has(r.principalName),
+    }));
+    const principals = agentPrincipals.map((p) => ({
       name: p.name, orgSlug: p.orgSlug, scopes: p.scopes, policy: p.policy, expiresAt: p.expiresAt, revoked: p.revoked,
     }));
     const drafts = (await ctx.db.query("incidentDrafts").collect()).filter((d) => d.agentSubmission);
@@ -21,7 +34,9 @@ export const overview = query({
       _id: d._id, title: d.publicTitle, status: d.status, moderation: d.agentSubmission!.moderation, reasons: d.agentSubmission!.moderationReasons,
       bundleHash: d.agentSubmission!.bundleHash, playbookId: d.playbookId, updatedAt: d.updatedAt,
     }));
-    const outcomes = await ctx.db.query("agentOutcomes").order("desc").take(10);
+    const outcomes = (await ctx.db.query("agentOutcomes").order("desc").take(10)).map((o) => ({
+      ...o, summary: fullDetail || agentPrincipals.some((p) => p._id === o.principalId && owned.has(p.name)) ? o.summary : "Outcome summary hidden for this organization.",
+    }));
     const jobs = await ctx.db.query("jobs").withIndex("by_startedAt").order("desc").take(5);
     const purchases = (await ctx.db.query("purchases").collect()).filter((p) => p.principalId).map((p) => ({
       _id: p._id, amountAtomic: p.amountAtomic, status: p.paymentStatus, provider: p.provider, contributorShareAtomic: p.contributorShareAtomic, platformShareAtomic: p.platformShareAtomic, txHash: p.x402?.txHash, revision: p.revision,
@@ -38,7 +53,8 @@ export const overview = query({
         sourcesHidden: !own,
       };
     });
-    return { events, runs, principals, submissions, outcomes, jobs, purchases, applicabilityChecks };
+    const { payments, earnings } = await loadPayments(ctx, events);
+    return { events, runs, principals, submissions, outcomes, jobs, purchases, applicabilityChecks, payments, earnings };
   },
 });
 

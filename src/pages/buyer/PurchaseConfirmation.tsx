@@ -13,6 +13,7 @@ const STATUS_TEXT = {
   simulated_success: "Simulated — no money moved",
   test_success: "x402 test payment settled on Base Sepolia",
   cancelled: "Cancelled",
+  failed: "Payment failed — no money moved",
 } as const;
 
 export default function PurchaseConfirmationPage() {

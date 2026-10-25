@@ -28,6 +28,9 @@ if (approveHash) {
     process.exit(3);
   }
   staged.approval = { kind: "developer_approval", reference: `dev-approval-${Date.now()}`, contentHash: approveHash };
+  await logEvent("contributor", "agent-a", "developer_approval", "Developer approval matched the exact staged bundle hash; submitting through MCP.", "ok", "local", await generation(), {
+    detail: { tool: "developer approval", result: "exact hash approved", evidence: [{ k: "content hash", v: approveHash }] },
+  });
   const c = await connect("AGENT_A_TOKEN");
   const r = await c.tool("submit_resolution", { bundle: staged });
   console.log(`[agent-a] submit_resolution → ${r.text}`);
@@ -73,12 +76,23 @@ if (built.blocked) {
   process.exit(2);
 }
 const { bundle, totals } = built;
-await logEvent("security", "agent-a connector", "local_disclosure_gate", `Local gate dropped ${totals.dropped} credential-format line(s) (${totals.categories.join(", ") || "none"}) and generalized ${totals.generalized} identifier(s) before any network call.`, "ok", "local", gen);
+await logEvent("security", "agent-a connector", "local_disclosure_gate", `Local gate dropped ${totals.dropped} credential-format line(s) (${totals.categories.join(", ") || "none"}) and generalized ${totals.generalized} identifier(s) before any network call.`, "ok", "local", gen, {
+  detail: {
+    tool: "local disclosure gate", input: [{ k: "allowed fields", v: P.sharing.allowedFields.join(", ") }],
+    result: `${totals.dropped} credential line(s) dropped, ${totals.generalized} identifier(s) generalized, residual findings 0`,
+    evidence: [{ k: "categories (no values)", v: totals.categories.join(", ") || "none" }, { k: "staged content hash", v: bundle.contentHash }],
+  },
+});
 mkdirSync(STAGING, { recursive: true });
 writeFileSync(STAGED, JSON.stringify(bundle, null, 2));
 say(`staged bundle ${bundle.contentHash} (dropped ${totals.dropped} credential line(s), generalized ${totals.generalized} identifier(s)) → connector/.staging/${S.staging.bundle}`);
 
 // 5. Default: staged and unshared until the developer approves this exact hash.
 const scenarioFlag = S.id === "dedupe" ? "" : ` --scenario ${S.id}`;
-await logEvent("contributor", "agent-a", "needs_approval", `Bundle ${bundle.contentHash.slice(0, 19)}… staged; waiting for developer approval.`, "pending", "local", gen);
+await logEvent("contributor", "agent-a", "needs_approval", `Bundle ${bundle.contentHash.slice(0, 19)}… staged; waiting for developer approval.`, "pending", "local", gen, {
+  detail: {
+    tool: "developer approval", result: "nothing leaves the machine until the developer approves this exact hash",
+    evidence: [{ k: "content hash", v: bundle.contentHash }, { k: "price (atomic)", v: bundle.priceAtomic }, { k: "conditions", v: String(bundle.conditions?.length ?? 0) }],
+  },
+});
 say(`needs_approval — review connector/.staging/${S.staging.bundle}, then run: node connector/agentA.mjs${scenarioFlag} --approve ${bundle.contentHash}`);
