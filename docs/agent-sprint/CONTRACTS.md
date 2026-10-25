@@ -3,13 +3,15 @@
 **MCP:** `@modelcontextprotocol/sdk` 1.32.2 (v1 API), Streamable HTTP, stateless JSON responses, endpoint `POST http://127.0.0.1:8787/mcp`. Negotiated protocol observed: `2025-11-25`.
 **Auth mode:** development service tokens (bearer `ixa_…`), stored in Convex only as SHA-256 hashes on `agentPrincipals` with org, scopes, expiry (7 days), revocation. Invalid tokens → HTTP 401 at the transport. Local endpoint only (`127.0.0.1:8787`).
 
-**Remote endpoint (HTTPS):** `https://quirky-robin-694.convex.site/mcp` (Convex HTTP action, same nine tools from `mcp/tools.mjs`, stateless JSON). OAuth 2.1 **client_credentials** (agent-to-agent; no end-user authorization-code flow): discovery at `/.well-known/oauth-protected-resource` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414); token endpoint `POST /oauth/token` (`client_id` = principal name, `client_secret` = operator-issued `ixa_…` credential, `resource` must equal the MCP URL per RFC 8707, optional narrower `scope`). Access tokens `ixat_…`: 15 min, audience-bound, hash-only storage, inherit revocation. Unauthenticated → 401 with `WWW-Authenticate: Bearer resource_metadata=…`. The long-lived `ixa_` secret is not accepted as a bearer token remotely.
+**Remote endpoint (HTTPS):** `https://quirky-robin-694.convex.site/mcp` (Convex HTTP action, same 11 tools from `mcp/tools.mjs`, stateless JSON). OAuth 2.1 **client_credentials** (agent-to-agent; no end-user authorization-code flow): discovery at `/.well-known/oauth-protected-resource` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414); token endpoint `POST /oauth/token` (`client_id` = principal name, `client_secret` = operator-issued `ixa_…` credential, `resource` must equal the MCP URL per RFC 8707, optional narrower `scope`). Access tokens `ixat_…`: 15 min, audience-bound, hash-only storage, inherit revocation. Unauthenticated → 401 with `WWW-Authenticate: Bearer resource_metadata=…`. The long-lived `ixa_` secret is not accepted as a bearer token remotely.
 **Service boundary:** only the MCP service (holding `MCP_SERVICE_SECRET`) can call `convex/mcp.ts`; agents never get Convex keys. Org authority always comes from the token; tool schemas reject unknown fields (no `orgId` input).
 
 ## Tools (all return text summary + `structuredContent` envelope `{schemaVersion:"1", requestId, status, data|error, provenance:{mode, sourceIds}}`; failures set MCP `isError`)
 | Tool | Scope | Notes |
 | --- | --- | --- |
 | `get_exchange_capabilities` | (service) | schema, tools, payment network/mode, limits, integration health |
+| `get_my_access` | authenticated principal | organization, scopes, expiry, spend policy, committed and remaining budget; records verified connection |
+| `check_applicability` | preview | compares fixed-vocabulary buyer facts to declared conditions; matched/conflicting/unknown facts; recommend / verify_first / decline, no confidence score |
 | `search_resolutions` | search | `{symptoms ≥8 chars, environment[]}` → ≤5 previews: matched/conflicting clues, missing checks, evidence scope, price; `NO_RELEVANT_MATCH` if none |
 | `get_resolution_preview` | preview | free fields only |
 | `quote_resolution` | quote | quote bound to principal, revision, revision content hash, price (atomic, 6 decimals), network `eip155:84532`, payee, 10-min expiry |

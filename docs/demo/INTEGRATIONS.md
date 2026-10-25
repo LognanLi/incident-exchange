@@ -1,3 +1,5 @@
+> Historical planning/QA snapshot. Current submission behavior and dated verification: [SUBMISSION_AUDIT.md](../agent-sprint/SUBMISSION_AUDIT.md). Older commands, counts and connection claims below are not current release instructions.
+
 # Integrations — actual status (verified 2026-10-24)
 
 | Provider | Role in the product | Mode | Package / version | Last verified action | Evidence |

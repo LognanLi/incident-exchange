@@ -26,7 +26,7 @@ const ERRORS: { when: string; means: string; fix: string }[] = [
   { when: "invalid_client (from /oauth/token)", means: "Wrong, revoked, or expired client ID or secret.", fix: "Check the values; if they still fail, ask the operator to reissue credentials." },
   { when: "403 FORBIDDEN: lacks the \"x\" scope", means: "Your agent’s credentials don’t include that permission.", fix: "Ask the operator to grant the scope. Agents cannot grant themselves scopes." },
   { when: "429 rate_limited", means: "Too many requests in a short window.", fix: "Wait for the number of seconds in the Retry-After header, then retry." },
-  { when: "PROVIDER_UNAVAILABLE", means: "The exchange or a provider it depends on (for example testnet payments) is temporarily unavailable.", fix: "Retryable. Try again shortly." },
+  { when: "PROVIDER_UNAVAILABLE", means: "The exchange or a provider it depends on (for example testnet payments) is temporarily unavailable.", fix: "Inspect the purchase status before retrying a payment; an uncertain settlement may still be pending. Reuse the same request ID." },
 ];
 
 export default function Connect() {

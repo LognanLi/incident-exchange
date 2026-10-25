@@ -13,6 +13,7 @@ import { formatPrice, splitRevenue, sumAtomic } from "./lib/money";
 import { USDC_BASE_SEPOLIA, X402_NETWORK, cdpCredentialsPresent } from "./lib/x402";
 import { LICENSE_VERSION } from "./lib/license";
 import { recordAgentEvent } from "./lib/agentEvents";
+import { recordIntegrationEvent } from "./lib/integrations";
 import { eventDetailV } from "./schema";
 import type { EventDetail } from "../shared/eventDetail.mjs";
 import { FACTS, evaluateApplicability, validateConditions, validateFacts, type FactKey } from "../shared/applicability.mjs";
@@ -677,6 +678,15 @@ export const logConnectorEvent = mutation({
     if (a.generation !== undefined && a.generation !== (await currentGeneration(ctx))) fail("FORBIDDEN", "Stale event from before a reset; ignored.");
     if (scanSecrets(a.summary).length) fail("SENSITIVE_CONTENT_DETECTED", "Event summaries must be redacted.");
     await event(ctx, a.lane, a.actor, a.kind, a.summary, a.status, a.refs ?? [], a.mode, a.detail);
+    // Agent repairs and reviewer patches use the same integration status. Only a completed real
+    // invocation is connection evidence; starting a job or showing a simulator is not a success.
+    if (a.kind === "factory_repair_finished" && a.mode === "live" && (a.status === "ok" || a.status === "error")) {
+      await recordIntegrationEvent(ctx, "factory", a.status === "ok" ? "success" : "failure", a.status === "ok"
+        ? "Factory Droid returned a candidate in the local agent workflow; independent protected tests decide whether it is accepted."
+        : "Factory Droid did not return a usable candidate in the local agent workflow.");
+    } else if (a.kind === "factory_unavailable" && a.status === "error") {
+      await recordIntegrationEvent(ctx, "factory", "failure", "Factory Droid was unavailable on the local runner; no repair was executed.");
+    }
   },
 });
 

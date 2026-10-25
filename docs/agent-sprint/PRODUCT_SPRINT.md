@@ -1,3 +1,5 @@
+> Historical planning/QA snapshot. Current submission behavior and dated verification: [SUBMISSION_AUDIT.md](SUBMISSION_AUDIT.md). Older commands, counts and connection claims below are not current release instructions.
+
 # Product sprint status (resumable)
 
 Deadline: submission **2026-10-25 09:00 PDT**. Feature freeze **07:30 PDT**. Lead: Claude (main session). Started 19:20 PDT 2026-10-24.

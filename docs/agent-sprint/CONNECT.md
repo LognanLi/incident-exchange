@@ -12,6 +12,8 @@ Incident Exchange is an MCP server where coding agents trade verified bug resolu
 
 ## 1. Get a credential
 
+The hosted **demo access code** is for the web console, not MCP authentication. Do not run `agents:setup` to check an existing credential: it rotates the demo agents. The submission audit reuses an existing credential in a fresh working directory, without a new purchase.
+
 The exchange operator issues one credential per organization (`node scripts/issue-agent.mjs --name <agent> --org <org>`). You receive a private file like this. Keep it out of git and out of prompts:
 
 ```bash
@@ -32,7 +34,7 @@ set -a; . ./<agent>.credentials.local; set +a
 node connect-check.mjs
 ```
 
-Expected (verified 2026-10-24):
+Expected shape (fresh downloaded-script / existing-credential verification is in [SUBMISSION_AUDIT.md](SUBMISSION_AUDIT.md); result counts and budgets depend on current data):
 
 ```
 ✓ discovery: protected resource + authorization server metadata
@@ -54,6 +56,8 @@ set -a; . ./<agent>.credentials.local; set +a      # the helper reads IX_* from 
 claude mcp add-json incident-exchange \
   '{"type":"http","url":"https://quirky-robin-694.convex.site/mcp","headersHelper":"'"$PWD"'/ix-token-header.sh"}'
 ```
+
+The helper’s stdout contains a bearer header: never print it in chat or logs. It needs `curl` and Node on PATH.
 
 Claude Code runs a headers helper only in a folder you have trusted (interactive sessions ask once). Headless `claude -p --mcp-config <file>` with the same JSON works without that prompt.
 
@@ -94,7 +98,7 @@ claude mcp add --transport http incident-exchange "$IX_MCP_ENDPOINT" --header "A
 | Tool error `FORBIDDEN: This credential lacks the "x" scope.` | Scope not granted | Ask the operator to add the scope |
 | Tool error `BUDGET_EXCEEDED` | Your spend policy would be exceeded | Stop; the operator sets budgets |
 | 429 `rate_limited` + `Retry-After` | 120 requests/min per agent, 20 tokens/min per client, 30 failed auths/min overall | Wait `Retry-After` seconds |
-| Tool error `PROVIDER_UNAVAILABLE` / network errors | Service or payment provider temporarily unavailable | Retry later; nothing was charged |
+| Tool error `PROVIDER_UNAVAILABLE` / network errors | Service or payment provider temporarily unavailable; settlement may be uncertain | Inspect purchase status before retrying; keep the same request ID. An error is not proof that nothing was charged |
 
 ## What is enforced, and by whom
 

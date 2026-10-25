@@ -101,7 +101,7 @@ export default function Agents() {
       const res = await fetch(`${RUNNER_URL}/agent-demo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: runActor, simulatePayment, scenario }) });
       if (!res.ok) setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The local runner refused the request (HTTP ${res.status}).`);
     } catch {
-      setError(["localhost", "127.0.0.1"].includes(window.location.hostname) ? "The local runner is offline. Start it with `npm run dev`." : "Agent runs start from the presenter’s machine (local runner), not from the hosted site. Results appear here when they run.");
+      setError("Can’t reach your local runner. Start `npm run dev:factory` and `npm run dev:mcp` on this machine. For the hosted console, allow local network access if your browser asks, or present from http://localhost:5173.");
     } finally {
       setStarting(false);
     }
@@ -177,7 +177,8 @@ export default function Agents() {
       </div>}
       {!recorded && !session.operator && (
         <div className="role-note">
-          <span>Live runs are started by the presenter on their machine. Watch here, or open the recorded run.</span>
+          <span><strong>Viewer mode.</strong> Run demo requires the presenter’s local runner. Watch live activity here, or open Recorded run. Presenting from this machine? Start <code>npm run dev:factory</code> and <code>npm run dev:mcp</code>, then connect below.</span>
+          <button className="btn sm" onClick={() => session.setPresenterMode(true)}>Enable presenter mode</button>
         </div>
       )}
       {!recorded && session.operator && session.role !== "reviewer" && reviewerOrg && (
