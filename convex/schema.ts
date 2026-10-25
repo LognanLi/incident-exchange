@@ -562,7 +562,9 @@ export default defineSchema({
     needsVerification: v.array(v.object({ fact: v.union(v.string(), v.null()), label: v.string(), expected: v.union(v.boolean(), v.null()), note: v.optional(v.string()) })),
     at: v.number(),
     isDemo: v.boolean(),
-  }).index("by_at", ["at"]),
+  })
+    .index("by_at", ["at"])
+    .index("by_isDemo", ["isDemo"]),
   rateLimits: defineTable({ key: v.string(), windowStart: v.number(), count: v.number() }).index("by_key", ["key"]),
   meta: defineTable({ key: v.string(), value: v.number() }).index("by_key", ["key"]),
 
