@@ -548,6 +548,21 @@ export default defineSchema({
     .index("by_startedAt", ["startedAt"])
     .index("by_isDemo", ["isDemo"]),
 
+  /** Results of check_applicability: what matched, conflicted, or still needs verification. No scores. */
+  applicabilityChecks: defineTable({
+    principalName: v.string(),
+    orgSlug: v.string(),
+    playbookId: v.id("playbooks"),
+    revision: v.number(),
+    title: v.string(),
+    recommendation: v.union(v.literal("recommend"), v.literal("verify_first"), v.literal("decline")),
+    reason: v.string(),
+    matched: v.array(v.object({ fact: v.string(), label: v.string(), expected: v.boolean(), observed: v.boolean(), source: v.string(), note: v.optional(v.string()) })),
+    conflicts: v.array(v.object({ fact: v.string(), label: v.string(), expected: v.boolean(), observed: v.boolean(), source: v.string(), note: v.optional(v.string()) })),
+    needsVerification: v.array(v.object({ fact: v.union(v.string(), v.null()), label: v.string(), expected: v.union(v.boolean(), v.null()), note: v.optional(v.string()) })),
+    at: v.number(),
+    isDemo: v.boolean(),
+  }).index("by_at", ["at"]),
   rateLimits: defineTable({ key: v.string(), windowStart: v.number(), count: v.number() }).index("by_key", ["key"]),
   meta: defineTable({ key: v.string(), value: v.number() }).index("by_key", ["key"]),
 
