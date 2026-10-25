@@ -26,4 +26,12 @@ Shared contracts (lead-owned; ask before changing): `shared/applicability.mjs` (
 - [x] 19:38 **fresh Claude Code session** in `/tmp/ix-fresh/session/ledger-webhooks` (Juniper's own app; only CONNECT.md + credential via headersHelper): get_my_access → search → preview → check_applicability (recommend, 4/0/0, facts from its own repo) → quote → acquire (simulator) → get_resolution → adapted fix → `npm test` 2/4 → 4/4 → record_outcome (`reported_unverified`).
 - [x] 19:34 **scenario 2 live**: repo-c 2/5 → 5/5, gate dropped canary; review → publish; repo-d 3/6; fit check recommend 5/5; x402 `0x385e800e…`; Factory adapted (workspace naming, response handler); protected 6/6 (denials + legitimate access), `runner_verified`.
 - [x] 20:25 UI merged + deployed backend: /connect with live agents panel, 20-second story strip, Check fit section, receipts with Basescan links, accrued vs paid-out split, scenario picker.
-- [ ] Feature freeze 07:30; security negatives; full rehearsal in Zen; recording refresh; submission notes
+- [x] 20:40 security re-run on the deployed integration: attack-check 9/9 (check 5 fixed to target an explicitly over-budget, unowned guide; DB confirmed no new purchase), remote-check 13/13 (11 tools), protocol-check OK; fit-check evidence redacted for other orgs; credential-like fact sources rejected.
+- [x] 20:41 **Zen browser rehearsal** (localhost:5173, scenario picker): tenant run 8:40:32–8:41:05 (fit recommend, purchase reused, Factory, 6/6, `runner_verified`), then dedupe run 8:41:17–8:41:50 (recommend 4/4, reused, 5/5, `runner_verified`); runner log shows both requested from `http://localhost:5173`; purchases unchanged (3). Recording refreshed from the dedupe run (includes the fit check).
+- [x] PRs #10, #11, #12 merged by the user; #13 (integration) open, mergeable, CI green. Cloud functions + hosted console = `agent-product` tree (= `main` after #13).
+- [ ] After #13 merges: `git checkout main && git pull && npx convex dev --once && npm run deploy:web`, then compare the hosted bundle hash with a local build.
+
+## Resume here
+- Presenter: `npm run dev:factory`, `npm run dev:mcp`, `npm run dev:frontend`; Zen → `http://localhost:5173` → Agents → scenario picker → Run demo. Fallback: Agents → Recorded run.
+- Onboarding evidence: `/tmp/ix-fresh/session/fresh-session.txt` (fresh Claude Code transcript summary); credential `juniper-agent.credentials.local` (gitignored, expires 2026-10-27).
+- Deferred by the user: production, end-user OAuth (PKCE), Linux CI, Safari, hosted `#presenter` in Zen.
