@@ -48,6 +48,8 @@ export const applicabilityV = v.object({
   clues: v.array(clueV),
   mismatchSignals: v.array(mismatchV),
   checksBeforeUse: v.array(v.string()),
+  /** Structured conditions over the exchange fact vocabulary (shared/applicability.mjs); used by check_applicability. */
+  conditions: v.optional(v.array(v.object({ fact: v.string(), expected: v.boolean(), note: v.optional(v.string()) }))),
 });
 
 export const privacyFindingV = v.object({
@@ -433,6 +435,9 @@ export default defineSchema({
     /** Spend policy installed by an operator; retrieved content can never change it. */
     policy: v.object({ maxPerPurchaseAtomic: v.string(), sessionMaxAtomic: v.string(), maxPurchases: v.number(), network: v.string(), allowSimulator: v.optional(v.boolean()) }),
     createdAt: v.number(),
+    /** Last successful authorized call to get_my_access (the onboarding connection check). */
+    lastSeenAt: v.optional(v.number()),
+    lastSeenVia: v.optional(v.union(v.literal("local"), v.literal("remote"))),
   })
     .index("by_tokenHash", ["tokenHash"])
     .index("by_name", ["name"]),
